@@ -1,0 +1,32 @@
+{
+  "name": "@best/database",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "default": "./dist/src/index.js"
+    }
+  },
+  "scripts": {
+    "build": "prisma generate && tsc -p tsconfig.build.json",
+    "generate": "prisma generate",
+    "lint": "prisma generate && eslint \"src/**/*.ts\" \"prisma.config.ts\"",
+    "migrate:deploy": "prisma migrate deploy",
+    "migrate:status": "prisma migrate status",
+    "typecheck": "prisma generate && tsc --noEmit -p tsconfig.json",
+    "validate": "prisma validate"
+  },
+  "dependencies": {
+    "@best/config": "workspace:*",
+    "@prisma/adapter-pg": "7.10.0",
+    "@prisma/client": "7.10.0",
+    "pg": "8.23.0"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1",
+    "prisma": "7.10.0"
+  }
+}

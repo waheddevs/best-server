@@ -1,0 +1,572 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  STUDENT
+  TEACHER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum ContentStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum TestVersionStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum Language {
+  UZ
+  RU
+  EN
+}
+
+enum AttemptStatus {
+  IN_PROGRESS
+  SUBMITTED
+  SCORED
+}
+
+enum AttemptSubmissionReason {
+  MANUAL
+  DURATION_EXPIRED
+  AVAILABILITY_ENDED
+}
+
+enum LibraryVisibility {
+  ALL_GROUPS
+  SELECTED_GROUPS
+}
+
+enum MediaType {
+  PDF
+  IMAGE
+  AUDIO
+  VIDEO
+}
+
+enum ImportRunStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+}
+
+enum FinanceAdjustmentKind {
+  CREDIT
+  DEBIT
+  REVERSAL
+}
+
+model User {
+  id                       String                   @id @default(uuid()) @db.Uuid
+  role                     UserRole
+  status                   UserStatus               @default(ACTIVE)
+  displayName              String                   @map("display_name") @db.VarChar(160)
+  createdAt                DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
+  ownedGroups              Group[]                  @relation("GroupTeacher")
+  groupMemberships         GroupMembership[]        @relation("StudentMembership")
+  createdTestCategories    TestCategory[]           @relation("TestCategoryCreator")
+  attempts                 Attempt[]                @relation("StudentAttempts")
+  receivedAttemptGrants    AttemptGrant[]           @relation("AttemptGrantStudent")
+  issuedAttemptGrants      AttemptGrant[]           @relation("AttemptGrantActor")
+  createdLibraryCategories LibraryCategory[]        @relation("LibraryCategoryCreator")
+  ownedLibraryItems        LibraryItem[]            @relation("LibraryItemOwner")
+  createdMediaObjects      MediaObject[]            @relation("MediaObjectCreator")
+  tuitionOverrides         StudentTuitionOverride[] @relation("TuitionOverrideStudent")
+  createdTuitionOverrides  StudentTuitionOverride[] @relation("TuitionOverrideActor")
+  tuitionCharges           TuitionCharge[]          @relation("TuitionChargeStudent")
+  payments                 Payment[]                @relation("PaymentStudent")
+  recordedPayments         Payment[]                @relation("PaymentActor")
+  financeAdjustments       FinanceAdjustment[]      @relation("FinanceAdjustmentStudent")
+  recordedAdjustments      FinanceAdjustment[]      @relation("FinanceAdjustmentActor")
+  createdTuitionRates      GroupTuitionRate[]       @relation("TuitionRateActor")
+  auditLogs                AuditLog[]               @relation("AuditActor")
+
+  @@index([role, status])
+  @@map("users")
+}
+
+model Group {
+  id                 String                   @id @default(uuid()) @db.Uuid
+  teacherId          String                   @map("teacher_id") @db.Uuid
+  name               String                   @db.VarChar(160)
+  status             ContentStatus            @default(ACTIVE)
+  paymentDeadlineDay Int                      @map("payment_deadline_day")
+  archivedAt         DateTime?                @map("archived_at") @db.Timestamptz(3)
+  createdAt          DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
+  teacher            User                     @relation("GroupTeacher", fields: [teacherId], references: [id], onDelete: Restrict)
+  memberships        GroupMembership[]
+  tests              Test[]
+  libraryAccesses    LibraryGroupAccess[]
+  tuitionRates       GroupTuitionRate[]
+  tuitionOverrides   StudentTuitionOverride[]
+
+  @@unique([teacherId, name])
+  @@index([status])
+  @@map("groups")
+}
+
+model GroupMembership {
+  id             String          @id @default(uuid()) @db.Uuid
+  groupId        String          @map("group_id") @db.Uuid
+  studentId      String          @map("student_id") @db.Uuid
+  startedAt      DateTime        @default(now()) @map("started_at") @db.Timestamptz(3)
+  endedAt        DateTime?       @map("ended_at") @db.Timestamptz(3)
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  group          Group           @relation(fields: [groupId], references: [id], onDelete: Restrict)
+  student        User            @relation("StudentMembership", fields: [studentId], references: [id], onDelete: Restrict)
+  attempts       Attempt[]
+  tuitionCharges TuitionCharge[]
+
+  @@index([groupId, endedAt])
+  @@index([studentId, startedAt])
+  @@map("group_memberships")
+}
+
+model TestCategory {
+  id        String   @id @default(uuid()) @db.Uuid
+  teacherId String   @map("teacher_id") @db.Uuid
+  name      String   @db.VarChar(100)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  creator   User     @relation("TestCategoryCreator", fields: [teacherId], references: [id], onDelete: Restrict)
+  tests     Test[]
+
+  @@unique([teacherId, name])
+  @@map("test_categories")
+}
+
+model Test {
+  id         String         @id @default(uuid()) @db.Uuid
+  groupId    String         @map("group_id") @db.Uuid
+  categoryId String         @map("category_id") @db.Uuid
+  status     ContentStatus  @default(ACTIVE)
+  archivedAt DateTime?      @map("archived_at") @db.Timestamptz(3)
+  createdAt  DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  group      Group          @relation(fields: [groupId], references: [id], onDelete: Restrict)
+  category   TestCategory   @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  versions   TestVersion[]
+  grants     AttemptGrant[]
+
+  @@index([groupId, status])
+  @@index([categoryId])
+  @@map("tests")
+}
+
+model TestVersion {
+  id                   String            @id @default(uuid()) @db.Uuid
+  testId               String            @map("test_id") @db.Uuid
+  version              Int
+  status               TestVersionStatus @default(DRAFT)
+  primaryLanguage      Language          @map("primary_language")
+  availabilityStartsAt DateTime?         @map("availability_starts_at") @db.Timestamptz(3)
+  availabilityEndsAt   DateTime?         @map("availability_ends_at") @db.Timestamptz(3)
+  durationMinutes      Int?              @map("duration_minutes")
+  attemptLimit         Int               @default(1) @map("attempt_limit")
+  passingPercentage    Int               @default(60) @map("passing_percentage")
+  scoringRuleVersion   String            @default("single-choice-v1") @map("scoring_rule_version") @db.VarChar(80)
+  publishedAt          DateTime?         @map("published_at") @db.Timestamptz(3)
+  createdAt            DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  test                 Test              @relation(fields: [testId], references: [id], onDelete: Restrict)
+  translations         TestTranslation[]
+  questions            Question[]
+  attempts             Attempt[]
+
+  @@unique([testId, version])
+  @@index([status, availabilityStartsAt, availabilityEndsAt])
+  @@map("test_versions")
+}
+
+model TestTranslation {
+  id            String      @id @default(uuid()) @db.Uuid
+  testVersionId String      @map("test_version_id") @db.Uuid
+  language      Language
+  title         String      @db.VarChar(240)
+  description   String?     @db.Text
+  testVersion   TestVersion @relation(fields: [testVersionId], references: [id], onDelete: Cascade)
+
+  @@unique([testVersionId, language])
+  @@map("test_translations")
+}
+
+model Question {
+  id            String                @id @default(uuid()) @db.Uuid
+  testVersionId String                @map("test_version_id") @db.Uuid
+  position      Int
+  createdAt     DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  testVersion   TestVersion           @relation(fields: [testVersionId], references: [id], onDelete: Cascade)
+  translations  QuestionTranslation[]
+  options       AnswerOption[]
+  answers       AttemptAnswer[]
+
+  @@unique([testVersionId, position])
+  @@map("questions")
+}
+
+model QuestionTranslation {
+  id         String   @id @default(uuid()) @db.Uuid
+  questionId String   @map("question_id") @db.Uuid
+  language   Language
+  prompt     String   @db.Text
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([questionId, language])
+  @@map("question_translations")
+}
+
+model AnswerOption {
+  id           String                    @id @default(uuid()) @db.Uuid
+  questionId   String                    @map("question_id") @db.Uuid
+  position     Int
+  isCorrect    Boolean                   @default(false) @map("is_correct")
+  question     Question                  @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  translations AnswerOptionTranslation[]
+  answers      AttemptAnswer[]
+
+  @@unique([questionId, position])
+  @@map("answer_options")
+}
+
+model AnswerOptionTranslation {
+  id             String       @id @default(uuid()) @db.Uuid
+  answerOptionId String       @map("answer_option_id") @db.Uuid
+  language       Language
+  text           String       @db.Text
+  answerOption   AnswerOption @relation(fields: [answerOptionId], references: [id], onDelete: Cascade)
+
+  @@unique([answerOptionId, language])
+  @@map("answer_option_translations")
+}
+
+model Attempt {
+  id                 String                   @id @default(uuid()) @db.Uuid
+  testVersionId      String                   @map("test_version_id") @db.Uuid
+  studentId          String                   @map("student_id") @db.Uuid
+  groupMembershipId  String                   @map("group_membership_id") @db.Uuid
+  attemptNumber      Int                      @map("attempt_number")
+  status             AttemptStatus            @default(IN_PROGRESS)
+  startedAt          DateTime                 @default(now()) @map("started_at") @db.Timestamptz(3)
+  expiresAt          DateTime?                @map("expires_at") @db.Timestamptz(3)
+  submittedAt        DateTime?                @map("submitted_at") @db.Timestamptz(3)
+  submissionReason   AttemptSubmissionReason? @map("submission_reason")
+  correctAnswerCount Int?                     @map("correct_answer_count")
+  totalQuestionCount Int?                     @map("total_question_count")
+  percentage         Decimal?                 @db.Decimal(5, 2)
+  passed             Boolean?
+  passingPercentage  Int?                     @map("passing_percentage")
+  scoringRuleVersion String?                  @map("scoring_rule_version") @db.VarChar(80)
+  createdAt          DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
+  testVersion        TestVersion              @relation(fields: [testVersionId], references: [id], onDelete: Restrict)
+  student            User                     @relation("StudentAttempts", fields: [studentId], references: [id], onDelete: Restrict)
+  groupMembership    GroupMembership          @relation(fields: [groupMembershipId], references: [id], onDelete: Restrict)
+  answers            AttemptAnswer[]
+
+  @@unique([studentId, testVersionId, attemptNumber])
+  @@index([testVersionId, status])
+  @@index([groupMembershipId, submittedAt])
+  @@map("attempts")
+}
+
+model AttemptAnswer {
+  id               String       @id @default(uuid()) @db.Uuid
+  attemptId        String       @map("attempt_id") @db.Uuid
+  questionId       String       @map("question_id") @db.Uuid
+  selectedOptionId String       @map("selected_option_id") @db.Uuid
+  savedAt          DateTime     @default(now()) @map("saved_at") @db.Timestamptz(3)
+  attempt          Attempt      @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question         Question     @relation(fields: [questionId], references: [id], onDelete: Restrict)
+  selectedOption   AnswerOption @relation(fields: [selectedOptionId], references: [id], onDelete: Restrict)
+
+  @@unique([attemptId, questionId])
+  @@index([selectedOptionId])
+  @@map("attempt_answers")
+}
+
+model AttemptGrant {
+  id                 String   @id @default(uuid()) @db.Uuid
+  testId             String   @map("test_id") @db.Uuid
+  studentId          String   @map("student_id") @db.Uuid
+  grantedById        String   @map("granted_by_id") @db.Uuid
+  additionalAttempts Int      @default(1) @map("additional_attempts")
+  reason             String?  @db.Text
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  test               Test     @relation(fields: [testId], references: [id], onDelete: Restrict)
+  student            User     @relation("AttemptGrantStudent", fields: [studentId], references: [id], onDelete: Restrict)
+  grantedBy          User     @relation("AttemptGrantActor", fields: [grantedById], references: [id], onDelete: Restrict)
+
+  @@index([studentId, testId])
+  @@map("attempt_grants")
+}
+
+model LibraryCategory {
+  id        String        @id @default(uuid()) @db.Uuid
+  teacherId String        @map("teacher_id") @db.Uuid
+  name      String        @db.VarChar(120)
+  status    ContentStatus @default(ACTIVE)
+  createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  creator   User          @relation("LibraryCategoryCreator", fields: [teacherId], references: [id], onDelete: Restrict)
+  items     LibraryItem[]
+
+  @@unique([teacherId, name])
+  @@map("library_categories")
+}
+
+model LibraryItem {
+  id              String                @id @default(uuid()) @db.Uuid
+  ownerTeacherId  String                @map("owner_teacher_id") @db.Uuid
+  categoryId      String                @map("category_id") @db.Uuid
+  primaryLanguage Language              @map("primary_language")
+  visibility      LibraryVisibility
+  status          ContentStatus         @default(ACTIVE)
+  archivedAt      DateTime?             @map("archived_at") @db.Timestamptz(3)
+  createdAt       DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+  owner           User                  @relation("LibraryItemOwner", fields: [ownerTeacherId], references: [id], onDelete: Restrict)
+  category        LibraryCategory       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  translations    LibraryTranslation[]
+  groupAccesses   LibraryGroupAccess[]
+  attachments     LibraryAttachment[]
+  importRecord    TelegramImportRecord?
+
+  @@index([categoryId, status])
+  @@index([ownerTeacherId, visibility])
+  @@map("library_items")
+}
+
+model LibraryTranslation {
+  id            String      @id @default(uuid()) @db.Uuid
+  libraryItemId String      @map("library_item_id") @db.Uuid
+  language      Language
+  title         String      @db.VarChar(240)
+  description   String?     @db.Text
+  libraryItem   LibraryItem @relation(fields: [libraryItemId], references: [id], onDelete: Cascade)
+
+  @@unique([libraryItemId, language])
+  @@map("library_translations")
+}
+
+model LibraryGroupAccess {
+  libraryItemId String      @map("library_item_id") @db.Uuid
+  groupId       String      @map("group_id") @db.Uuid
+  libraryItem   LibraryItem @relation(fields: [libraryItemId], references: [id], onDelete: Cascade)
+  group         Group       @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@id([libraryItemId, groupId])
+  @@map("library_group_access")
+}
+
+model MediaObject {
+  id              String              @id @default(uuid()) @db.Uuid
+  createdById     String              @map("created_by_id") @db.Uuid
+  mediaType       MediaType           @map("media_type")
+  bucket          String              @db.VarChar(120)
+  objectKey       String              @unique @map("object_key") @db.VarChar(1024)
+  originalName    String              @map("original_name") @db.VarChar(255)
+  mimeType        String              @map("mime_type") @db.VarChar(160)
+  sizeBytes       BigInt              @map("size_bytes")
+  checksumSha256  String              @map("checksum_sha256") @db.Char(64)
+  createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy       User                @relation("MediaObjectCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  attachments     LibraryAttachment[]
+  paymentReceipts Payment[]           @relation("PaymentReceipt")
+
+  @@index([createdById, mediaType])
+  @@map("media_objects")
+}
+
+model LibraryAttachment {
+  id            String      @id @default(uuid()) @db.Uuid
+  libraryItemId String      @map("library_item_id") @db.Uuid
+  mediaObjectId String      @map("media_object_id") @db.Uuid
+  position      Int
+  libraryItem   LibraryItem @relation(fields: [libraryItemId], references: [id], onDelete: Cascade)
+  mediaObject   MediaObject @relation(fields: [mediaObjectId], references: [id], onDelete: Restrict)
+
+  @@unique([libraryItemId, position])
+  @@unique([libraryItemId, mediaObjectId])
+  @@map("library_attachments")
+}
+
+model TelegramImportRun {
+  id          String                 @id @default(uuid()) @db.Uuid
+  channelId   String                 @map("channel_id") @db.VarChar(120)
+  status      ImportRunStatus        @default(PENDING)
+  startedAt   DateTime?              @map("started_at") @db.Timestamptz(3)
+  completedAt DateTime?              @map("completed_at") @db.Timestamptz(3)
+  failure     String?                @db.Text
+  createdAt   DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  records     TelegramImportRecord[]
+
+  @@index([channelId, createdAt])
+  @@map("telegram_import_runs")
+}
+
+model TelegramImportRecord {
+  id              String            @id @default(uuid()) @db.Uuid
+  importRunId     String            @map("import_run_id") @db.Uuid
+  libraryItemId   String            @unique @map("library_item_id") @db.Uuid
+  channelId       String            @map("channel_id") @db.VarChar(120)
+  messageId       BigInt            @map("message_id")
+  messageDate     DateTime          @map("message_date") @db.Timestamptz(3)
+  originalText    String?           @map("original_text") @db.Text
+  sourceGroupName String?           @map("source_group_name") @db.VarChar(240)
+  importedAt      DateTime          @default(now()) @map("imported_at") @db.Timestamptz(3)
+  importRun       TelegramImportRun @relation(fields: [importRunId], references: [id], onDelete: Restrict)
+  libraryItem     LibraryItem       @relation(fields: [libraryItemId], references: [id], onDelete: Restrict)
+
+  @@unique([channelId, messageId])
+  @@index([importRunId])
+  @@map("telegram_import_records")
+}
+
+model GroupTuitionRate {
+  id            String    @id @default(uuid()) @db.Uuid
+  groupId       String    @map("group_id") @db.Uuid
+  amountUzs     BigInt    @map("amount_uzs")
+  effectiveFrom DateTime  @map("effective_from") @db.Date
+  effectiveTo   DateTime? @map("effective_to") @db.Date
+  createdById   String    @map("created_by_id") @db.Uuid
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  group         Group     @relation(fields: [groupId], references: [id], onDelete: Restrict)
+  createdBy     User      @relation("TuitionRateActor", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([groupId, effectiveFrom])
+  @@map("group_tuition_rates")
+}
+
+model StudentTuitionOverride {
+  id            String    @id @default(uuid()) @db.Uuid
+  studentId     String    @map("student_id") @db.Uuid
+  groupId       String    @map("group_id") @db.Uuid
+  amountUzs     BigInt    @map("amount_uzs")
+  effectiveFrom DateTime  @map("effective_from") @db.Date
+  effectiveTo   DateTime? @map("effective_to") @db.Date
+  createdById   String    @map("created_by_id") @db.Uuid
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  student       User      @relation("TuitionOverrideStudent", fields: [studentId], references: [id], onDelete: Restrict)
+  group         Group     @relation(fields: [groupId], references: [id], onDelete: Restrict)
+  createdBy     User      @relation("TuitionOverrideActor", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([studentId, groupId, effectiveFrom])
+  @@map("student_tuition_overrides")
+}
+
+model TuitionCharge {
+  id                String              @id @default(uuid()) @db.Uuid
+  studentId         String              @map("student_id") @db.Uuid
+  groupMembershipId String              @map("group_membership_id") @db.Uuid
+  billingMonth      DateTime            @map("billing_month") @db.Date
+  amountUzs         BigInt              @map("amount_uzs")
+  dueDate           DateTime            @map("due_date") @db.Date
+  createdAt         DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  student           User                @relation("TuitionChargeStudent", fields: [studentId], references: [id], onDelete: Restrict)
+  groupMembership   GroupMembership     @relation(fields: [groupMembershipId], references: [id], onDelete: Restrict)
+  allocations       PaymentAllocation[]
+  adjustments       FinanceAdjustment[]
+
+  @@unique([studentId, billingMonth])
+  @@index([groupMembershipId, dueDate])
+  @@map("tuition_charges")
+}
+
+model Payment {
+  id                   String              @id @default(uuid()) @db.Uuid
+  studentId            String              @map("student_id") @db.Uuid
+  recordedById         String              @map("recorded_by_id") @db.Uuid
+  amountUzs            BigInt              @map("amount_uzs")
+  method               PaymentMethod
+  paidAt               DateTime            @map("paid_at") @db.Timestamptz(3)
+  note                 String?             @db.Text
+  transactionReference String?             @map("transaction_reference") @db.VarChar(255)
+  receiptMediaId       String?             @map("receipt_media_id") @db.Uuid
+  createdAt            DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  student              User                @relation("PaymentStudent", fields: [studentId], references: [id], onDelete: Restrict)
+  recordedBy           User                @relation("PaymentActor", fields: [recordedById], references: [id], onDelete: Restrict)
+  receiptMedia         MediaObject?        @relation("PaymentReceipt", fields: [receiptMediaId], references: [id], onDelete: Restrict)
+  allocations          PaymentAllocation[]
+  adjustments          FinanceAdjustment[]
+
+  @@index([studentId, paidAt])
+  @@index([recordedById, createdAt])
+  @@map("payments")
+}
+
+model PaymentAllocation {
+  id        String        @id @default(uuid()) @db.Uuid
+  paymentId String        @map("payment_id") @db.Uuid
+  chargeId  String        @map("charge_id") @db.Uuid
+  amountUzs BigInt        @map("amount_uzs")
+  createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  payment   Payment       @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  charge    TuitionCharge @relation(fields: [chargeId], references: [id], onDelete: Restrict)
+
+  @@unique([paymentId, chargeId])
+  @@index([chargeId])
+  @@map("payment_allocations")
+}
+
+model FinanceAdjustment {
+  id           String                @id @default(uuid()) @db.Uuid
+  studentId    String                @map("student_id") @db.Uuid
+  recordedById String                @map("recorded_by_id") @db.Uuid
+  paymentId    String?               @map("payment_id") @db.Uuid
+  chargeId     String?               @map("charge_id") @db.Uuid
+  kind         FinanceAdjustmentKind
+  amountUzs    BigInt                @map("amount_uzs")
+  reason       String                @db.Text
+  createdAt    DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  student      User                  @relation("FinanceAdjustmentStudent", fields: [studentId], references: [id], onDelete: Restrict)
+  recordedBy   User                  @relation("FinanceAdjustmentActor", fields: [recordedById], references: [id], onDelete: Restrict)
+  payment      Payment?              @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  charge       TuitionCharge?        @relation(fields: [chargeId], references: [id], onDelete: Restrict)
+
+  @@index([studentId, createdAt])
+  @@index([paymentId])
+  @@index([chargeId])
+  @@map("finance_adjustments")
+}
+
+model AuditLog {
+  id            String   @id @default(uuid()) @db.Uuid
+  actorId       String?  @map("actor_id") @db.Uuid
+  action        String   @db.VarChar(120)
+  targetType    String   @map("target_type") @db.VarChar(120)
+  targetId      String   @map("target_id") @db.VarChar(160)
+  correlationId String?  @map("correlation_id") @db.VarChar(120)
+  reason        String?  @db.Text
+  oldValues     Json?    @map("old_values") @db.JsonB
+  newValues     Json?    @map("new_values") @db.JsonB
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  actor         User?    @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([targetType, targetId, createdAt])
+  @@index([actorId, createdAt])
+  @@index([correlationId])
+  @@map("audit_logs")
+}

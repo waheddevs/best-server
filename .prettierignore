@@ -1,5 +1,6 @@
 .yarn
 coverage
 dist
+generated
 node_modules
 *.tsbuildinfo
