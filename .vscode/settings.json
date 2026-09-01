@@ -1,0 +1,14 @@
+{
+  "files.exclude": {
+    "**/.turbo": true,
+    "**/dist": true,
+    "packages/database/generated": true
+  },
+  "search.exclude": {
+    "**/.turbo": true,
+    "**/dist": true,
+    "packages/database/generated": true
+  },
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+  "typescript.tsdk": "node_modules/typescript/lib"
+}

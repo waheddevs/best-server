@@ -9,8 +9,8 @@
     "experimentalDecorators": true,
     "forceConsistentCasingInFileNames": true,
     "incremental": true,
-    "module": "commonjs",
-    "moduleResolution": "node",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "noFallthroughCasesInSwitch": true,
     "noImplicitOverride": true,
     "noImplicitReturns": true,
@@ -23,6 +23,7 @@
     "strict": true,
     "strictPropertyInitialization": true,
     "target": "ES2023",
+    "types": ["node"],
     "useUnknownInCatchVariables": true
   }
 }

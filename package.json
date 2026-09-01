@@ -12,20 +12,36 @@
     "apps/*",
     "packages/*"
   ],
+  "dependenciesMeta": {
+    "@prisma/engines": {
+      "built": true
+    },
+    "prisma": {
+      "built": true
+    }
+  },
   "scripts": {
     "build": "turbo run build",
+    "database:generate": "turbo run generate --filter=@best/database",
+    "database:migrate:deploy": "yarn workspace @best/database migrate:deploy",
+    "database:migrate:status": "yarn workspace @best/database migrate:status",
+    "database:validate": "turbo run validate --filter=@best/database",
     "dev": "turbo run dev --parallel",
-    "dev:api": "yarn workspace @best/api dev",
-    "dev:import": "yarn workspace @best/import-worker dev",
-    "dev:scoring": "yarn workspace @best/scoring-worker dev",
+    "dev:api": "turbo run dev --filter=@best/api",
+    "dev:import": "turbo run dev --filter=@best/import-worker",
+    "dev:scoring": "turbo run dev --filter=@best/scoring-worker",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "infra:config": "docker compose --env-file .env -f infrastructure/docker/compose.yaml config",
+    "infra:down": "docker compose --env-file .env -f infrastructure/docker/compose.yaml down",
+    "infra:logs": "docker compose --env-file .env -f infrastructure/docker/compose.yaml logs --follow",
+    "infra:up": "docker compose --env-file .env -f infrastructure/docker/compose.yaml up --detach --wait",
     "lint": "turbo run lint",
+    "test": "turbo run test",
     "typecheck": "turbo run typecheck"
   },
   "devDependencies": {
     "@eslint/js": "^9.18.0",
-    "@nestjs/cli": "^11.0.0",
     "@types/node": "^24.0.0",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
