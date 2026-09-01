@@ -1,5 +1,11 @@
-# Logger package boundary
+# Structured logger
 
-Reserved for structured, redacted logging and correlation context shared by all
-runtimes. An observability provider will be selected in a later deployment
-milestone.
+Provides one logger for the API and workers. Development uses Nest's readable,
+colorized console format; test and production use structured JSON with service,
+level, ISO timestamp, context, and event fields.
+
+Known credential fields are redacted before output. Callers must still avoid
+placing secrets, tokens, private answers, or raw payloads inside log messages.
+
+An observability transport remains intentionally deferred; production can ship
+the JSON stream without changing application logging calls.
