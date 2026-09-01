@@ -5,15 +5,31 @@
   "scripts": {
     "build": "nest build",
     "dev": "nest start --watch",
-    "lint": "eslint \"src/**/*.ts\"",
+    "generate": "nest generate",
+    "lint": "eslint \"{src,test}/**/*.ts\"",
     "start": "node dist/main.js",
+    "test": "tsc -p tsconfig.test.json && node --test ../../.tmp/api-test/test/auth-guards.spec.js ../../.tmp/api-test/test/auth.service.spec.js ../../.tmp/api-test/test/global-exception.filter.spec.js",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@apollo/server": "^5.5.1",
+    "@as-integrations/express5": "^1.1.2",
+    "@best/config": "workspace:*",
+    "@best/database": "workspace:*",
+    "@best/logger": "workspace:*",
+    "@nestjs/apollo": "13.4.5",
     "@nestjs/common": "^11.0.1",
     "@nestjs/core": "^11.0.1",
+    "@nestjs/graphql": "13.4.5",
+    "@nestjs/jwt": "12.0.1",
     "@nestjs/platform-express": "^11.0.1",
+    "express": "5.2.1",
+    "graphql": "16.11.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^11.0.0",
+    "@types/express": "^5"
   }
 }
