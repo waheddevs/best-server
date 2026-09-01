@@ -2,11 +2,25 @@
 
 ## Current milestone
 
-Build only the backend repository architecture and engineering standards in this
-milestone. Do not implement GraphQL queries, mutations, subscriptions,
-resolvers, database models, migrations, Telegram synchronization, scoring
-logic, authentication, or business APIs until the user supplies and approves
-their separate API plan.
+The architecture-only repository foundation and the typed configuration/local
+PostgreSQL and Redis foundation are complete. Build only the PostgreSQL/Prisma
+database package, reviewed data design, and ERD in the current milestone. Use a
+stable Prisma release; do not adopt a release candidate migration format.
+
+The user has additionally approved the API domain scaffold, bearer access-token
+foundation, typed authentication guards, request IDs, and global error
+handling. This approval does not include product GraphQL fields, login or
+refresh operations, provider callbacks, refresh-token persistence, or other
+business implementation.
+
+Do not add product models or migrations until their data-design decisions have
+been documented and approved. Select an actively maintained S3-compatible local
+object-storage provider in its later milestone; do not add an archived MinIO
+Community image or accept a new provider license on the user's behalf.
+
+Do not implement GraphQL queries, mutations, subscriptions, resolver methods,
+Telegram synchronization, scoring logic, identity-provider login behavior, or
+business APIs until the user supplies and approves their later plans.
 
 Existing placeholder controllers or generated example endpoints are not product
 contracts and must not be extended.
@@ -25,8 +39,8 @@ are approved.
 - PostgreSQL as the primary transactional database and Prisma for schema,
   migrations, database access, and transactions.
 - Redis and BullMQ for persistent distributed background jobs.
-- S3-compatible object storage for PDF, image, audio, and video objects; MinIO
-  is the planned local provider.
+- S3-compatible object storage for PDF, image, audio, and video objects; the
+  maintained local provider is pending selection.
 - Read-only TDLib ingestion in a dedicated import worker.
 - Deterministic test scoring in a dedicated scoring worker.
 - GraphQL Code Generator provides operation-specific frontend types from the
@@ -42,7 +56,7 @@ apps/
   import-worker/        Telegram and media-processing worker
   scoring-worker/       Deterministic scoring worker
 packages/
-  database/             Prisma schema, migrations, and database client
+  database/             Prisma schema, migrations, generated client, and DB API
   graphql/              Schema artifacts and contract tooling
   scoring/              Pure versioned scoring rules
   auth/                 Shared authentication contracts
@@ -85,6 +99,92 @@ dashboard. Split high-load workloads, not presentation areas.
   properties. Use SCREAMING_SNAKE_CASE only for true constants.
 - Use domain-first folders. Do not group unrelated modules into generic
   `helpers`, `utils`, `common`, or `shared` dumping grounds.
+- Keep domain-owned DTOs, enums, and types inside their owning domain. An app
+  may use `src/libs/dto`, `src/libs/enums`, and `src/libs/types` only for
+  focused app-local contracts used by multiple domains; `libs` must not contain
+  business rules or become a miscellaneous dumping ground.
+- Contracts shared by multiple deployable applications belong in a focused
+  workspace under `packages/`, not in copied app-local `libs` folders. Prisma
+  model types and database enums are generated and owned by `@best/database`;
+  never duplicate them by hand in API or worker sources.
+- Keep generated Prisma code isolated in `packages/database/src/generated` and
+  never mix handwritten database code into that directory. Schema and
+  migrations live in `prisma`, design records live in `docs`, and Prisma Client
+  is regenerated before lint, typecheck, or build.
+- Do not pre-create empty Nest domain folders with `.gitkeep`. After a domain
+  milestone is approved, use that app's official Nest CLI `generate` script so
+  the CLI creates the folder, suffix-named files, and module wiring. The user
+  has approved the tracked `apps/api/src/libs/{dto,enums,interceptor,types}`
+  ownership structure; keep it focused on cross-domain API concerns.
+  Run the generator with `--dry-run` first and keep the default non-flat domain
+  layout. Generate API domains under `components/<domain>` with the
+  `graphql-code-first` resource type so all domain modules live under
+  `apps/api/src/components`; do not generate REST controllers for product
+  operations.
+- `ComponentsModule` is the API domain composition boundary. Every newly
+  approved component module must be imported there; `AppModule` must not import
+  individual domain modules directly. Use
+  `yarn workspace @best/api generate resource components/<domain> --type graphql-code-first --no-flat --no-spec --crud false`;
+  the Nest CLI will register the new module in `ComponentsModule`.
+- Keep API code-first GraphQL classes under `apps/api/src/schemas`, grouped by
+  their owning domain when concrete schema types are approved. Use suffixes
+  such as `*.object.ts`, `*.input.ts`, and `*.enum.ts`. This is not a place for
+  handwritten schema-first SDL; generated GraphQL schema artifacts belong in
+  `packages/graphql`.
+- Keep custom API guards under their owning domain, for example
+  `apps/api/src/components/auth/guards`. Generate guards with the API Nest CLI
+  and do not add empty or speculative authorization guards before their
+  contract is approved.
+- Auth decorators belong in `apps/api/src/components/auth/decorators` and auth
+  guards belong in `apps/api/src/components/auth/guards`. Use the Nest CLI for
+  both artifact types and keep suffix-based filenames without generated copy
+  counters, such as `auth-member.decorator.ts` and `roles.guard.ts`.
+- Preserve this approved auth structure:
+
+  ```text
+  apps/api/src/components/auth/
+    decorators/
+      auth-member.decorator.ts
+      roles.decorator.ts
+    guards/
+      auth.guard.ts
+      optional-auth.guard.ts
+      roles.guard.ts
+    auth.module.ts
+    auth.service.ts
+  ```
+
+  `OptionalAuthGuard` is the project-safe equivalent of a reference
+  `WithoutGuard`; do not introduce a second guard with that ambiguous name.
+  Never create filename copies such as `(1)` or `(2)`.
+
+- `AuthGuard` requires a server-resolved authenticated member, `RolesGuard`
+  enforces metadata from the `Roles` decorator using the database-owned
+  `UserRole`, and `OptionalAuthGuard` permits both anonymous and authenticated
+  requests. Keep these guards registered and exported by `AuthModule`; do not
+  register them globally without an approved public/private operation policy.
+- All dashboard and future application clients use the versioned bearer
+  access-token contract. `AuthService` owns access-token issuance and
+  verification; guards extract credentials, delegate verification, and enforce
+  operation policy. Access tokens are short-lived, contain only a user subject
+  and token type, and never make their embedded role authoritative. Every
+  authenticated request reloads the active user role from PostgreSQL.
+- Accept exactly one `Authorization: Bearer <token>` value. Missing credentials
+  are allowed only through `OptionalAuthGuard`; malformed or invalid supplied
+  credentials always fail. Never store access tokens in browser local storage,
+  log them, place them in URLs, or accept them through GraphQL arguments.
+- Rotating refresh tokens require a separately reviewed hashed-token schema,
+  reuse detection, revocation, and client-specific secure storage. Do not add a
+  stateless or placeholder refresh token before that design is approved.
+- Resolve GraphQL requests with `GqlExecutionContext` and HTTP requests with
+  `switchToHttp`. Authentication state belongs on the trusted request context,
+  never in `request.body`, and decorators must not parse authorization headers.
+  Token validation belongs in the approved identity context/service,
+  not duplicated across guards. Never copy `any`, permissive unknown-transport
+  fallbacks, `console.*`, or client-supplied roles from reference projects.
+- Before creating a framework artifact, explain its purpose, exact location,
+  ownership, and generation approach to the user. After creation, explain its
+  module wiring and whether it exposes runtime behavior.
 - Keep bootstrap files thin. A module wires providers; it does not contain
   business rules.
 - Keep resolvers thin when the API phase begins. Authorization and business
@@ -102,22 +202,38 @@ dashboard. Split high-load workloads, not presentation areas.
 
 The API app will eventually own the GraphQL transport, request context,
 authorization guards, validation, DataLoader lifecycle, and domain-module
-composition. During the current architecture milestone it may contain only a
-minimal NestJS bootstrap and empty root module. Do not add controllers,
-resolvers, schema fields, or product endpoints.
+composition. The approved structure-only scaffold may contain empty domain
+modules, services, and resolvers. Until the GraphQL contract milestone, do not
+add controllers, resolver methods, schema fields, or product endpoints.
+Keep `AppModule` limited to infrastructure modules such as `DatabaseModule` and
+the aggregate `ComponentsModule`. `DatabaseModule` owns the Nest lifecycle for
+the `@best/database` client and exports it to domain modules.
+Database availability and readiness logic belongs under `apps/api/src/database`
+in `DatabaseHealthService`. Future operational health transports must delegate
+to that service instead of embedding database probes in a controller or domain
+component.
+Global API error handling lives under `apps/api/src/libs/filters` and is
+registered with `APP_FILTER` from `ComponentsModule`, keeping `AppModule`
+limited to `DatabaseModule` and `ComponentsModule`. Expected shared errors use
+`ApplicationError` and stable `ErrorCode` values; domain-specific errors remain
+inside their owning component. Every response carries a server-generated
+request ID. Unknown errors, stack traces, Prisma details, SQL, tokens, and
+sensitive payloads must be masked from clients.
 
 ### Import worker
 
 The import worker is a NestJS standalone application context, not an HTTP
-server. It will eventually consume Telegram and media queues. During this
-milestone it contains only an empty bootstrap/module boundary and no processors.
+server. It will eventually consume Telegram and media queues. Until that
+milestone it contains only typed startup configuration and an empty
+bootstrap/module boundary with no processors.
 
 ### Scoring worker
 
 The scoring worker is a NestJS standalone application context, not an HTTP
 server. It will eventually consume immutable attempt-submission events and call
-pure rules from `packages/scoring`. During this milestone it contains only an
-empty bootstrap/module boundary and no processors.
+pure rules from `packages/scoring`. Until that milestone it contains only typed
+startup configuration and an empty bootstrap/module boundary with no
+processors.
 
 ## Future GraphQL rules
 
@@ -167,13 +283,13 @@ These rules become active only after the API plan is approved:
 ## Security and secrets
 
 - Commit only `.env.example`; never commit real environment files, database
-  URLs, provider secrets, Telegram credentials, TDLib sessions, JWT/session
+  URLs, provider secrets, Telegram credentials, TDLib sessions, JWT signing
   secrets, storage keys, or tokens.
 - Validate required environment variables at process startup when the config
   milestone begins.
-- Use secure HttpOnly sessions, server-owned roles, strict origin policy, input
-  validation, rate limiting, signed media URLs, audit logs, and sensitive-data
-  redaction.
+- Use short-lived signed bearer access tokens, server-owned roles, strict origin
+  policy, input validation, rate limiting, signed media URLs, audit logs, and
+  sensitive-data redaction.
 - Never trust a client-selected role, query parameter, GraphQL input, Teacher
   ID, or Admin ID as authorization evidence.
 - Keep private media private and issue short-lived authorized URLs.
@@ -215,8 +331,10 @@ Do not weaken or disable a check to make the repository pass.
 - Do not commit, push, rewrite history, change remotes, or delete branches unless
   the user explicitly requests it.
 - Do not use destructive reset or checkout commands.
-- Treat lockfiles, migrations, generated schema, and generated clients as
-  reviewed artifacts. Explain material generated changes.
+- Treat lockfiles, migrations, and generated GraphQL schema/contract artifacts
+  as reviewed artifacts. Prisma Client is reproducible build output and is not
+  committed; review its schema and migration inputs, regenerate it before
+  checks, and explain material generation changes.
 - Keep structural changes isolated from later API/domain implementation so the
   architecture can be reviewed independently.
 
@@ -233,4 +351,589 @@ Do not weaken or disable a check to make the repository pass.
 9. Production hardening.
 10. Separately approved AI evaluation.
 
-Only step 1 is authorized in the current milestone.
+Steps 1 and 2 are complete. Only step 3 is authorized in the current milestone.
+
+## BACKEND PLAN
+
+This is the complete approved production architecture reference transferred
+from the frontend planning document. The active milestone and implementation
+boundaries at the top of this file take precedence when a later decision or
+completed phase makes historical planning language stale. The frontend remains
+in the sibling `best-react` repository; it is not moved into this backend repo.
+
+### Backend technology decisions
+
+- Preserve Yarn 4 and use Yarn Workspaces with Turborepo for monorepo task
+  orchestration and build caching.
+- Keep the existing application as the single Next.js web frontend for the
+  public website and Student, Teacher, and operational Admin workspaces.
+- Build one modular NestJS backend that exposes product functionality through a
+  code-first GraphQL API using the current stable official Apollo driver.
+- Use PostgreSQL as the primary transactional database and Prisma for the
+  schema, migrations, generated database client, and transactions.
+- Use Redis and BullMQ for persistent distributed background jobs.
+- Store PDF, image, audio, and video objects in S3-compatible object storage;
+  select an actively maintained local provider during the approved
+  object-storage milestone.
+- Use GraphQL Code Generator to derive frontend operation result and variable
+  types from the generated GraphQL schema and authored operations.
+- Use a read-only TDLib integration for Telegram channel history and media.
+- Deploy the web, API, import worker, and scoring worker independently. Do not
+  create one backend server per dashboard.
+- Do not create an AI worker in the initial backend milestone. Define only the
+  versioned contracts required for a separately approved AI milestone.
+
+Use current stable official documentation at implementation time. In
+particular, follow NestJS GraphQL and BullMQ integration guidance, Prisma
+PostgreSQL migration/transaction guidance, and GraphQL Code Generator client
+preset guidance rather than copying outdated setup patterns.
+
+### Target monorepo structure
+
+```text
+apps/
+  api/                  NestJS GraphQL API
+  import-worker/        Telegram and media-processing consumer
+  scoring-worker/       Deterministic test-scoring consumer
+packages/
+  database/             Prisma schema, migrations, seeds, and client
+  graphql/              Operations, fragments, and generated client types
+  scoring/              Versioned deterministic scoring rules
+  auth/                 Shared authentication contracts
+  config/               Typed environment and application configuration
+  logger/               Shared structured logging
+  testing/              Fixtures, factories, and integration helpers
+infrastructure/
+  docker/               Local PostgreSQL, Redis, and object-storage definitions
+  scripts/              Safe environment and deployment helpers
+```
+
+Every workspace must own a focused responsibility. Avoid generic shared
+packages that merely hide imports, and do not place domain business logic in
+`packages/config` or the frontend.
+
+### Runtime and deployment topology
+
+```text
+Browser
+  -> Next.js web
+  -> NestJS GraphQL API
+       -> PostgreSQL
+       -> Redis/BullMQ
+            -> import-worker
+            -> scoring-worker
+       -> S3-compatible object storage
+```
+
+- Build every app as an independent artifact and container.
+- Keep the API stateless so multiple replicas can run behind a load balancer.
+- Scale import and scoring workers by queue workload without scaling the web or
+  API unnecessarily.
+- Use one PostgreSQL primary and one Redis deployment initially. Introduce
+  connection pooling, replicas, partitioning, or additional services only when
+  measured load requires them.
+- Place the GraphQL API behind the same public origin or an approved gateway;
+  allow bearer authorization headers only from explicitly approved origins.
+- Keep operational health, readiness, and metrics endpoints outside the product
+  GraphQL schema. Product data and mutations remain GraphQL-first.
+
+### GraphQL architecture
+
+Expose one product endpoint at `/graphql` and organize the NestJS application
+by domain modules:
+
+```text
+AuthModule
+UsersModule
+StudentsModule
+TeachersModule
+AdminModule
+CoursesModule
+GroupsModule
+LessonsModule
+LibraryModule
+TestsModule
+AttemptsModule
+ResultsModule
+ImportsModule
+AssetsModule
+AuditModule
+```
+
+- Use code-first GraphQL decorators and TypeScript classes as the backend schema
+  source. Generate and commit or publish the resulting schema artifact for
+  codegen, review, and compatibility checks.
+- Do not share backend resolver models directly with the frontend. Frontend
+  types must represent the fields selected by actual GraphQL operations.
+- Keep resolvers thin. Place authorization and business rules in domain
+  services, and data access in focused repositories/providers.
+- Use DataLoader or equivalent request-scoped batching for relational fields to
+  prevent N+1 queries.
+- Use cursor pagination for growing lists such as resources, attempts, results,
+  imports, learners, and audit records.
+- Use explicit query, mutation, and subscription names. Avoid generic
+  `createItem`, `updateData`, or unbounded nested queries.
+- Use GraphQL subscriptions for result-ready events only when the Redis-backed
+  multi-instance transport is available. Keep a polling fallback for connection
+  loss and environments where subscriptions are disabled.
+- Use generated client operations and fragments through GraphQL Code Generator.
+  Never maintain duplicate handwritten request/response interfaces.
+- Add production query depth, alias count, complexity, payload-size, timeout,
+  and rate limits. Consider persisted operations before public production
+  release to reduce arbitrary-query attack surface.
+- Disable or restrict production schema exploration according to the final
+  operational policy while keeping schema artifacts available to CI/codegen.
+- Introduce GraphQL Federation only after a real domain is extracted into an
+  independently owned service. Do not federate the initial modular monolith.
+
+### Authentication and authorization
+
+The backend milestone expands the current narrow Auth.js preview only after
+explicit approval.
+
+- Retain Auth.js for approved Google, Facebook, and Apple provider interaction,
+  but replace presentation-only role state with database-backed identity,
+  bearer token issuance, roles, and permissions.
+- Use short-lived bearer access tokens for the shared web/API and future
+  application contract. Store real users and provider accounts in PostgreSQL;
+  add hashed rotating refresh-token records only after their data design is
+  reviewed.
+- Resolve the bearer token in the NestJS GraphQL context/guards and load status,
+  roles, and permissions from the server. Never trust a token-embedded role,
+  client role, role query parameter, Teacher ID, Admin ID, or GraphQL input as
+  authorization evidence.
+- Support Student, Teacher, and operational Admin. Do not add Super Admin without
+  fresh approval.
+- Enforce authentication, role, ownership, group membership, attempt ownership,
+  and field-level permissions on the server.
+- Protect Student and Teacher routes only after server-side identity and role
+  validation exist. Do not protect the current Student Library preview early.
+- Keep access tokens out of URLs, persistent browser storage, logs, and GraphQL
+  arguments. Future web refresh credentials, if cookie-backed, must be secure,
+  HttpOnly, SameSite, narrowly scoped, rotated, and CSRF-protected.
+- Restrict origins and never expose provider tokens through the browser or
+  GraphQL schema.
+- Keep email/password credentials disabled until a separately approved secure
+  credentials service exists.
+
+### PostgreSQL and Prisma data domains
+
+Plan the relational schema in these bounded domains.
+
+Identity:
+
+- `users`
+- `accounts`
+- `refresh_tokens` (after separate rotation/revocation design approval)
+- `roles`
+- `user_roles`
+- `student_profiles`
+- `teacher_profiles`
+
+Education:
+
+- `courses`
+- `course_translations`
+- `groups`
+- `group_members`
+- `lessons`
+- `lesson_materials`
+
+Library and assets:
+
+- `resources`
+- `resource_translations`
+- `resource_categories`
+- `assets`
+- `resource_assets`
+
+Tests and results:
+
+- `tests`
+- `test_versions`
+- `test_sections`
+- `questions`
+- `question_translations`
+- `choices`
+- `correct_answers`
+- `attempts`
+- `student_answers`
+- `results`
+- `score_breakdowns`
+
+Telegram import:
+
+- `telegram_sources`
+- `telegram_posts`
+- `telegram_assets`
+- `import_jobs`
+- `import_errors`
+- `content_reviews`
+
+Future evaluation:
+
+- `rubrics`
+- `rubric_versions`
+- `evaluation_jobs`
+- `evaluations`
+- `teacher_reviews`
+
+Platform operations:
+
+- `audit_logs`
+- `outbox_events`
+- `notifications`
+
+Schema rules:
+
+- Use foreign keys, unique constraints, checks, indexes, and transactions to
+  enforce domain invariants in addition to application validation.
+- Use translation tables for product content that must be published in Uzbek,
+  Russian, and English. Do not hide searchable production translations in an
+  unstructured blob.
+- Use PostgreSQL JSONB for raw Telegram payloads, future structured AI output,
+  and genuinely variable source metadata, while keeping queried relational
+  fields in typed columns.
+- Make published test versions immutable and bind every attempt to one exact
+  version.
+- Enforce one authoritative attempt identity, answer uniqueness per
+  attempt/question, legal state transitions, and scoring/result consistency at
+  the database and service layers.
+- Use additive, reviewed migrations and safe backfills. Never edit a deployed
+  migration in place or run destructive production migration commands without
+  explicit review, backup, and rollback planning.
+
+### Object-storage architecture
+
+Do not store PDF, image, video, or audio binary data in PostgreSQL.
+
+1. A GraphQL mutation creates an authorized upload intent and a short-lived
+   signed URL.
+2. The browser or worker uploads directly to object storage.
+3. A confirmation mutation or worker verifies the object and marks the asset
+   ready.
+4. PostgreSQL stores the storage key, original name, MIME type, size, checksum,
+   source, owner, visibility, processing status, and timestamps.
+
+- Keep private resources in private buckets and issue short-lived signed
+  download URLs after authorization.
+- Validate MIME signature and extension, enforce size limits, calculate
+  checksums, sanitize names and metadata, and add malware scanning before
+  publication.
+- Preserve source/license metadata and do not expose imported material until
+  ownership and publication review succeed.
+- Use stable storage keys rather than public vendor URLs in domain records.
+
+### Redis and BullMQ job architecture
+
+Plan named queues for:
+
+```text
+telegram-sync
+telegram-download
+media-processing
+content-classification
+test-scoring
+notification-delivery
+ai-evaluation          # disabled until separately approved
+```
+
+- Give every job an idempotency key, explicit payload version, retry policy,
+  exponential backoff, timeout, progress state, structured error, and audit
+  context.
+- Configure failed/dead-letter handling and an operational retry path. Never
+  create an infinite automatic retry loop.
+- Use the transactional outbox pattern for database changes that must reliably
+  enqueue work, especially final test submission and content import state.
+- Treat Redis as queue/cache infrastructure, not the authoritative source for
+  student answers, results, users, or imported content.
+- Scale queue consumers independently and apply concurrency/rate limits per
+  external provider and workload.
+
+### Telegram import architecture
+
+Run Telegram ingestion only in `import-worker` with approved read-only TDLib
+credentials.
+
+1. Register an approved source channel and encrypted credential/session
+   reference.
+2. Fetch channel history in resumable batches with a durable cursor.
+3. Upsert posts by source channel and message identity.
+4. Preserve publication/edit timestamps, source link, original text/caption,
+   media metadata, raw payload, and import version for traceability.
+5. Download PDF/image media, validate it, calculate checksums, and upload it to
+   object storage.
+6. Classify content using deterministic source tags/templates and approved
+   rules first. Keep future AI classification optional and separately approved.
+7. Normalize accepted metadata into Library/domain records.
+8. Route unknown, ambiguous, incomplete, unsafe, duplicated, or failed entries
+   to an operational Admin review queue.
+9. Publish content to Students only after review, rights verification, and
+   required localization are complete.
+
+- Make repeated imports idempotent and resume from interruption without
+  duplicating posts or files.
+- Deduplicate posts by channel/message identity and media by checksum where
+  appropriate.
+- Never commit or paste Telegram bot tokens, `api_id`, `api_hash`, phone login
+  data, or TDLib session material. Use ignored local secrets and a production
+  secret manager.
+- Record import counts, failures, durations, cursors, and review status for
+  observability and recovery.
+
+### Test-platform architecture
+
+Test authoring and publication:
+
+- Create tests as drafts with typed sections, questions, choices, assets,
+  timing, navigation, review, and scoring rules.
+- Validate completeness before publication.
+- Create an immutable `test_version` when publishing. Editing a published test
+  creates a new version rather than changing active attempts.
+- Never include correct answers or private scoring rules in Student GraphQL
+  payloads.
+
+Student attempt flow:
+
+1. Authorize the Student and test availability.
+2. Create or resume one server-owned attempt for the permitted policy.
+3. Deliver the exact published test version.
+4. Autosave answers through idempotent mutations and durable database writes.
+5. Enforce timer, expiry, navigation, and submission rules using server time.
+6. Lock the attempt in a transaction and transition it to `SUBMITTED`.
+7. Write a transactional outbox event for scoring.
+8. Move the attempt through `SCORING` to `COMPLETED` or `REVIEW_REQUIRED`.
+9. Persist result and criterion/section breakdown atomically.
+10. Notify the client through a result-ready subscription with polling fallback.
+
+Use explicit attempt states:
+
+```text
+CREATED
+IN_PROGRESS
+SUBMITTED
+SCORING
+COMPLETED
+REVIEW_REQUIRED
+EXPIRED
+CANCELLED
+```
+
+- Keep deterministic scoring rules as pure, versioned TypeScript functions in
+  `packages/scoring` so workers and tests use one implementation.
+- Unit-test every scoring rule, rounding rule, partial-credit rule, and invalid
+  state.
+- Multiple-choice and deterministic tests may produce results immediately after
+  background scoring completes.
+- Writing and Speaking remain `REVIEW_REQUIRED` until teacher review or a
+  separately approved AI-evaluation workflow completes.
+
+### Student Dashboard integration order
+
+Create protected routes only after the auth foundation exists:
+
+```text
+/[locale]/student
+/[locale]/student/library
+/[locale]/student/tests
+/[locale]/student/tests/[testId]
+/[locale]/student/results
+/[locale]/student/results/[attemptId]
+/[locale]/student/progress
+/[locale]/student/settings
+```
+
+Deliver the first vertical slice as:
+
+```text
+Auth -> Tests list -> Test Runner -> Submit -> Scoring -> Result
+```
+
+Then deliver Library/Telegram content, Results history, Progress, Settings,
+Teacher visibility, and operational Admin review. Every slice must include its
+GraphQL contract, database behavior, authorization, responsive frontend,
+loading/empty/error states, and automated verification.
+
+### Future AI-evaluation boundary
+
+Do not build or connect AI grading in the initial backend milestone. Prepare
+versioned contracts for:
+
+- Original Writing and Speaking submissions
+- Speaking audio and transcription
+- Rubric and rubric version
+- Asynchronous evaluation job
+- Criterion-level score and evidence
+- Feedback and confidence
+- Model and prompt version
+- Teacher review and override
+- Immutable audit history
+
+Low-confidence, inconsistent, failed, or policy-sensitive evaluations must
+route to human review. AI output must never overwrite the original submission
+or silently replace a teacher-approved result.
+
+### Scaling strategy
+
+Initial deployment:
+
+- One PostgreSQL primary with connection pooling
+- One Redis deployment
+- One S3-compatible object store
+- One or more stateless API replicas
+- Independently scalable import and scoring workers
+
+Measured growth options:
+
+- Add API replicas behind the load balancer.
+- Scale consumers per queue depth and processing latency.
+- Add PostgreSQL read replicas for proven read-heavy workloads.
+- Partition attempts, answers, import logs, or audit records only after table
+  growth and query plans justify it.
+- Add CDN delivery and controlled caching for public/authorized media.
+- Extract Test Engine, Telegram Import, Notifications, or future AI Evaluation
+  into separate services only when ownership, deployment, reliability, or
+  scaling evidence requires it.
+
+Do not split Student, Teacher, and Admin into separate backend servers merely
+because user counts grow. They share transactional domains; split independently
+scalable workloads instead.
+
+### Security requirements
+
+- Server-side RBAC, ownership, and group-membership checks
+- Short-lived bearer access tokens, validated issuer/audience/algorithm, and
+  strict origin policy
+- Rotating hashed refresh tokens with reuse detection when that later design is
+  approved
+- GraphQL input validation and output authorization
+- Query depth, complexity, alias, payload, timeout, and rate limits
+- Signed and expiring private-media access
+- Secret manager and environment validation
+- Sensitive-field and credential redaction in logs
+- Audit events for privileged operations and result changes
+- Database backup, restore drills, and reviewed migration rollback plans
+- Encrypted Telegram session storage
+- Correct-answer isolation from Student clients
+- Dependency, container, and file-malware scanning
+
+### Observability requirements
+
+Propagate a correlation/request ID through GraphQL requests, database actions,
+outbox events, queue jobs, and worker logs. Record only permitted identifiers
+and never log credentials, raw passwords, provider tokens, private answers, or
+unredacted sensitive payloads.
+
+Monitor:
+
+- GraphQL request and resolver latency/error rate
+- Operation name, user/role context, and authorization failures
+- Database connections, slow queries, locks, and migration status
+- Queue depth, age, retries, dead-letter count, and processing duration
+- Test autosave, submission, scoring, and result-ready latency
+- Telegram import cursor, throughput, duplicates, failures, and review backlog
+- Object-storage upload/processing failures
+- API and worker health/readiness
+
+### Test strategy
+
+- Unit tests for scoring, validation, authorization decisions, state machines,
+  classification, and storage-key generation.
+- PostgreSQL integration tests for constraints, transactions, migrations,
+  repositories, outbox delivery, and idempotency.
+- GraphQL integration/contract tests for schema, operations, guards, pagination,
+  error shapes, and generated client compatibility.
+- Worker tests for retries, duplicate delivery, resume, concurrency, failure,
+  and dead-letter handling.
+- End-to-end Student journeys for auth, test start, autosave, resume, expiry,
+  submission, scoring, live result, history, mobile, keyboard access, and
+  recovery.
+- Security tests for role escalation, ownership bypass, correct-answer leakage,
+  malicious GraphQL queries, unsafe files, and signed-URL expiration.
+- Load tests for concurrent autosave/submission, scoring queue bursts, and 500+
+  Telegram item imports.
+
+### CI/CD and environments
+
+Maintain local, test, staging, and production environments with typed required
+variables and no committed secrets.
+
+Every pull request must run:
+
+1. Formatting
+2. Linting
+3. TypeScript checks
+4. GraphQL schema generation and diff review
+5. GraphQL client codegen consistency
+6. Unit tests
+7. Database and GraphQL integration tests
+8. Migration validation
+9. Workspace builds
+10. Security and dependency checks
+
+Production deployment order:
+
+1. Verify backup and migration plan.
+2. Apply backward-compatible database migrations.
+3. Deploy API.
+4. Deploy workers.
+5. Deploy web.
+6. Run smoke and contract tests.
+7. Enable feature flags gradually.
+8. Monitor and retain a rollback path.
+
+### Implementation phases
+
+Phase 0 — approval and protection:
+
+- Obtain explicit backend implementation approval.
+- Update the active scope boundaries in this file.
+- Safely commit the existing frontend work before structural movement.
+- Record a monorepo migration checklist and rollback point.
+
+Phase 1 — monorepo foundation:
+
+- Preserve the existing Next.js project and its history in the sibling
+  `best-react` repository.
+- Configure Yarn Workspaces, Turborepo, shared configuration, and root scripts
+  inside the independent `best-server` repository.
+- Prove formatting, linting, typechecking, testing, development, and production
+  workspace builds before adding backend logic.
+
+Phase 2 — backend infrastructure:
+
+- Create NestJS GraphQL API, PostgreSQL/Prisma package, Redis/BullMQ, an approved
+  S3-compatible local provider, Docker local environment, configuration
+  validation, logging, and health checks.
+
+Phase 3 — identity and authorization:
+
+- Add database-backed Auth.js identity/provider handling, bearer token
+  issuance/refresh rotation, roles, NestJS GraphQL context, server guards, and
+  protected Student/Teacher/Admin boundaries.
+
+Phase 4 — first test vertical slice:
+
+- Implement test schema/versioning, attempts, answers, autosave, submission,
+  outbox, scoring worker, result-ready notification, and Student UI integration.
+
+Phase 5 — Library and Telegram:
+
+- Implement object storage, Library GraphQL API, TDLib importer, media pipeline,
+  classification, review queue, localization readiness, and protected Student
+  Library integration.
+
+Phase 6 — Results and Progress:
+
+- Add result history, breakdowns, progress calculations, and explicitly
+  authorized Teacher visibility.
+
+Phase 7 — production hardening:
+
+- Complete rate limits, auditing, monitoring, backup/restore, load tests,
+  deployment automation, feature flags, and operational runbooks.
+
+Phase 8 — future AI evaluation:
+
+- Begin only after separate requirements, privacy, rubric, model, cost, human
+  review, and implementation approval.
