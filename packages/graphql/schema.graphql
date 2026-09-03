@@ -1,0 +1,712 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+type AdminAcademicOverview {
+  activeGroupCount: Int!
+  activeStudentCount: Int!
+  activeTeacherCount: Int!
+  assignedTestCount: Int!
+  averagePercentage: Float
+  awaitingScoreAssignmentCount: Int!
+  completedAssignmentCount: Int!
+  completionPercentage: Float!
+  failedAssignmentCount: Int!
+  highestPercentage: Float
+  lowestPercentage: Float
+  passedAssignmentCount: Int!
+  remainingAssignmentCount: Int!
+  scoredAssignmentCount: Int!
+  totalAssignmentCount: Int!
+}
+
+type AdminGroupProgress {
+  activeStudentCount: Int!
+  assignedTestCount: Int!
+  averagePercentage: Float
+  awaitingScoreAssignmentCount: Int!
+  completedAssignmentCount: Int!
+  completionPercentage: Float!
+  failedAssignmentCount: Int!
+  groupId: ID!
+  groupName: String!
+  groupStatus: ContentStatus!
+  highestPercentage: Float
+  lowestPercentage: Float
+  passedAssignmentCount: Int!
+  remainingAssignmentCount: Int!
+  scoredAssignmentCount: Int!
+  teacherDisplayName: String!
+  teacherId: ID!
+  totalAssignmentCount: Int!
+}
+
+type AdminGroupProgressConnection {
+  edges: [AdminGroupProgressEdge!]!
+  pageInfo: PageInfo!
+}
+
+type AdminGroupProgressEdge {
+  cursor: String!
+  node: AdminGroupProgress!
+}
+
+type AdminStudent {
+  averagePercentage: Float
+  currentGroupId: ID
+  currentGroupName: String
+  displayName: String!
+  failedTestCount: Int!
+  highestPercentage: Float
+  latestResultAt: DateTime
+  lowestPercentage: Float
+  passedTestCount: Int!
+  scoredAttemptCount: Int!
+  scoredTestCount: Int!
+  status: UserStatus!
+  studentId: ID!
+}
+
+type AdminStudentConnection {
+  edges: [AdminStudentEdge!]!
+  pageInfo: PageInfo!
+}
+
+type AdminStudentEdge {
+  cursor: String!
+  node: AdminStudent!
+}
+
+type AdminStudentResult {
+  attemptId: ID!
+  attemptNumber: Int!
+  correctAnswerCount: Int!
+  groupId: ID!
+  groupName: String!
+  highestPercentage: Float!
+  passed: Boolean!
+  percentage: Float!
+  submittedAt: DateTime!
+  testId: ID!
+  title: String!
+  totalQuestionCount: Int!
+}
+
+type AdminStudentResultConnection {
+  edges: [AdminStudentResultEdge!]!
+  pageInfo: PageInfo!
+}
+
+type AdminStudentResultEdge {
+  cursor: String!
+  node: AdminStudentResult!
+}
+
+enum AttemptStatus {
+  IN_PROGRESS
+  SCORED
+  SUBMITTED
+}
+
+type ConfirmMediaUploadPayload {
+  mediaObject: MediaObject!
+}
+
+enum ContentStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+input CreateLibraryCategoryInput {
+  name: String!
+}
+
+input CreateLibraryDownloadIntentInput {
+  libraryItemId: ID!
+  mediaObjectId: ID!
+}
+
+input CreateLibraryItemInput {
+  categoryId: ID!
+  groupIds: [ID!]!
+  mediaObjectIds: [ID!]!
+  primaryLanguage: Language!
+  translations: [LibraryTranslationInput!]!
+  visibility: LibraryVisibility!
+}
+
+type CreateMediaDownloadIntentPayload {
+  downloadIntent: MediaDownloadIntent!
+}
+
+input CreateMediaUploadIntentInput {
+  mimeType: String!
+  originalName: String!
+  sizeBytes: Int!
+}
+
+type CreateMediaUploadIntentPayload {
+  uploadIntent: MediaUploadIntent!
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+enum Language {
+  EN
+  RU
+  UZ
+}
+
+type LibraryAttachment {
+  id: ID!
+  mediaObject: MediaObject!
+  position: Int!
+}
+
+type LibraryCategory {
+  createdAt: DateTime!
+  id: ID!
+  name: String!
+  status: ContentStatus!
+  updatedAt: DateTime!
+}
+
+type LibraryCategoryPayload {
+  category: LibraryCategory!
+}
+
+type LibraryDownloadIntentPayload {
+  downloadIntent: MediaDownloadIntent!
+}
+
+type LibraryItemPayload {
+  item: TeacherLibraryItem!
+}
+
+type LibraryTranslation {
+  description: String
+  language: Language!
+  title: String!
+}
+
+input LibraryTranslationInput {
+  description: String
+  language: Language!
+  title: String!
+}
+
+enum LibraryVisibility {
+  ALL_GROUPS
+  SELECTED_GROUPS
+}
+
+type MediaDownloadIntent {
+  expiresAt: DateTime!
+  url: String!
+}
+
+enum MediaMalwareStatus {
+  CLEAN
+  INFECTED
+  PENDING
+}
+
+type MediaObject {
+  checksumSha256: String
+  id: ID!
+  malwareScannedAt: DateTime
+  malwareStatus: MediaMalwareStatus!
+  mediaType: MediaType!
+  mimeType: String!
+  originalName: String!
+  sizeBytes: Int
+  status: MediaObjectStatus!
+  verifiedAt: DateTime
+}
+
+input MediaObjectReferenceInput {
+  mediaObjectId: ID!
+}
+
+enum MediaObjectStatus {
+  PENDING_UPLOAD
+  READY
+  REJECTED
+  VERIFYING
+}
+
+enum MediaType {
+  AUDIO
+  IMAGE
+  PDF
+  VIDEO
+}
+
+type MediaUploadHeader {
+  name: String!
+  value: String!
+}
+
+type MediaUploadIntent {
+  expiresAt: DateTime!
+  mediaObjectId: ID!
+  method: String!
+  requiredHeaders: [MediaUploadHeader!]!
+  sizeBytes: Int!
+  url: String!
+}
+
+type Mutation {
+  confirmMediaUpload(
+    input: MediaObjectReferenceInput!
+  ): ConfirmMediaUploadPayload!
+  createLibraryCategory(
+    input: CreateLibraryCategoryInput!
+  ): LibraryCategoryPayload!
+  createLibraryItem(input: CreateLibraryItemInput!): LibraryItemPayload!
+  createMediaDownloadIntent(
+    input: MediaObjectReferenceInput!
+  ): CreateMediaDownloadIntentPayload!
+  createMediaUploadIntent(
+    input: CreateMediaUploadIntentInput!
+  ): CreateMediaUploadIntentPayload!
+  createStudentLibraryDownloadIntent(
+    input: CreateLibraryDownloadIntentInput!
+  ): LibraryDownloadIntentPayload!
+  saveAttemptAnswer(
+    input: SaveAttemptAnswerInput!
+    language: Language!
+  ): SaveAttemptAnswerPayload!
+  setLibraryCategoryArchived(
+    input: SetLibraryCategoryArchivedInput!
+  ): LibraryCategoryPayload!
+  setLibraryItemArchived(
+    input: SetLibraryItemArchivedInput!
+  ): LibraryItemPayload!
+  startTestAttempt(input: StartTestAttemptInput!): StartTestAttemptPayload!
+  submitTestAttempt(
+    input: SubmitTestAttemptInput!
+    language: Language!
+  ): SubmitTestAttemptPayload!
+  updateLibraryCategory(
+    input: UpdateLibraryCategoryInput!
+  ): LibraryCategoryPayload!
+  updateLibraryItem(input: UpdateLibraryItemInput!): LibraryItemPayload!
+}
+
+type PageInfo {
+  endCursor: String
+  hasNextPage: Boolean!
+}
+
+type Query {
+  adminAcademicOverview: AdminAcademicOverview!
+  adminGroupProgresses(after: String, first: Int): AdminGroupProgressConnection!
+  adminStudentResults(
+    after: String
+    first: Int
+    language: Language!
+    studentId: ID!
+  ): AdminStudentResultConnection!
+  adminStudents(after: String, first: Int): AdminStudentConnection!
+  studentAttempt(attemptId: ID!, language: Language!): StudentAttempt!
+  studentAvailableTests(
+    after: String
+    first: Int
+    language: Language!
+  ): StudentTestConnection!
+  studentLibraryItem(
+    language: Language!
+    libraryItemId: ID!
+  ): StudentLibraryItem!
+  studentLibraryItems(
+    after: String
+    categoryId: ID
+    first: Int
+    language: Language!
+  ): StudentLibraryItemConnection!
+  studentProgress: StudentProgress!
+  studentResults(
+    after: String
+    first: Int
+    language: Language!
+  ): StudentResultConnection!
+  studentTest(language: Language!, testId: ID!): StudentTest!
+  teacherAttemptReview(
+    attemptId: ID!
+    language: Language!
+  ): TeacherAttemptReview!
+  teacherGroupProgress(groupId: ID!): TeacherGroupProgress!
+  teacherGroupStudents(
+    after: String
+    first: Int
+    groupId: ID!
+  ): TeacherStudentProgressConnection!
+  teacherLibraryCategories(
+    includeArchived: Boolean = false
+  ): [LibraryCategory!]!
+  teacherLibraryItems(
+    after: String
+    categoryId: ID
+    first: Int
+    includeArchived: Boolean = false
+  ): TeacherLibraryItemConnection!
+  teacherStudentAttempts(
+    after: String
+    first: Int
+    groupId: ID!
+    language: Language!
+    studentId: ID!
+  ): TeacherAttemptConnection!
+  teacherStudentTests(
+    after: String
+    first: Int
+    groupId: ID!
+    language: Language!
+    studentId: ID!
+  ): TeacherStudentTestProgressConnection!
+  viewer: Viewer!
+}
+
+input SaveAttemptAnswerInput {
+  attemptId: ID!
+  questionId: ID!
+  selectedOptionId: ID!
+}
+
+type SaveAttemptAnswerPayload {
+  attempt: StudentAttempt!
+}
+
+input SetLibraryCategoryArchivedInput {
+  archived: Boolean!
+  categoryId: ID!
+}
+
+input SetLibraryItemArchivedInput {
+  archived: Boolean!
+  libraryItemId: ID!
+}
+
+input StartTestAttemptInput {
+  language: Language!
+  testId: ID!
+}
+
+type StartTestAttemptPayload {
+  attempt: StudentAttempt!
+}
+
+type StudentAnswerOption {
+  id: ID!
+  position: Int!
+  text: String!
+}
+
+type StudentAttempt {
+  answers: [StudentSavedAnswer!]!
+  attemptNumber: Int!
+  expiresAt: DateTime
+  id: ID!
+  language: Language!
+  questions: [StudentQuestion!]!
+  result: StudentAttemptResult
+  serverTime: DateTime!
+  startedAt: DateTime!
+  status: AttemptStatus!
+  submittedAt: DateTime
+  testId: ID!
+  testVersionId: ID!
+  title: String!
+}
+
+type StudentAttemptResult {
+  correctAnswerCount: Int!
+  passed: Boolean!
+  percentage: Float!
+  totalQuestionCount: Int!
+}
+
+type StudentLibraryItem {
+  attachments: [LibraryAttachment!]!
+  category: LibraryCategory!
+  description: String
+  id: ID!
+  language: Language!
+  title: String!
+  updatedAt: DateTime!
+}
+
+type StudentLibraryItemConnection {
+  edges: [StudentLibraryItemEdge!]!
+  pageInfo: PageInfo!
+}
+
+type StudentLibraryItemEdge {
+  cursor: String!
+  node: StudentLibraryItem!
+}
+
+type StudentProgress {
+  assignedTestCount: Int!
+  averagePercentage: Float
+  awaitingScoreTestCount: Int!
+  completedTestCount: Int!
+  completionPercentage: Float!
+  failedTestCount: Int!
+  groupId: ID
+  groupName: String
+  highestPercentage: Float
+  latestActivityAt: DateTime
+  passedTestCount: Int!
+  remainingTestCount: Int!
+  scoredTestCount: Int!
+}
+
+type StudentQuestion {
+  id: ID!
+  options: [StudentAnswerOption!]!
+  position: Int!
+  prompt: String!
+}
+
+type StudentResult {
+  attemptId: ID!
+  attemptNumber: Int!
+  correctAnswerCount: Int!
+  highestPercentage: Float!
+  passed: Boolean!
+  percentage: Float!
+  submittedAt: DateTime!
+  testId: ID!
+  title: String!
+  totalQuestionCount: Int!
+}
+
+type StudentResultConnection {
+  edges: [StudentResultEdge!]!
+  pageInfo: PageInfo!
+}
+
+type StudentResultEdge {
+  cursor: String!
+  node: StudentResult!
+}
+
+type StudentSavedAnswer {
+  questionId: ID!
+  savedAt: DateTime!
+  selectedOptionId: ID!
+}
+
+type StudentTest {
+  activeAttemptId: ID
+  attemptLimit: Int!
+  attemptsUsed: Int!
+  availabilityEndsAt: DateTime
+  availabilityStartsAt: DateTime
+  categoryName: String!
+  description: String
+  durationMinutes: Int
+  id: ID!
+  language: Language!
+  testVersionId: ID!
+  title: String!
+}
+
+type StudentTestConnection {
+  edges: [StudentTestEdge!]!
+  pageInfo: PageInfo!
+}
+
+type StudentTestEdge {
+  cursor: String!
+  node: StudentTest!
+}
+
+input SubmitTestAttemptInput {
+  attemptId: ID!
+}
+
+type SubmitTestAttemptPayload {
+  attempt: StudentAttempt!
+}
+
+type TeacherAnswerReview {
+  correctOptionId: ID!
+  correctOptionText: String!
+  isCorrect: Boolean!
+  position: Int!
+  prompt: String!
+  questionId: ID!
+  selectedOptionId: ID
+  selectedOptionText: String
+}
+
+type TeacherAttempt {
+  attemptId: ID!
+  attemptNumber: Int!
+  passed: Boolean
+  percentage: Float
+  startedAt: DateTime!
+  status: AttemptStatus!
+  submittedAt: DateTime
+  testId: ID!
+  title: String!
+}
+
+type TeacherAttemptConnection {
+  edges: [TeacherAttemptEdge!]!
+  pageInfo: PageInfo!
+}
+
+type TeacherAttemptEdge {
+  cursor: String!
+  node: TeacherAttempt!
+}
+
+type TeacherAttemptReview {
+  answers: [TeacherAnswerReview!]!
+  attemptId: ID!
+  attemptNumber: Int!
+  passed: Boolean
+  percentage: Float
+  startedAt: DateTime!
+  status: AttemptStatus!
+  studentDisplayName: String!
+  studentId: ID!
+  submittedAt: DateTime
+  testId: ID!
+  title: String!
+}
+
+type TeacherGroupProgress {
+  activeStudentCount: Int!
+  assignedTestCount: Int!
+  averagePercentage: Float
+  awaitingScoreAssignmentCount: Int!
+  completedAssignmentCount: Int!
+  completionPercentage: Float!
+  failedAssignmentCount: Int!
+  groupId: ID!
+  groupName: String!
+  highestPercentage: Float
+  lowestPercentage: Float
+  passedAssignmentCount: Int!
+  remainingAssignmentCount: Int!
+  scoredAssignmentCount: Int!
+  totalAssignmentCount: Int!
+}
+
+type TeacherLibraryItem {
+  archivedAt: DateTime
+  attachments: [LibraryAttachment!]!
+  category: LibraryCategory!
+  createdAt: DateTime!
+  groupIds: [ID!]!
+  id: ID!
+  primaryLanguage: Language!
+  status: ContentStatus!
+  translations: [LibraryTranslation!]!
+  updatedAt: DateTime!
+  visibility: LibraryVisibility!
+}
+
+type TeacherLibraryItemConnection {
+  edges: [TeacherLibraryItemEdge!]!
+  pageInfo: PageInfo!
+}
+
+type TeacherLibraryItemEdge {
+  cursor: String!
+  node: TeacherLibraryItem!
+}
+
+type TeacherStudentProgress {
+  assignedTestCount: Int!
+  averagePercentage: Float
+  awaitingScoreTestCount: Int!
+  completedTestCount: Int!
+  completionPercentage: Float!
+  displayName: String!
+  failedTestCount: Int!
+  highestPercentage: Float
+  latestActivityAt: DateTime
+  lowestPercentage: Float
+  passedTestCount: Int!
+  remainingTestCount: Int!
+  scoredTestCount: Int!
+  studentId: ID!
+}
+
+type TeacherStudentProgressConnection {
+  edges: [TeacherStudentProgressEdge!]!
+  pageInfo: PageInfo!
+}
+
+type TeacherStudentProgressEdge {
+  cursor: String!
+  node: TeacherStudentProgress!
+}
+
+type TeacherStudentTestProgress {
+  attemptCount: Int!
+  highestPercentage: Float
+  latestActivityAt: DateTime
+  status: TeacherStudentTestProgressStatus!
+  testId: ID!
+  title: String!
+}
+
+type TeacherStudentTestProgressConnection {
+  edges: [TeacherStudentTestProgressEdge!]!
+  pageInfo: PageInfo!
+}
+
+type TeacherStudentTestProgressEdge {
+  cursor: String!
+  node: TeacherStudentTestProgress!
+}
+
+enum TeacherStudentTestProgressStatus {
+  AWAITING_SCORE
+  FAILED
+  IN_PROGRESS
+  NOT_STARTED
+  PASSED
+}
+
+input UpdateLibraryCategoryInput {
+  categoryId: ID!
+  name: String!
+}
+
+input UpdateLibraryItemInput {
+  categoryId: ID!
+  groupIds: [ID!]!
+  libraryItemId: ID!
+  mediaObjectIds: [ID!]!
+  primaryLanguage: Language!
+  translations: [LibraryTranslationInput!]!
+  visibility: LibraryVisibility!
+}
+
+enum UserRole {
+  ADMIN
+  STUDENT
+  TEACHER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+type Viewer {
+  displayName: String!
+  id: ID!
+  role: UserRole!
+}
