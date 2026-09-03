@@ -10,6 +10,7 @@ import { GlobalExceptionFilter } from '../libs/filters/global-exception.filter';
 import { RequestIdMiddleware } from '../libs/middleware/request-id.middleware';
 
 import { AssignmentsModule } from './assignments/assignments.module';
+import { AssetsModule } from './assets/assets.module';
 import { AttemptsModule } from './attempts/attempts.module';
 import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
@@ -44,6 +45,7 @@ import { UsersModule } from './users/users.module';
     FinanceModule,
     NotificationsModule,
     AuditModule,
+    AssetsModule,
   ],
   providers: [
     {
