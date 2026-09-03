@@ -1,7 +1,9 @@
 # BEST data model approval plan
 
 Status: approved through the step-by-step product review on 2026-09-01 and
-implemented in the logical ERD and initial Prisma schema.
+implemented in the logical ERD and initial Prisma schema. Telegram import was
+removed from the backend plan on 2026-09-03. Its already-deployed tables remain
+legacy metadata until a separate cleanup migration is reviewed and approved.
 
 This document separates confirmed storage invariants from product decisions that
 must be approved before the first Prisma model or migration is created.
@@ -37,14 +39,12 @@ must be approved before the first Prisma model or migration is created.
    score versioning inputs.
 6. Library/media: content taxonomy, visibility, ownership, translation, and
    attachment relationships.
-7. Telegram import: source identity, deduplication keys, raw-payload retention,
-   edit/delete handling, and provenance.
-8. Results/progress: aggregation boundaries, historical recomputation, and
+7. Results/progress: aggregation boundaries, historical recomputation, and
    Teacher/Admin visibility.
-9. Finance: Student charges, payments, balances, periods, adjustments, and
+8. Finance: Student charges, payments, balances, periods, adjustments, and
    Admin visibility.
-10. Audit/retention: events that require audit records, retention periods,
-    deletion/anonymization, and operational access.
+9. Audit/retention: events that require audit records, retention periods,
+   deletion/anonymization, and operational access.
 
 ## Approved product decisions
 
@@ -52,6 +52,15 @@ must be approved before the first Prisma model or migration is created.
 
 - Each user has exactly one assigned role: `STUDENT`, `TEACHER`, or `ADMIN`.
 - Roles are server-owned and cannot be selected by the client.
+- The approved milestone 4 provider-account and session ownership decisions are
+  recorded in `AUTH_IDENTITY_PLAN.md`.
+- PostgreSQL identity is backend-owned. Auth.js remains in the web application,
+  which never connects directly to this database.
+- Google, Facebook, and Apple identities use a unique provider/account tuple;
+  provider tokens are not stored and matching email never links accounts
+  automatically.
+- Social provisioning creates only a `STUDENT`. Teacher and Admin verification
+  remains deferred.
 - A future test-only access mechanism may allow the owner's account to exercise
   all three access levels. Its authorization and audit design is deferred to the
   auth milestone; it does not make ordinary users multi-role.
@@ -162,26 +171,18 @@ must be approved before the first Prisma model or migration is created.
   permanent-deletion policy removes it.
 - One library object may contain multiple ordered file attachments of the
   supported media types.
+- New attachments accept only owner-matched media with both `READY` lifecycle
+  state and a terminal `CLEAN` malware verdict.
+- Scanner engine/version/signature metadata is retained for auditability;
+  infected media is rejected and never exposed through Library reads.
 
-### Telegram import
+### Retired Telegram import design
 
-- Telegram ingestion is a one-time import from one already prepared channel.
-- Continuous synchronization and polling for future Telegram changes are not
-  required.
-- After the import, the Teacher adds and manages new content through the
-  dashboard.
-- The source channel ID and message ID form a unique import identity.
-- Restarting or retrying the import resumes safely without creating duplicate
-  library content.
-- Imported content retains its source channel ID, message ID, message date,
-  original text or caption, and import timestamp.
-- Telegram tokens, credentials, and session material are never stored with
-  imported content.
-- The import preserves the source's existing grouping and category structure
-  instead of assigning every imported object to `ALL_GROUPS`.
-- The concrete source-to-database mapping is reviewed with the prepared import
-  data before execution; source content is not flattened or regrouped by
-  inference.
+The earlier one-time Telegram import decision is canceled. No TDLib client,
+Telegram credential/session handling, queue, worker processor, or API will be
+implemented. `TelegramImportRun` and `TelegramImportRecord` remain unused
+legacy tables because removing deployed schema requires a separately reviewed
+destructive migration. New application code must not depend on them.
 
 ### Results and progress
 
@@ -198,6 +199,25 @@ must be approved before the first Prisma model or migration is created.
   operational oversight.
 - Selected answers, detailed answer review, and correct answers remain
   Teacher-only and are not visible to Admins.
+- Current Student progress counts active group tests whose published
+  availability has started. Submitted/scored tests are completed; score
+  aggregates use the highest scored attempt per test and are derived rather
+  than persisted in a duplicate summary table.
+- Teacher group reports use current active memberships for current progress,
+  while attempt history remains selected by the attempt's immutable
+  `groupMembershipId`. This keeps a departed Student's results in the previous
+  group without counting them in a new group's progress.
+- Teacher aggregate averages, highest, and lowest values use one best scored
+  attempt per Student/test assignment. Detailed selected/correct-answer review
+  is authorized through the owning group and is never exposed to Student or
+  Admin result contracts.
+- Admin academic overview and group monitoring derive current assignments from
+  active groups, active tests with started published versions, and active group
+  memberships. The global overview is aggregated in PostgreSQL so its memory
+  cost does not grow with attempt history.
+- Admin Student monitoring may include inactive accounts and historical scored
+  attempts for operational traceability. It exposes scores and original group
+  context but never selected options, correct options, or question review.
 
 ### Finance
 

@@ -1,14 +1,13 @@
-# BEST logical ERD draft
+# BEST logical ERD
 
-Status: approved on 2026-09-01 and implemented in the initial Prisma schema and
-migration. The draft suffix is retained until PostgreSQL integration tests pass.
-
-Auth.js account, session, and credential tables belong to milestone 4. This
-draft defines the stable business identity as `User`; the auth schema will
-reference that identity without changing the business ownership below.
+Status: approved on 2026-09-01 and implemented through the domain and auth
+identity migrations. PostgreSQL integration tests validate the reviewed
+physical constraints and immutability rules. Telegram import is retired; its
+two already-deployed relations shown below are legacy and unused.
 
 ```mermaid
 erDiagram
+  User ||--o{ AuthAccount : authenticates_with
   User ||--o{ Group : owns_as_teacher
   User ||--o{ GroupMembership : joins_as_student
   Group ||--o{ GroupMembership : keeps_history
@@ -63,7 +62,9 @@ erDiagram
 ### Identity and groups
 
 - `User`: one role (`STUDENT`, `TEACHER`, or `ADMIN`) and one lifecycle state
-  (`ACTIVE` or `INACTIVE`). `SUPER_ADMIN` is not included yet.
+  (`ACTIVE` or `INACTIVE`), with an optional unique verified email.
+- `AuthAccount`: token-free Google, Facebook, or Apple identity mapped by the
+  unique provider/account tuple. Automatic email linking is forbidden.
 - `Group`: one owning Teacher, active/archive state, and payment deadline.
 - `GroupMembership`: Student group history with start/end timestamps. A database
   constraint permits only one active membership per Student.
@@ -82,17 +83,21 @@ erDiagram
 - `AttemptAnswer`: autosaved selection; frozen after submission.
 - `AttemptGrant`: Teacher-issued extra attempt for one Student and test.
 
-### Library and one-time import
+### Library and legacy import metadata
 
 - `LibraryItem`: one category, one primary language, active/archive state, and
   `ALL_GROUPS` or `SELECTED_GROUPS` visibility.
 - `LibraryGroupAccess`: selected group visibility. It is empty for
   `ALL_GROUPS` items.
-- `MediaObject`: private object-storage metadata; binary data never enters
-  PostgreSQL.
+- `MediaObject`: private object-storage metadata with source, owner/domain
+  visibility, upload expiry, and the enforced
+  `PENDING_UPLOAD -> VERIFYING -> READY/REJECTED` lifecycle; binary data never
+  enters PostgreSQL. Only `READY + CLEAN` objects can be attached to domain
+  records; scanner engine, signature, timestamp, and bounded threat metadata
+  preserve the malware decision.
 - `LibraryAttachment`: ordered PDF, image, audio, or video attachments.
-- `TelegramImportRun` and `TelegramImportRecord`: one-time provenance and
-  idempotency using unique channel ID plus message ID.
+- `TelegramImportRun` and `TelegramImportRecord`: unused legacy provenance
+  tables retained only to avoid an unreviewed destructive migration.
 
 ### Finance
 
@@ -116,21 +121,24 @@ erDiagram
 ## Constraints reserved for the physical schema
 
 - One role per User and no `SUPER_ADMIN` in the first role enum.
+- Unique normalized User email when present, unique provider/account identity,
+  and at most one account from each provider per User.
 - One active Group membership per Student.
 - One Teacher owner per Group and one Group per Test.
 - Unique test version number per Test.
 - Exactly one correct option per published single-choice Question.
 - One active attempt per Student and test version at a time.
-- Unique Telegram channel/message source identity.
+- Unique channel/message source identity remains enforced on legacy rows.
 - Unique monthly charge per Student, group context, and billing month.
 - Positive UZS amounts and valid percentage/day-of-month ranges.
 - Immutable published versions, submitted attempts, charges, and payments.
 
 ## Explicitly deferred
 
-- Auth.js accounts, sessions, login methods, and authorization guards: milestone 4.
+- Backend refresh tokens, database sessions, account linking/unlinking,
+  email/password credentials, and Teacher/Admin login.
 - `SUPER_ADMIN` and permanent deletion/anonymization workflow.
-- Multiple branches, multiple Teachers per Group, shared question bank,
-  multiple-choice/free-text questions, and continuous Telegram sync.
+- Multiple branches, multiple Teachers per Group, shared question bank, and
+  multiple-choice/free-text questions.
 - Provider-specific object-storage configuration until a maintained provider is
   selected.

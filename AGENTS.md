@@ -2,25 +2,43 @@
 
 ## Current milestone
 
-The architecture-only repository foundation and the typed configuration/local
-PostgreSQL and Redis foundation are complete. Build only the PostgreSQL/Prisma
-database package, reviewed data design, and ERD in the current milestone. Use a
-stable Prisma release; do not adopt a release candidate migration format.
+The architecture, typed local infrastructure, reviewed PostgreSQL/Prisma domain
+schema, backend identity contract, GraphQL domain plan, and first backend
+Student test slice are complete. Step 7A through 7D are approved:
+provider-neutral S3 object storage, a maintained local provider, the reviewed
+media lifecycle, private media operations, malware scanning, and the first
+Teacher/Student Library contract. SeaweedFS 4.45 is the
+pinned Apache-2.0 local-development provider; application code uses only the
+standard S3 contract through `@best/storage`. The additive lifecycle migration
+is applied and enforces pending, verifying, ready, and rejected states. Use
+stable Prisma migrations; do not adopt a release candidate migration format.
 
-The user has additionally approved the API domain scaffold, bearer access-token
-foundation, typed authentication guards, request IDs, and global error
-handling. This approval does not include product GraphQL fields, login or
-refresh operations, provider callbacks, refresh-token persistence, or other
-business implementation.
+The approved 7D boundary adds ClamAV verification, Teacher-owned category and
+Library item management, group-scoped Student reads, and authorized signed
+downloads. Telegram import has been removed from the backend plan by the user;
+do not implement TDLib, Telegram queues, credentials, synchronization, or
+related APIs. Permanent media deletion, broader Teacher/Admin operations,
+subscriptions, refresh tokens, and frontend integration remain outside 7D.
+Auth.js OAuth callbacks remain owned by the Next.js web app.
+
+Step 8 is complete. Student progress derives current-group completion and
+best-per-test score aggregates without a summary table. The Teacher-only
+Results contract exposes owned-group aggregates, paginated active Student
+progress, assigned-test status, historical attempts, and detailed answer
+review. Admin academic monitoring exposes global/group aggregates, Student
+discovery, and score history without selected or correct answers. Ownership
+mismatches return `NOT_FOUND`; correct answers remain unavailable to Students
+and Admins. Step 9 production hardening is the next separately reviewed scope.
 
 Do not add product models or migrations until their data-design decisions have
-been documented and approved. Select an actively maintained S3-compatible local
-object-storage provider in its later milestone; do not add an archived MinIO
-Community image or accept a new provider license on the user's behalf.
+been documented and approved. Do not replace the selected SeaweedFS local
+provider, add an archived MinIO Community image, or accept a new provider
+license on the user's behalf without a new review.
 
-Do not implement GraphQL queries, mutations, subscriptions, resolver methods,
-Telegram synchronization, scoring logic, identity-provider login behavior, or
-business APIs until the user supplies and approves their later plans.
+Do not extend the approved Student, Teacher Results, Admin academic monitoring,
+or 7D Library/media operations, or implement subscriptions, backend OAuth
+provider callbacks, or other business APIs until the applicable later
+milestone is approved. Telegram integration is retired rather than deferred.
 
 Existing placeholder controllers or generated example endpoints are not product
 contracts and must not be extended.
@@ -39,9 +57,9 @@ are approved.
 - PostgreSQL as the primary transactional database and Prisma for schema,
   migrations, database access, and transactions.
 - Redis and BullMQ for persistent distributed background jobs.
-- S3-compatible object storage for PDF, image, audio, and video objects; the
-  maintained local provider is pending selection.
-- Read-only TDLib ingestion in a dedicated import worker.
+- S3-compatible object storage for PDF, image, audio, and video objects;
+  SeaweedFS 4.45 is the pinned local provider while runtime code remains
+  provider-neutral.
 - Deterministic test scoring in a dedicated scoring worker.
 - GraphQL Code Generator provides operation-specific frontend types from the
   backend schema; never duplicate handwritten request/response types between
@@ -53,7 +71,7 @@ are approved.
 ```text
 apps/
   api/                  NestJS GraphQL application
-  import-worker/        Telegram and media-processing worker
+  import-worker/        Dormant legacy scaffold; no processors
   scoring-worker/       Deterministic scoring worker
 packages/
   database/             Prisma schema, migrations, generated client, and DB API
@@ -86,7 +104,7 @@ dashboard. Split high-load workloads, not presentation areas.
   GraphQL schema artifacts, and configuration formats are allowed.
 - Keep dependencies minimal and add them only when their owning milestone needs
   them. Architecture-only scaffolding must not preinstall database, GraphQL,
-  storage, Telegram, or AI packages before implementation begins.
+  storage, or AI packages before implementation begins.
 - Follow current stable official NestJS, GraphQL, Prisma, BullMQ, PostgreSQL,
   Redis, and object-storage documentation at implementation time.
 
@@ -192,7 +210,7 @@ dashboard. Split high-load workloads, not presentation areas.
   providers/repositories.
 - Do not create barrel files when direct imports make ownership clearer.
 - Keep event callback and job handler names explicit, such as
-  `handleAttemptSubmitted` or `processTelegramBatch`.
+  `handleAttemptSubmitted` or `processMediaBatch`.
 - No dead code, commented experiments, console logging, fake integrations, or
   placeholder success responses.
 
@@ -223,9 +241,9 @@ sensitive payloads must be masked from clients.
 ### Import worker
 
 The import worker is a NestJS standalone application context, not an HTTP
-server. It will eventually consume Telegram and media queues. Until that
-milestone it contains only typed startup configuration and an empty
-bootstrap/module boundary with no processors.
+server. Telegram import has been removed from the plan, so this existing
+scaffold stays dormant with no processors until a different responsibility is
+separately designed and approved. Do not add Telegram dependencies to it.
 
 ### Scoring worker
 
@@ -257,8 +275,8 @@ These rules become active only after the API plan is approved:
 
 - Keep relational business data in PostgreSQL with foreign keys, unique
   constraints, checks, indexes, and transactions.
-- Use JSONB only for genuinely variable raw Telegram payloads, source metadata,
-  and future structured evaluation output.
+- Use JSONB only for genuinely variable source metadata and future structured
+  evaluation output.
 - Use translation tables for Uzbek, Russian, and English publication content.
 - Store object metadata and stable keys in PostgreSQL; never store media binary
   data in the database.
@@ -283,8 +301,7 @@ These rules become active only after the API plan is approved:
 ## Security and secrets
 
 - Commit only `.env.example`; never commit real environment files, database
-  URLs, provider secrets, Telegram credentials, TDLib sessions, JWT signing
-  secrets, storage keys, or tokens.
+  URLs, provider secrets, JWT signing secrets, storage keys, or tokens.
 - Validate required environment variables at process startup when the config
   milestone begins.
 - Use short-lived signed bearer access tokens, server-owned roles, strict origin
@@ -293,8 +310,8 @@ These rules become active only after the API plan is approved:
 - Never trust a client-selected role, query parameter, GraphQL input, Teacher
   ID, or Admin ID as authorization evidence.
 - Keep private media private and issue short-lived authorized URLs.
-- Never log passwords, provider tokens, private student answers, correct
-  answers, or unredacted Telegram session material.
+- Never log passwords, provider tokens, private student answers, or correct
+  answers.
 
 ## Observability
 
@@ -303,9 +320,9 @@ outbox events, queue jobs, and worker logs. Use structured logging; `console.*`
 is not an application logging strategy.
 
 Plan metrics for API/resolver latency, authorization failures, database health,
-queue depth/age/retries, scoring latency, Telegram import progress, object
-processing failures, and worker health. Do not add an observability vendor until
-the deployment plan selects one.
+queue depth/age/retries, scoring latency, object processing failures, and worker
+health. Do not add an observability vendor until the deployment plan selects
+one.
 
 ## Verification standards
 
@@ -346,12 +363,20 @@ Do not weaken or disable a check to make the repository pass.
 4. Auth.js/NestJS identity and authorization contract.
 5. Approved GraphQL domain plan.
 6. First vertical Student test slice.
-7. Object storage, Library, and Telegram import.
+7. Object storage and Library.
 8. Results, Progress, and authorized Teacher/Admin integration.
 9. Production hardening.
 10. Separately approved AI evaluation.
 
-Steps 1 and 2 are complete. Only step 3 is authorized in the current milestone.
+Steps 1 through 5 are complete. The backend scope of step 6 is implemented;
+frontend integration remains deferred. Step 7A object-storage configuration,
+local provider, signing primitives, and tests are implemented. Step 7B media
+lifecycle migrations and database invariants are also implemented. Step 7C
+private upload, confirmation, and owner-download mutations are implemented.
+Step 7D malware scanning, Teacher Library management, Student authorization,
+and signed delivery are implemented. Step 7 is complete. Telegram import was
+removed from the plan by the user. Step 8A Student Progress is implemented;
+step 8B Teacher Results is next.
 
 ## BACKEND PLAN
 
@@ -360,6 +385,8 @@ from the frontend planning document. The active milestone and implementation
 boundaries at the top of this file take precedence when a later decision or
 completed phase makes historical planning language stale. The frontend remains
 in the sibling `best-react` repository; it is not moved into this backend repo.
+All Telegram/TDLib language in the historical reference is retired and must not
+be implemented unless the user approves a new plan in the future.
 
 ### Backend technology decisions
 
@@ -377,9 +404,8 @@ in the sibling `best-react` repository; it is not moved into this backend repo.
   object-storage milestone.
 - Use GraphQL Code Generator to derive frontend operation result and variable
   types from the generated GraphQL schema and authored operations.
-- Use a read-only TDLib integration for Telegram channel history and media.
-- Deploy the web, API, import worker, and scoring worker independently. Do not
-  create one backend server per dashboard.
+- Deploy the web, API, and scoring worker independently. Do not create one
+  backend server per dashboard. The existing import-worker scaffold is dormant.
 - Do not create an AI worker in the initial backend milestone. Define only the
   versioned contracts required for a separately approved AI milestone.
 
@@ -393,7 +419,7 @@ preset guidance rather than copying outdated setup patterns.
 ```text
 apps/
   api/                  NestJS GraphQL API
-  import-worker/        Telegram and media-processing consumer
+  import-worker/        Dormant legacy scaffold
   scoring-worker/       Deterministic test-scoring consumer
 packages/
   database/             Prisma schema, migrations, seeds, and client
@@ -420,7 +446,6 @@ Browser
   -> NestJS GraphQL API
        -> PostgreSQL
        -> Redis/BullMQ
-            -> import-worker
             -> scoring-worker
        -> S3-compatible object storage
 ```
@@ -561,15 +586,6 @@ Tests and results:
 - `results`
 - `score_breakdowns`
 
-Telegram import:
-
-- `telegram_sources`
-- `telegram_posts`
-- `telegram_assets`
-- `import_jobs`
-- `import_errors`
-- `content_reviews`
-
 Future evaluation:
 
 - `rubrics`
@@ -591,9 +607,8 @@ Schema rules:
 - Use translation tables for product content that must be published in Uzbek,
   Russian, and English. Do not hide searchable production translations in an
   unstructured blob.
-- Use PostgreSQL JSONB for raw Telegram payloads, future structured AI output,
-  and genuinely variable source metadata, while keeping queried relational
-  fields in typed columns.
+- Use PostgreSQL JSONB for future structured AI output and genuinely variable
+  source metadata, while keeping queried relational fields in typed columns.
 - Make published test versions immutable and bind every attempt to one exact
   version.
 - Enforce one authoritative attempt identity, answer uniqueness per
@@ -629,10 +644,7 @@ Do not store PDF, image, video, or audio binary data in PostgreSQL.
 Plan named queues for:
 
 ```text
-telegram-sync
-telegram-download
 media-processing
-content-classification
 test-scoring
 notification-delivery
 ai-evaluation          # disabled until separately approved
@@ -644,42 +656,11 @@ ai-evaluation          # disabled until separately approved
 - Configure failed/dead-letter handling and an operational retry path. Never
   create an infinite automatic retry loop.
 - Use the transactional outbox pattern for database changes that must reliably
-  enqueue work, especially final test submission and content import state.
+  enqueue work, especially final test submission.
 - Treat Redis as queue/cache infrastructure, not the authoritative source for
   student answers, results, users, or imported content.
 - Scale queue consumers independently and apply concurrency/rate limits per
   external provider and workload.
-
-### Telegram import architecture
-
-Run Telegram ingestion only in `import-worker` with approved read-only TDLib
-credentials.
-
-1. Register an approved source channel and encrypted credential/session
-   reference.
-2. Fetch channel history in resumable batches with a durable cursor.
-3. Upsert posts by source channel and message identity.
-4. Preserve publication/edit timestamps, source link, original text/caption,
-   media metadata, raw payload, and import version for traceability.
-5. Download PDF/image media, validate it, calculate checksums, and upload it to
-   object storage.
-6. Classify content using deterministic source tags/templates and approved
-   rules first. Keep future AI classification optional and separately approved.
-7. Normalize accepted metadata into Library/domain records.
-8. Route unknown, ambiguous, incomplete, unsafe, duplicated, or failed entries
-   to an operational Admin review queue.
-9. Publish content to Students only after review, rights verification, and
-   required localization are complete.
-
-- Make repeated imports idempotent and resume from interruption without
-  duplicating posts or files.
-- Deduplicate posts by channel/message identity and media by checksum where
-  appropriate.
-- Never commit or paste Telegram bot tokens, `api_id`, `api_hash`, phone login
-  data, or TDLib session material. Use ignored local secrets and a production
-  secret manager.
-- Record import counts, failures, durations, cursors, and review status for
-  observability and recovery.
 
 ### Test-platform architecture
 
@@ -749,8 +730,8 @@ Deliver the first vertical slice as:
 Auth -> Tests list -> Test Runner -> Submit -> Scoring -> Result
 ```
 
-Then deliver Library/Telegram content, Results history, Progress, Settings,
-Teacher visibility, and operational Admin review. Every slice must include its
+Then deliver Library content, Results history, Progress, Settings, Teacher
+visibility, and operational Admin review. Every slice must include its
 GraphQL contract, database behavior, authorization, responsive frontend,
 loading/empty/error states, and automated verification.
 
@@ -781,7 +762,7 @@ Initial deployment:
 - One Redis deployment
 - One S3-compatible object store
 - One or more stateless API replicas
-- Independently scalable import and scoring workers
+- An independently scalable scoring worker
 
 Measured growth options:
 
@@ -791,9 +772,9 @@ Measured growth options:
 - Partition attempts, answers, import logs, or audit records only after table
   growth and query plans justify it.
 - Add CDN delivery and controlled caching for public/authorized media.
-- Extract Test Engine, Telegram Import, Notifications, or future AI Evaluation
-  into separate services only when ownership, deployment, reliability, or
-  scaling evidence requires it.
+- Extract Test Engine, Notifications, or future AI Evaluation into separate
+  services only when ownership, deployment, reliability, or scaling evidence
+  requires it.
 
 Do not split Student, Teacher, and Admin into separate backend servers merely
 because user counts grow. They share transactional domains; split independently
@@ -813,7 +794,6 @@ scalable workloads instead.
 - Sensitive-field and credential redaction in logs
 - Audit events for privileged operations and result changes
 - Database backup, restore drills, and reviewed migration rollback plans
-- Encrypted Telegram session storage
 - Correct-answer isolation from Student clients
 - Dependency, container, and file-malware scanning
 
@@ -831,7 +811,6 @@ Monitor:
 - Database connections, slow queries, locks, and migration status
 - Queue depth, age, retries, dead-letter count, and processing duration
 - Test autosave, submission, scoring, and result-ready latency
-- Telegram import cursor, throughput, duplicates, failures, and review backlog
 - Object-storage upload/processing failures
 - API and worker health/readiness
 
@@ -850,8 +829,7 @@ Monitor:
   recovery.
 - Security tests for role escalation, ownership bypass, correct-answer leakage,
   malicious GraphQL queries, unsafe files, and signed-URL expiration.
-- Load tests for concurrent autosave/submission, scoring queue bursts, and 500+
-  Telegram item imports.
+- Load tests for concurrent autosave/submission and scoring queue bursts.
 
 ### CI/CD and environments
 
@@ -917,11 +895,11 @@ Phase 4 — first test vertical slice:
 - Implement test schema/versioning, attempts, answers, autosave, submission,
   outbox, scoring worker, result-ready notification, and Student UI integration.
 
-Phase 5 — Library and Telegram:
+Phase 5 — Library:
 
-- Implement object storage, Library GraphQL API, TDLib importer, media pipeline,
-  classification, review queue, localization readiness, and protected Student
-  Library integration.
+- Implement object storage, Library GraphQL API, media safety, localization
+  readiness, and protected Student Library integration. This phase is complete;
+  Telegram import is not part of the backend plan.
 
 Phase 6 — Results and Progress:
 

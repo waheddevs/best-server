@@ -9,8 +9,12 @@ Current profiles validate:
 - shared `NODE_ENV` values;
 - the API listen port;
 - bearer access-token issuer, audience, signing secret, and TTL;
+- separate web-to-API identity-exchange issuer, audience, and signing secret;
 - local PostgreSQL connection settings;
-- local Redis connection settings.
+- local Redis connection settings;
+- private S3 endpoint, region, bucket, credentials, URL TTLs, path style, and
+  maximum upload size;
+- ClamAV host, port, connection timeout, and scan timeout.
 
 Copy `.env.example` to an untracked root `.env` for local development. Runtime
 environment variables take precedence over values in that file.
