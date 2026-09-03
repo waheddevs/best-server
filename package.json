@@ -25,6 +25,7 @@
     "database:generate": "turbo run generate --filter=@best/database",
     "database:migrate:deploy": "yarn workspace @best/database migrate:deploy",
     "database:migrate:status": "yarn workspace @best/database migrate:status",
+    "database:test:integration": "turbo run test:integration --filter=@best/database",
     "database:validate": "turbo run validate --filter=@best/database",
     "dev": "turbo run dev --parallel",
     "dev:api": "turbo run dev --filter=@best/api",
@@ -36,6 +37,8 @@
     "infra:down": "docker compose --env-file .env -f infrastructure/docker/compose.yaml down",
     "infra:logs": "docker compose --env-file .env -f infrastructure/docker/compose.yaml logs --follow",
     "infra:up": "docker compose --env-file .env -f infrastructure/docker/compose.yaml up --detach --wait",
+    "api:test:integration": "turbo run test:integration --filter=@best/api",
+    "scoring:test:integration": "turbo run test:integration --filter=@best/scoring-worker",
     "lint": "turbo run lint",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck"

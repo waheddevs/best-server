@@ -19,6 +19,12 @@ enum UserStatus {
   INACTIVE
 }
 
+enum AuthProvider {
+  GOOGLE
+  FACEBOOK
+  APPLE
+}
+
 enum ContentStatus {
   ACTIVE
   ARCHIVED
@@ -59,6 +65,30 @@ enum MediaType {
   VIDEO
 }
 
+enum MediaObjectStatus {
+  PENDING_UPLOAD
+  VERIFYING
+  READY
+  REJECTED
+}
+
+enum MediaObjectSource {
+  USER_UPLOAD
+  TELEGRAM_IMPORT
+  SYSTEM_GENERATED
+}
+
+enum MediaVisibility {
+  OWNER_ONLY
+  DOMAIN_AUTHORIZED
+}
+
+enum MediaMalwareStatus {
+  PENDING
+  CLEAN
+  INFECTED
+}
+
 enum ImportRunStatus {
   PENDING
   RUNNING
@@ -77,13 +107,20 @@ enum FinanceAdjustmentKind {
   REVERSAL
 }
 
+enum OutboxEventType {
+  ATTEMPT_SUBMITTED
+}
+
 model User {
   id                       String                   @id @default(uuid()) @db.Uuid
   role                     UserRole
   status                   UserStatus               @default(ACTIVE)
   displayName              String                   @map("display_name") @db.VarChar(160)
+  email                    String?                  @unique @db.VarChar(320)
+  emailVerifiedAt          DateTime?                @map("email_verified_at") @db.Timestamptz(3)
   createdAt                DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt                DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
+  authAccounts             AuthAccount[]
   ownedGroups              Group[]                  @relation("GroupTeacher")
   groupMemberships         GroupMembership[]        @relation("StudentMembership")
   createdTestCategories    TestCategory[]           @relation("TestCategoryCreator")
@@ -105,6 +142,22 @@ model User {
 
   @@index([role, status])
   @@map("users")
+}
+
+model AuthAccount {
+  id                      String       @id @default(uuid()) @db.Uuid
+  userId                  String       @map("user_id") @db.Uuid
+  provider                AuthProvider
+  providerAccountId       String       @map("provider_account_id") @db.VarChar(255)
+  providerEmail           String?      @map("provider_email") @db.VarChar(320)
+  providerEmailVerifiedAt DateTime?    @map("provider_email_verified_at") @db.Timestamptz(3)
+  createdAt               DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  lastAuthenticatedAt     DateTime     @default(now()) @map("last_authenticated_at") @db.Timestamptz(3)
+  user                    User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([provider, providerAccountId])
+  @@unique([userId, provider])
+  @@map("auth_accounts")
 }
 
 model Group {
@@ -382,21 +435,37 @@ model LibraryGroupAccess {
 }
 
 model MediaObject {
-  id              String              @id @default(uuid()) @db.Uuid
-  createdById     String              @map("created_by_id") @db.Uuid
-  mediaType       MediaType           @map("media_type")
-  bucket          String              @db.VarChar(120)
-  objectKey       String              @unique @map("object_key") @db.VarChar(1024)
-  originalName    String              @map("original_name") @db.VarChar(255)
-  mimeType        String              @map("mime_type") @db.VarChar(160)
-  sizeBytes       BigInt              @map("size_bytes")
-  checksumSha256  String              @map("checksum_sha256") @db.Char(64)
-  createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
-  createdBy       User                @relation("MediaObjectCreator", fields: [createdById], references: [id], onDelete: Restrict)
-  attachments     LibraryAttachment[]
-  paymentReceipts Payment[]           @relation("PaymentReceipt")
+  id                      String              @id @default(uuid()) @db.Uuid
+  createdById             String              @map("created_by_id") @db.Uuid
+  mediaType               MediaType           @map("media_type")
+  status                  MediaObjectStatus   @default(PENDING_UPLOAD)
+  source                  MediaObjectSource   @default(USER_UPLOAD)
+  visibility              MediaVisibility     @default(OWNER_ONLY)
+  bucket                  String              @db.VarChar(120)
+  objectKey               String              @unique @map("object_key") @db.VarChar(1024)
+  originalName            String              @map("original_name") @db.VarChar(255)
+  mimeType                String              @map("mime_type") @db.VarChar(160)
+  sizeBytes               BigInt?             @map("size_bytes")
+  checksumSha256          String?             @map("checksum_sha256") @db.Char(64)
+  uploadExpiresAt         DateTime?           @map("upload_expires_at") @db.Timestamptz(3)
+  verifiedAt              DateTime?           @map("verified_at") @db.Timestamptz(3)
+  rejectedAt              DateTime?           @map("rejected_at") @db.Timestamptz(3)
+  rejectionCode           String?             @map("rejection_code") @db.VarChar(80)
+  malwareStatus           MediaMalwareStatus  @default(PENDING) @map("malware_status")
+  malwareScannedAt        DateTime?           @map("malware_scanned_at") @db.Timestamptz(3)
+  malwareEngine           String?             @map("malware_engine") @db.VarChar(80)
+  malwareEngineVersion    String?             @map("malware_engine_version") @db.VarChar(80)
+  malwareSignatureVersion String?             @map("malware_signature_version") @db.VarChar(120)
+  malwareThreatName       String?             @map("malware_threat_name") @db.VarChar(240)
+  createdAt               DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt               DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdBy               User                @relation("MediaObjectCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  attachments             LibraryAttachment[]
+  paymentReceipts         Payment[]           @relation("PaymentReceipt")
 
   @@index([createdById, mediaType])
+  @@index([status, uploadExpiresAt])
+  @@index([malwareStatus, status])
   @@map("media_objects")
 }
 
@@ -569,4 +638,21 @@ model AuditLog {
   @@index([actorId, createdAt])
   @@index([correlationId])
   @@map("audit_logs")
+}
+
+model OutboxEvent {
+  id              String          @id @default(uuid()) @db.Uuid
+  eventType       OutboxEventType @map("event_type")
+  aggregateId     String          @map("aggregate_id") @db.Uuid
+  payloadVersion  Int             @default(1) @map("payload_version")
+  payload         Json            @db.JsonB
+  correlationId   String?         @map("correlation_id") @db.VarChar(120)
+  occurredAt      DateTime        @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  publishedAt     DateTime?       @map("published_at") @db.Timestamptz(3)
+  publishAttempts Int             @default(0) @map("publish_attempts")
+  nextAttemptAt   DateTime        @default(now()) @map("next_attempt_at") @db.Timestamptz(3)
+  lastError       String?         @map("last_error") @db.VarChar(500)
+
+  @@unique([eventType, aggregateId])
+  @@map("outbox_events")
 }

@@ -11,12 +11,13 @@
     }
   },
   "scripts": {
-    "build": "prisma generate && tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json",
     "generate": "prisma generate",
-    "lint": "prisma generate && eslint \"src/**/*.ts\" \"prisma.config.ts\"",
+    "lint": "eslint \"{src,test}/**/*.ts\" \"prisma.config.ts\"",
     "migrate:deploy": "prisma migrate deploy",
     "migrate:status": "prisma migrate status",
-    "typecheck": "prisma generate && tsc --noEmit -p tsconfig.json",
+    "test:integration": "tsc -p tsconfig.integration.json && node --test --test-concurrency=1 ../../.tmp/database-integration/test/database.integration.spec.js",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p test/tsconfig.json",
     "validate": "prisma validate"
   },
   "dependencies": {
