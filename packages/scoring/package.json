@@ -1,0 +1,19 @@
+{
+  "name": "@best/scoring",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint \"{src,test}/**/*.ts\"",
+    "test": "tsc -p tsconfig.test.json && node --test ../../.tmp/scoring-test/test/score-single-choice.spec.js",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  }
+}

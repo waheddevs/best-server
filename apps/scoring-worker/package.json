@@ -8,17 +8,25 @@
     "generate": "nest generate",
     "lint": "eslint \"src/**/*.ts\"",
     "start": "node dist/main.js",
+    "test:integration": "tsc -p tsconfig.integration.json && node --test --test-concurrency=1 ../../.tmp/scoring-worker-integration/test/scoring-worker.integration.spec.js",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
     "@best/config": "workspace:*",
+    "@best/database": "workspace:*",
     "@best/logger": "workspace:*",
+    "@best/scoring": "workspace:*",
+    "@nestjs/bullmq": "^12.0.0",
     "@nestjs/common": "^11.0.1",
     "@nestjs/core": "^11.0.1",
+    "bullmq": "^6.3.4",
+    "ioredis": "^6.0.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
   },
   "devDependencies": {
-    "@nestjs/cli": "^11.0.0"
+    "@nestjs/cli": "^11.0.0",
+    "@types/pg": "8.23.1",
+    "pg": "8.23.0"
   }
 }
