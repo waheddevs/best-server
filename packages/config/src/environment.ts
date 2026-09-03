@@ -13,6 +13,9 @@ export interface AuthEnvironment {
   accessTokenIssuer: string;
   accessTokenSecret: string;
   accessTokenTtlSeconds: number;
+  identityExchangeAudience: string;
+  identityExchangeIssuer: string;
+  identityExchangeSecret: string;
 }
 
 export interface WorkerEnvironment {
@@ -34,6 +37,25 @@ export interface InfrastructureEnvironment {
   };
 }
 
+export interface ObjectStorageEnvironment {
+  accessKeyId: string;
+  bucket: string;
+  downloadUrlTtlSeconds: number;
+  endpoint: string;
+  forcePathStyle: boolean;
+  maxUploadBytes: number;
+  region: string;
+  secretAccessKey: string;
+  uploadUrlTtlSeconds: number;
+}
+
+export interface MalwareScannerEnvironment {
+  connectTimeoutMilliseconds: number;
+  host: string;
+  port: number;
+  scanTimeoutMilliseconds: number;
+}
+
 type EnvironmentSource = Readonly<Record<string, string | undefined>>;
 type PostgresConnectionParts = Omit<
   InfrastructureEnvironment['postgres'],
@@ -42,8 +64,14 @@ type PostgresConnectionParts = Omit<
 
 const DEFAULT_API_PORT = 4000;
 const DEFAULT_ACCESS_TOKEN_TTL_SECONDS = 900;
+const DEFAULT_DOWNLOAD_URL_TTL_SECONDS = 300;
+const DEFAULT_MAX_UPLOAD_BYTES = 52_428_800;
+const DEFAULT_MALWARE_SCANNER_CONNECT_TIMEOUT_MILLISECONDS = 5_000;
+const DEFAULT_MALWARE_SCANNER_SCAN_TIMEOUT_MILLISECONDS = 60_000;
 const DEFAULT_NODE_ENVIRONMENT: NodeEnvironment = 'development';
+const DEFAULT_UPLOAD_URL_TTL_SECONDS = 300;
 const MINIMUM_ACCESS_TOKEN_SECRET_LENGTH = 32;
+const MINIMUM_STORAGE_SECRET_LENGTH = 16;
 const ROOT_ENVIRONMENT_FILE_PATH = resolve(__dirname, '..', '..', '..', '.env');
 
 export class EnvironmentValidationError extends Error {
@@ -75,6 +103,25 @@ export function parseAuthEnvironment(
     );
   }
 
+  const identityExchangeSecret = parseRequiredString(
+    source.AUTH_EXCHANGE_SECRET,
+    'AUTH_EXCHANGE_SECRET',
+  );
+
+  if (identityExchangeSecret.length < MINIMUM_ACCESS_TOKEN_SECRET_LENGTH) {
+    throw new EnvironmentValidationError(
+      'AUTH_EXCHANGE_SECRET',
+      `expected at least ${String(MINIMUM_ACCESS_TOKEN_SECRET_LENGTH)} characters`,
+    );
+  }
+
+  if (identityExchangeSecret === accessTokenSecret) {
+    throw new EnvironmentValidationError(
+      'AUTH_EXCHANGE_SECRET',
+      'expected a value different from JWT_ACCESS_SECRET',
+    );
+  }
+
   return {
     accessTokenAudience: parseRequiredString(
       source.JWT_ACCESS_AUDIENCE,
@@ -92,6 +139,15 @@ export function parseAuthEnvironment(
       3_600,
       DEFAULT_ACCESS_TOKEN_TTL_SECONDS,
     ),
+    identityExchangeAudience: parseRequiredString(
+      source.AUTH_EXCHANGE_AUDIENCE,
+      'AUTH_EXCHANGE_AUDIENCE',
+    ),
+    identityExchangeIssuer: parseRequiredString(
+      source.AUTH_EXCHANGE_ISSUER,
+      'AUTH_EXCHANGE_ISSUER',
+    ),
+    identityExchangeSecret,
   };
 }
 
@@ -133,6 +189,82 @@ export function parseInfrastructureEnvironment(
   };
 }
 
+export function parseObjectStorageEnvironment(
+  source: EnvironmentSource,
+): ObjectStorageEnvironment {
+  const secretAccessKey = parseRequiredString(
+    source.S3_SECRET_ACCESS_KEY,
+    'S3_SECRET_ACCESS_KEY',
+  );
+
+  if (secretAccessKey.length < MINIMUM_STORAGE_SECRET_LENGTH) {
+    throw new EnvironmentValidationError(
+      'S3_SECRET_ACCESS_KEY',
+      `expected at least ${String(MINIMUM_STORAGE_SECRET_LENGTH)} characters`,
+    );
+  }
+
+  return {
+    accessKeyId: parseRequiredString(
+      source.S3_ACCESS_KEY_ID,
+      'S3_ACCESS_KEY_ID',
+    ),
+    bucket: parseBucketName(source.S3_BUCKET),
+    downloadUrlTtlSeconds: parseIntegerInRange(
+      source.S3_DOWNLOAD_URL_TTL_SECONDS,
+      'S3_DOWNLOAD_URL_TTL_SECONDS',
+      60,
+      3_600,
+      DEFAULT_DOWNLOAD_URL_TTL_SECONDS,
+    ),
+    endpoint: parseHttpEndpoint(source.S3_ENDPOINT),
+    forcePathStyle: parseBoolean(
+      source.S3_FORCE_PATH_STYLE,
+      'S3_FORCE_PATH_STYLE',
+      false,
+    ),
+    maxUploadBytes: parseIntegerInRange(
+      source.S3_MAX_UPLOAD_BYTES,
+      'S3_MAX_UPLOAD_BYTES',
+      1,
+      5_368_709_120,
+      DEFAULT_MAX_UPLOAD_BYTES,
+    ),
+    region: parseRequiredString(source.S3_REGION, 'S3_REGION'),
+    secretAccessKey,
+    uploadUrlTtlSeconds: parseIntegerInRange(
+      source.S3_UPLOAD_URL_TTL_SECONDS,
+      'S3_UPLOAD_URL_TTL_SECONDS',
+      60,
+      900,
+      DEFAULT_UPLOAD_URL_TTL_SECONDS,
+    ),
+  };
+}
+
+export function parseMalwareScannerEnvironment(
+  source: EnvironmentSource,
+): MalwareScannerEnvironment {
+  return {
+    connectTimeoutMilliseconds: parseIntegerInRange(
+      source.CLAMAV_CONNECT_TIMEOUT_MS,
+      'CLAMAV_CONNECT_TIMEOUT_MS',
+      100,
+      30_000,
+      DEFAULT_MALWARE_SCANNER_CONNECT_TIMEOUT_MILLISECONDS,
+    ),
+    host: parseNetworkHost(source.CLAMAV_HOST, 'CLAMAV_HOST'),
+    port: parsePort(source.CLAMAV_PORT, 'CLAMAV_PORT'),
+    scanTimeoutMilliseconds: parseIntegerInRange(
+      source.CLAMAV_SCAN_TIMEOUT_MS,
+      'CLAMAV_SCAN_TIMEOUT_MS',
+      1_000,
+      300_000,
+      DEFAULT_MALWARE_SCANNER_SCAN_TIMEOUT_MILLISECONDS,
+    ),
+  };
+}
+
 function buildPostgresUrl({
   database,
   host,
@@ -169,6 +301,16 @@ export function loadWorkerEnvironment(): WorkerEnvironment {
 export function loadInfrastructureEnvironment(): InfrastructureEnvironment {
   loadLocalEnvironmentFile();
   return parseInfrastructureEnvironment(process.env);
+}
+
+export function loadObjectStorageEnvironment(): ObjectStorageEnvironment {
+  loadLocalEnvironmentFile();
+  return parseObjectStorageEnvironment(process.env);
+}
+
+export function loadMalwareScannerEnvironment(): MalwareScannerEnvironment {
+  loadLocalEnvironmentFile();
+  return parseMalwareScannerEnvironment(process.env);
 }
 
 function loadLocalEnvironmentFile(): void {
@@ -288,4 +430,86 @@ function parseOptionalString(value: string | undefined): string | undefined {
   return normalizedValue === undefined || normalizedValue.length === 0
     ? undefined
     : normalizedValue;
+}
+
+function parseBoolean(
+  value: string | undefined,
+  variableName: string,
+  defaultValue: boolean,
+): boolean {
+  const normalizedValue = value?.trim().toLowerCase();
+
+  if (normalizedValue === undefined || normalizedValue.length === 0) {
+    return defaultValue;
+  }
+
+  if (normalizedValue === 'true') {
+    return true;
+  }
+
+  if (normalizedValue === 'false') {
+    return false;
+  }
+
+  throw new EnvironmentValidationError(variableName, 'expected true or false');
+}
+
+function parseBucketName(value: string | undefined): string {
+  const bucket = parseRequiredString(value, 'S3_BUCKET');
+
+  if (!/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/.test(bucket)) {
+    throw new EnvironmentValidationError(
+      'S3_BUCKET',
+      'expected a lowercase S3 bucket name between 3 and 63 characters',
+    );
+  }
+
+  return bucket;
+}
+
+function parseHttpEndpoint(value: string | undefined): string {
+  const endpoint = parseRequiredString(value, 'S3_ENDPOINT');
+
+  try {
+    const url = new URL(endpoint);
+
+    if (
+      (url.protocol !== 'http:' && url.protocol !== 'https:') ||
+      url.username.length > 0 ||
+      url.password.length > 0 ||
+      url.search.length > 0 ||
+      url.hash.length > 0
+    ) {
+      throw new Error('Invalid endpoint');
+    }
+
+    return url.toString().replace(/\/$/, '');
+  } catch {
+    throw new EnvironmentValidationError(
+      'S3_ENDPOINT',
+      'expected an HTTP or HTTPS URL without credentials, query, or fragment',
+    );
+  }
+}
+
+function parseNetworkHost(
+  value: string | undefined,
+  variableName: string,
+): string {
+  const host = parseRequiredString(value, variableName);
+
+  if (
+    host.length > 253 ||
+    !/^[a-zA-Z0-9.-]+$/.test(host) ||
+    host.startsWith('.') ||
+    host.endsWith('.') ||
+    host.includes('..')
+  ) {
+    throw new EnvironmentValidationError(
+      variableName,
+      'expected a valid IPv4 address or DNS hostname',
+    );
+  }
+
+  return host;
 }

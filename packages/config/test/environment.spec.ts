@@ -6,6 +6,8 @@ import {
   parseApiEnvironment,
   parseAuthEnvironment,
   parseInfrastructureEnvironment,
+  parseMalwareScannerEnvironment,
+  parseObjectStorageEnvironment,
   parseWorkerEnvironment,
 } from '../src/environment';
 
@@ -19,6 +21,9 @@ void test('API environment uses safe development defaults', () => {
 void test('auth environment parses the bearer access-token contract', () => {
   assert.deepEqual(
     parseAuthEnvironment({
+      AUTH_EXCHANGE_AUDIENCE: 'best-api',
+      AUTH_EXCHANGE_ISSUER: 'best-web',
+      AUTH_EXCHANGE_SECRET: 'a-different-exchange-secret-with-32-characters',
       JWT_ACCESS_AUDIENCE: 'best-clients',
       JWT_ACCESS_ISSUER: 'best-api',
       JWT_ACCESS_SECRET: 'a-development-secret-with-32-characters',
@@ -28,12 +33,18 @@ void test('auth environment parses the bearer access-token contract', () => {
       accessTokenIssuer: 'best-api',
       accessTokenSecret: 'a-development-secret-with-32-characters',
       accessTokenTtlSeconds: 900,
+      identityExchangeAudience: 'best-api',
+      identityExchangeIssuer: 'best-web',
+      identityExchangeSecret: 'a-different-exchange-secret-with-32-characters',
     },
   );
 });
 
 void test('auth environment rejects weak secrets and invalid token TTLs', () => {
   const validSource = {
+    AUTH_EXCHANGE_AUDIENCE: 'best-api',
+    AUTH_EXCHANGE_ISSUER: 'best-web',
+    AUTH_EXCHANGE_SECRET: 'a-different-exchange-secret-with-32-characters',
     JWT_ACCESS_AUDIENCE: 'best-clients',
     JWT_ACCESS_ISSUER: 'best-api',
     JWT_ACCESS_SECRET: 'a-development-secret-with-32-characters',
@@ -58,6 +69,15 @@ void test('auth environment rejects weak secrets and invalid token TTLs', () => 
       EnvironmentValidationError,
     );
   }
+
+  assert.throws(
+    () =>
+      parseAuthEnvironment({
+        ...validSource,
+        AUTH_EXCHANGE_SECRET: validSource.JWT_ACCESS_SECRET,
+      }),
+    EnvironmentValidationError,
+  );
 });
 
 void test('API environment parses supported explicit values', () => {
@@ -149,4 +169,86 @@ void test('infrastructure environment requires every connection value', () => {
       'expected a non-empty value',
     ),
   );
+});
+
+void test('object storage environment parses a private S3 contract', () => {
+  assert.deepEqual(
+    parseObjectStorageEnvironment({
+      S3_ACCESS_KEY_ID: 'best-local-storage',
+      S3_BUCKET: 'best-private',
+      S3_ENDPOINT: 'http://127.0.0.1:8333/',
+      S3_FORCE_PATH_STYLE: 'true',
+      S3_REGION: 'us-east-1',
+      S3_SECRET_ACCESS_KEY: 'a-local-secret-with-enough-length',
+    }),
+    {
+      accessKeyId: 'best-local-storage',
+      bucket: 'best-private',
+      downloadUrlTtlSeconds: 300,
+      endpoint: 'http://127.0.0.1:8333',
+      forcePathStyle: true,
+      maxUploadBytes: 52_428_800,
+      region: 'us-east-1',
+      secretAccessKey: 'a-local-secret-with-enough-length',
+      uploadUrlTtlSeconds: 300,
+    },
+  );
+});
+
+void test('object storage environment rejects unsafe settings', () => {
+  const validSource = {
+    S3_ACCESS_KEY_ID: 'best-local-storage',
+    S3_BUCKET: 'best-private',
+    S3_ENDPOINT: 'http://127.0.0.1:8333',
+    S3_REGION: 'us-east-1',
+    S3_SECRET_ACCESS_KEY: 'a-local-secret-with-enough-length',
+  };
+
+  for (const invalidSource of [
+    { S3_BUCKET: 'UPPERCASE' },
+    { S3_ENDPOINT: 'ftp://127.0.0.1:8333' },
+    { S3_FORCE_PATH_STYLE: 'yes' },
+    { S3_MAX_UPLOAD_BYTES: '0' },
+    { S3_SECRET_ACCESS_KEY: 'too-short' },
+    { S3_UPLOAD_URL_TTL_SECONDS: '3600' },
+  ]) {
+    assert.throws(
+      () => parseObjectStorageEnvironment({ ...validSource, ...invalidSource }),
+      EnvironmentValidationError,
+    );
+  }
+});
+
+void test('malware scanner environment parses bounded TCP settings', () => {
+  assert.deepEqual(
+    parseMalwareScannerEnvironment({
+      CLAMAV_HOST: '127.0.0.1',
+      CLAMAV_PORT: '3310',
+    }),
+    {
+      connectTimeoutMilliseconds: 5_000,
+      host: '127.0.0.1',
+      port: 3_310,
+      scanTimeoutMilliseconds: 60_000,
+    },
+  );
+});
+
+void test('malware scanner environment rejects unsafe endpoints and timeouts', () => {
+  for (const invalidSource of [
+    { CLAMAV_HOST: 'http://127.0.0.1' },
+    { CLAMAV_PORT: '0' },
+    { CLAMAV_SCAN_TIMEOUT_MS: '999' },
+    { CLAMAV_CONNECT_TIMEOUT_MS: '30001' },
+  ]) {
+    assert.throws(
+      () =>
+        parseMalwareScannerEnvironment({
+          CLAMAV_HOST: '127.0.0.1',
+          CLAMAV_PORT: '3310',
+          ...invalidSource,
+        }),
+      EnvironmentValidationError,
+    );
+  }
 });

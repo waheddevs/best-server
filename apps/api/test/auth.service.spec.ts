@@ -11,7 +11,9 @@ import type { AuthenticatedMember } from '../src/libs/types/authenticated-member
 
 const JWT_SECRET = 'a-test-secret-that-is-longer-than-32-characters';
 
-function createAuthService(member: AuthenticatedMember): AuthService {
+function createAuthService(
+  member: AuthenticatedMember | undefined,
+): AuthService {
   const jwtService = new JwtService({
     secret: JWT_SECRET,
     signOptions: {
@@ -59,4 +61,16 @@ void test('AuthService rejects a token signed by another key', async () => {
   });
 
   await assert.rejects(service.verifyAccessToken(token), UnauthorizedException);
+});
+
+void test('AuthService rejects a token after its User becomes inactive', async () => {
+  const activeMember = { id: 'user-1', role: UserRole.STUDENT };
+  const issuingService = createAuthService(activeMember);
+  const verifyingService = createAuthService(undefined);
+  const token = await issuingService.issueAccessToken(activeMember);
+
+  await assert.rejects(
+    verifyingService.verifyAccessToken(token),
+    UnauthorizedException,
+  );
 });
