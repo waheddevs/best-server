@@ -2,15 +2,28 @@ import { resolve } from 'node:path';
 
 import { loadApiEnvironment } from '@best/config';
 import {
+  AssignmentStatus,
+  AttendanceStatus,
   AttemptStatus,
   ContentStatus,
   Language,
+  LessonStatus,
   LibraryVisibility,
   MediaMalwareStatus,
   MediaObjectStatus,
   MediaType,
   UserRole,
   UserStatus,
+  TransferRequestStatus,
+  IntakeStatus,
+  PublicContentStatus,
+  PublicCourseAccent,
+  PublicCourseCategory,
+  PublicEventTimelineStatus,
+  SubmissionStatus,
+  TeacherTaskKind,
+  TeacherTaskStatus,
+  TestVersionStatus,
 } from '@best/database';
 import { ApolloDriver, type ApolloDriverConfig } from '@nestjs/apollo';
 import { Module } from '@nestjs/common';
@@ -34,6 +47,21 @@ registerEnumType(ContentStatus, { name: 'ContentStatus' });
 registerEnumType(MediaType, { name: 'MediaType' });
 registerEnumType(MediaObjectStatus, { name: 'MediaObjectStatus' });
 registerEnumType(MediaMalwareStatus, { name: 'MediaMalwareStatus' });
+registerEnumType(TransferRequestStatus, { name: 'TransferRequestStatus' });
+registerEnumType(LessonStatus, { name: 'LessonStatus' });
+registerEnumType(AttendanceStatus, { name: 'AttendanceStatus' });
+registerEnumType(AssignmentStatus, { name: 'AssignmentStatus' });
+registerEnumType(SubmissionStatus, { name: 'SubmissionStatus' });
+registerEnumType(PublicContentStatus, { name: 'PublicContentStatus' });
+registerEnumType(PublicCourseAccent, { name: 'PublicCourseAccent' });
+registerEnumType(PublicCourseCategory, { name: 'PublicCourseCategory' });
+registerEnumType(PublicEventTimelineStatus, {
+  name: 'PublicEventTimelineStatus',
+});
+registerEnumType(IntakeStatus, { name: 'IntakeStatus' });
+registerEnumType(TeacherTaskKind, { name: 'TeacherTaskKind' });
+registerEnumType(TeacherTaskStatus, { name: 'TeacherTaskStatus' });
+registerEnumType(TestVersionStatus, { name: 'TestVersionStatus' });
 
 const SCHEMA_PATH = resolve(
   __dirname,

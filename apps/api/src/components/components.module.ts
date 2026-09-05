@@ -26,6 +26,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { ResultsModule } from './results/results.module';
 import { TestsModule } from './tests/tests.module';
 import { UsersModule } from './users/users.module';
+import { PublicContentModule } from './public-content/public-content.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { UsersModule } from './users/users.module';
     NotificationsModule,
     AuditModule,
     AssetsModule,
+    PublicContentModule,
   ],
   providers: [
     {

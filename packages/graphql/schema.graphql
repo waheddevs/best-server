@@ -2,6 +2,11 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
+input AddStudentToGroupInput {
+  groupId: ID!
+  studentId: ID!
+}
+
 type AdminAcademicOverview {
   activeGroupCount: Int!
   activeStudentCount: Int!
@@ -18,6 +23,33 @@ type AdminAcademicOverview {
   remainingAssignmentCount: Int!
   scoredAssignmentCount: Int!
   totalAssignmentCount: Int!
+}
+
+input AdminArchiveLibraryItemInput {
+  archived: Boolean!
+  libraryItemId: ID!
+  reason: String!
+}
+
+type AdminAuditLog {
+  action: String!
+  actorId: ID
+  correlationId: String
+  createdAt: DateTime!
+  id: ID!
+  reason: String
+  targetId: String!
+  targetType: String!
+}
+
+type AdminAuditLogConnection {
+  edges: [AdminAuditLogEdge!]!
+  pageInfo: PageInfo!
+}
+
+type AdminAuditLogEdge {
+  cursor: String!
+  node: AdminAuditLog!
 }
 
 type AdminGroupProgress {
@@ -49,6 +81,113 @@ type AdminGroupProgressConnection {
 type AdminGroupProgressEdge {
   cursor: String!
   node: AdminGroupProgress!
+}
+
+type AdminIntakeConnection {
+  edges: [AdminIntakeEdge!]!
+  pageInfo: PageInfo!
+}
+
+type AdminIntakeEdge {
+  cursor: String!
+  node: AdminIntakeRecord!
+}
+
+type AdminIntakePayload {
+  intake: AdminIntakeRecord!
+}
+
+type AdminIntakeRecord {
+  createdAt: DateTime!
+  email: String
+  id: ID!
+  kind: String!
+  name: String!
+  phone: String
+  reviewNote: String
+  status: IntakeStatus!
+}
+
+type AdminLibraryItem {
+  archivedAt: DateTime
+  id: ID!
+  ownerId: ID!
+  ownerName: String!
+  status: ContentStatus!
+  title: String!
+  updatedAt: DateTime!
+}
+
+type AdminLibraryItemConnection {
+  edges: [AdminLibraryItemEdge!]!
+  pageInfo: PageInfo!
+}
+
+type AdminLibraryItemEdge {
+  cursor: String!
+  node: AdminLibraryItem!
+}
+
+type AdminLibraryItemPayload {
+  item: AdminLibraryItem!
+}
+
+type AdminLocationSummary {
+  activeGroupCount: Int!
+  nextLessonAt: DateTime
+  room: String!
+  scheduledLessonCount: Int!
+}
+
+type AdminMediaObject {
+  createdAt: DateTime!
+  id: ID!
+  malwareStatus: MediaMalwareStatus!
+  mimeType: String!
+  originalName: String!
+  ownerId: ID!
+  rejectionCode: String
+  status: MediaObjectStatus!
+}
+
+type AdminMediaObjectConnection {
+  edges: [AdminMediaObjectEdge!]!
+  pageInfo: PageInfo!
+}
+
+type AdminMediaObjectEdge {
+  cursor: String!
+  node: AdminMediaObject!
+}
+
+type AdminMediaObjectPayload {
+  mediaObject: AdminMediaObject!
+}
+
+type AdminOperationalOverview {
+  activeGroups: Int!
+  activeUsers: Int!
+  openTransfers: Int!
+  pendingIntakes: Int!
+  pendingMedia: Int!
+  unreadNotifications: Int!
+}
+
+input AdminRejectMediaObjectInput {
+  mediaObjectId: ID!
+  reason: String!
+}
+
+input AdminSetUserRoleInput {
+  reason: String!
+  role: UserRole!
+  userId: ID!
+}
+
+input AdminSetUserStatusInput {
+  reason: String!
+  status: UserStatus!
+  userId: ID!
 }
 
 type AdminStudent {
@@ -102,10 +241,187 @@ type AdminStudentResultEdge {
   node: AdminStudentResult!
 }
 
+type AdminTestSummary {
+  attemptCount: Int!
+  awaitingReviewCount: Int!
+  groupId: ID!
+  groupName: String!
+  id: ID!
+  language: Language!
+  latestVersionNumber: Int
+  latestVersionStatus: TestVersionStatus
+  questionCount: Int!
+  status: ContentStatus!
+  teacherDisplayName: String!
+  teacherId: ID!
+  title: String!
+}
+
+type AdminTestSummaryConnection {
+  edges: [AdminTestSummaryEdge!]!
+  pageInfo: PageInfo!
+}
+
+type AdminTestSummaryEdge {
+  cursor: String!
+  node: AdminTestSummary!
+}
+
+type AdminUser {
+  avatarMediaObjectId: ID
+  branchName: String
+  createdAt: DateTime!
+  displayName: String!
+  email: String
+  id: ID!
+  phone: String
+  preferredLanguage: Language!
+  role: UserRole!
+  status: UserStatus!
+  teacherSubject: String
+  updatedAt: DateTime!
+}
+
+type AdminUserConnection {
+  edges: [AdminUserEdge!]!
+  pageInfo: PageInfo!
+}
+
+type AdminUserEdge {
+  cursor: String!
+  node: AdminUser!
+}
+
+type AdminUserMutationPayload {
+  user: AdminUser!
+}
+
+input AnswerOptionDraftInput {
+  isCorrect: Boolean!
+  translations: [AnswerOptionTranslationInput!]!
+}
+
+input AnswerOptionTranslationInput {
+  language: Language!
+  text: String!
+}
+
+type Assignment {
+  allowLate: Boolean!
+  closedAt: DateTime
+  createdAt: DateTime!
+  dueAt: DateTime
+  groupId: ID!
+  id: ID!
+  lessonId: ID
+  mySubmission: AssignmentSubmission
+  publishedAt: DateTime
+  status: AssignmentStatus!
+  translations: [AssignmentTranslation!]!
+  updatedAt: DateTime!
+}
+
+type AssignmentConnection {
+  edges: [AssignmentEdge!]!
+  pageInfo: PageInfo!
+}
+
+type AssignmentEdge {
+  cursor: String!
+  node: Assignment!
+}
+
+input AssignmentIdInput {
+  assignmentId: ID!
+}
+
+type AssignmentPayload {
+  assignment: Assignment!
+}
+
+enum AssignmentStatus {
+  CLOSED
+  DRAFT
+  PUBLISHED
+}
+
+type AssignmentSubmission {
+  assignmentId: ID!
+  feedback: String
+  id: ID!
+  mediaObjectId: ID
+  score: Int
+  status: SubmissionStatus!
+  studentId: ID!
+  studentName: String!
+  submittedAt: DateTime!
+  text: String
+}
+
+type AssignmentSubmissionConnection {
+  edges: [AssignmentSubmissionEdge!]!
+  pageInfo: PageInfo!
+}
+
+type AssignmentSubmissionEdge {
+  cursor: String!
+  node: AssignmentSubmission!
+}
+
+type AssignmentSubmissionPayload {
+  submission: AssignmentSubmission!
+}
+
+type AssignmentTranslation {
+  instructions: String
+  language: Language!
+  title: String!
+}
+
+input AssignmentTranslationInput {
+  instructions: String
+  language: Language!
+  title: String!
+}
+
+type AttemptGrant {
+  additionalAttempts: Int!
+  createdAt: DateTime!
+  id: ID!
+  reason: String
+  studentId: ID!
+  testId: ID!
+}
+
+type AttemptGrantConnection {
+  edges: [AttemptGrantEdge!]!
+  pageInfo: PageInfo!
+}
+
+type AttemptGrantEdge {
+  cursor: String!
+  node: AttemptGrant!
+}
+
+type AttemptGrantPayload {
+  grant: AttemptGrant!
+}
+
 enum AttemptStatus {
   IN_PROGRESS
   SCORED
   SUBMITTED
+}
+
+enum AttendanceStatus {
+  ABSENT
+  EXCUSED
+  LATE
+  PRESENT
+}
+
+input CompleteTeacherTaskInput {
+  taskId: ID!
 }
 
 type ConfirmMediaUploadPayload {
@@ -115,6 +431,29 @@ type ConfirmMediaUploadPayload {
 enum ContentStatus {
   ACTIVE
   ARCHIVED
+}
+
+input CreateAssignmentInput {
+  allowLate: Boolean! = false
+  dueAt: DateTime
+  groupId: ID!
+  lessonId: ID
+  translations: [AssignmentTranslationInput!]!
+}
+
+input CreateLessonInput {
+  endsAt: DateTime!
+  groupId: ID!
+  room: String
+  startsAt: DateTime!
+  translations: [LessonTranslationInput!]!
+}
+
+input CreateLessonMaterialInput {
+  groupId: ID!
+  lessonId: ID
+  libraryItemId: ID!
+  position: Int! = 1
 }
 
 input CreateLibraryCategoryInput {
@@ -149,15 +488,230 @@ type CreateMediaUploadIntentPayload {
   uploadIntent: MediaUploadIntent!
 }
 
+input CreateNextTestVersionInput {
+  testId: ID!
+}
+
+input CreateTeacherGroupInput {
+  endsAtMinutes: Int
+  name: String!
+  room: String
+  scheduleDays: [Int!]!
+  slug: String!
+  startsAtMinutes: Int
+  timeZone: String
+}
+
+input CreateTestCategoryInput {
+  name: String!
+}
+
+input CreateTestDraftInput {
+  categoryId: ID!
+  groupId: ID!
+  primaryLanguage: Language!
+  translations: [TestTranslationInput!]!
+}
+
+input CreateTestQuestionInput {
+  options: [AnswerOptionDraftInput!]!
+  testVersionId: ID!
+  translations: [QuestionTranslationInput!]!
+}
+
 """
 A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
 """
 scalar DateTime
 
+input EndGroupMembershipInput {
+  membershipId: ID!
+  reason: String!
+}
+
+input GrantAdditionalTestAttemptInput {
+  additionalAttempts: Int!
+  reason: String!
+  studentId: ID!
+  testId: ID!
+}
+
+type Group {
+  archivedAt: DateTime
+  createdAt: DateTime!
+  endsAtMinutes: Int
+  id: ID!
+  name: String!
+  room: String
+  scheduleDays: [Int!]!
+  slug: String!
+  startsAtMinutes: Int
+  status: ContentStatus!
+  teacherId: ID!
+  timeZone: String!
+  updatedAt: DateTime!
+}
+
+type GroupConnection {
+  edges: [GroupEdge!]!
+  pageInfo: PageInfo!
+}
+
+type GroupEdge {
+  cursor: String!
+  node: Group!
+}
+
+type GroupMutationPayload {
+  group: Group!
+}
+
+type GroupRosterConnection {
+  edges: [GroupRosterMemberEdge!]!
+  pageInfo: PageInfo!
+}
+
+type GroupRosterMember {
+  displayName: String!
+  email: String
+  endedAt: DateTime
+  membershipId: ID!
+  phone: String
+  startedAt: DateTime!
+  status: UserStatus!
+  studentId: ID!
+}
+
+type GroupRosterMemberEdge {
+  cursor: String!
+  node: GroupRosterMember!
+}
+
+type GroupTransferRequest {
+  createdAt: DateTime!
+  fromGroupId: ID!
+  fromGroupName: String!
+  id: ID!
+  reason: String!
+  reviewNote: String
+  reviewedAt: DateTime
+  status: TransferRequestStatus!
+  studentDisplayName: String!
+  studentId: ID!
+  toGroupId: ID!
+  toGroupName: String!
+}
+
+type GroupTransferRequestConnection {
+  edges: [GroupTransferRequestEdge!]!
+  pageInfo: PageInfo!
+}
+
+type GroupTransferRequestEdge {
+  cursor: String!
+  node: GroupTransferRequest!
+}
+
+enum IntakeStatus {
+  IN_REVIEW
+  NEW
+  REJECTED
+  RESOLVED
+}
+
 enum Language {
   EN
   RU
   UZ
+}
+
+type Lesson {
+  createdAt: DateTime!
+  endsAt: DateTime!
+  groupId: ID!
+  id: ID!
+  room: String
+  startsAt: DateTime!
+  status: LessonStatus!
+  translations: [LessonTranslation!]!
+  updatedAt: DateTime!
+}
+
+type LessonAttendance {
+  id: ID!
+  note: String
+  recordedAt: DateTime!
+  status: AttendanceStatus!
+  studentId: ID!
+  studentName: String!
+}
+
+input LessonAttendanceEntryInput {
+  note: String
+  status: AttendanceStatus!
+  studentId: ID!
+}
+
+type LessonAttendancePayload {
+  attendances: [LessonAttendance!]!
+}
+
+type LessonConnection {
+  edges: [LessonEdge!]!
+  pageInfo: PageInfo!
+}
+
+type LessonEdge {
+  cursor: String!
+  node: Lesson!
+}
+
+type LessonMaterial {
+  archivedAt: DateTime
+  createdAt: DateTime!
+  groupId: ID!
+  id: ID!
+  lessonId: ID
+  libraryItemId: ID!
+  position: Int!
+  updatedAt: DateTime!
+}
+
+type LessonMaterialConnection {
+  edges: [LessonMaterialEdge!]!
+  pageInfo: PageInfo!
+}
+
+type LessonMaterialEdge {
+  cursor: String!
+  node: LessonMaterial!
+}
+
+type LessonMaterialPayload {
+  material: LessonMaterial!
+}
+
+type LessonPayload {
+  lesson: Lesson!
+}
+
+enum LessonStatus {
+  CANCELLED
+  COMPLETED
+  DRAFT
+  SCHEDULED
+}
+
+type LessonTranslation {
+  language: Language!
+  summary: String
+  title: String!
+}
+
+input LessonTranslationInput {
+  language: Language!
+  summary: String
+  title: String!
 }
 
 type LibraryAttachment {
@@ -201,6 +755,14 @@ input LibraryTranslationInput {
 enum LibraryVisibility {
   ALL_GROUPS
   SELECTED_GROUPS
+}
+
+type MarkAllNotificationsReadPayload {
+  updatedCount: Int!
+}
+
+input MarkNotificationReadInput {
+  notificationId: ID!
 }
 
 type MediaDownloadIntent {
@@ -259,42 +821,101 @@ type MediaUploadIntent {
   url: String!
 }
 
+type MembershipMutationPayload {
+  membership: GroupRosterMember!
+}
+
 type Mutation {
-  confirmMediaUpload(
-    input: MediaObjectReferenceInput!
-  ): ConfirmMediaUploadPayload!
-  createLibraryCategory(
-    input: CreateLibraryCategoryInput!
-  ): LibraryCategoryPayload!
+  addStudentToGroup(input: AddStudentToGroupInput!): MembershipMutationPayload!
+  adminRejectMediaObject(input: AdminRejectMediaObjectInput!): AdminMediaObjectPayload!
+  adminSetContactRequestStatus(input: SetIntakeStatusInput!): AdminIntakePayload!
+  adminSetEventRegistrationStatus(input: SetIntakeStatusInput!): AdminIntakePayload!
+  adminSetExamRegistrationStatus(input: SetIntakeStatusInput!): AdminIntakePayload!
+  adminSetLibraryItemArchived(input: AdminArchiveLibraryItemInput!): AdminLibraryItemPayload!
+  adminSetUserRole(input: AdminSetUserRoleInput!): AdminUserMutationPayload!
+  adminSetUserStatus(input: AdminSetUserStatusInput!): AdminUserMutationPayload!
+  closeAssignment(input: AssignmentIdInput!): AssignmentPayload!
+  completeTeacherTask(input: CompleteTeacherTaskInput!): TeacherTaskPayload!
+  confirmMediaUpload(input: MediaObjectReferenceInput!): ConfirmMediaUploadPayload!
+  createAssignment(input: CreateAssignmentInput!): AssignmentPayload!
+  createCourseDraft(input: UpsertCourseInput!): PublicCoursePayload!
+  createEventDraft(input: UpsertEventInput!): PublicEventPayload!
+  createLesson(input: CreateLessonInput!): LessonPayload!
+  createLessonMaterial(input: CreateLessonMaterialInput!): LessonMaterialPayload!
+  createLibraryCategory(input: CreateLibraryCategoryInput!): LibraryCategoryPayload!
   createLibraryItem(input: CreateLibraryItemInput!): LibraryItemPayload!
-  createMediaDownloadIntent(
-    input: MediaObjectReferenceInput!
-  ): CreateMediaDownloadIntentPayload!
-  createMediaUploadIntent(
-    input: CreateMediaUploadIntentInput!
-  ): CreateMediaUploadIntentPayload!
-  createStudentLibraryDownloadIntent(
-    input: CreateLibraryDownloadIntentInput!
-  ): LibraryDownloadIntentPayload!
-  saveAttemptAnswer(
-    input: SaveAttemptAnswerInput!
-    language: Language!
-  ): SaveAttemptAnswerPayload!
-  setLibraryCategoryArchived(
-    input: SetLibraryCategoryArchivedInput!
-  ): LibraryCategoryPayload!
-  setLibraryItemArchived(
-    input: SetLibraryItemArchivedInput!
-  ): LibraryItemPayload!
+  createMediaDownloadIntent(input: MediaObjectReferenceInput!): CreateMediaDownloadIntentPayload!
+  createMediaUploadIntent(input: CreateMediaUploadIntentInput!): CreateMediaUploadIntentPayload!
+  createNextTestVersion(input: CreateNextTestVersionInput!): TeacherTestVersionPayload!
+  createStudentLibraryDownloadIntent(input: CreateLibraryDownloadIntentInput!): LibraryDownloadIntentPayload!
+  createTeacherGroup(input: CreateTeacherGroupInput!): GroupMutationPayload!
+  createTestCategory(input: CreateTestCategoryInput!): TestCategoryPayload!
+  createTestDraft(input: CreateTestDraftInput!): TeacherTestPayload!
+  createTestQuestion(input: CreateTestQuestionInput!): TeacherTestVersionPayload!
+  deleteTestDraftQuestion(input: TestVersionIdInput!, questionId: ID!): TeacherTestVersionPayload!
+  endGroupMembership(input: EndGroupMembershipInput!): MembershipMutationPayload!
+  grantAdditionalTestAttempt(input: GrantAdditionalTestAttemptInput!): AttemptGrantPayload!
+  markAllNotificationsRead: MarkAllNotificationsReadPayload!
+  markNotificationRead(input: MarkNotificationReadInput!): NotificationPayload!
+  publishAssignment(input: AssignmentIdInput!): AssignmentPayload!
+  publishTestVersion(input: TestVersionIdInput!): TeacherTestVersionPayload!
+  recordLessonAttendance(input: RecordLessonAttendanceInput!): LessonAttendancePayload!
+  registerForCourse(input: RegisterForCourseInput!): PublicSubmissionReceipt!
+  registerForEvent(input: RegisterForEventInput!): PublicSubmissionReceipt!
+  reorderTestQuestions(input: ReorderTestQuestionsInput!): TeacherTestVersionPayload!
+  replaceTestDraftTranslations(input: ReplaceTestDraftTranslationsInput!): TeacherTestVersionPayload!
+  requestStudentTransfer(input: RequestStudentTransferInput!): TransferRequestMutationPayload!
+  reviewAssignmentSubmission(input: ReviewAssignmentSubmissionInput!): AssignmentSubmissionPayload!
+  reviewStudentTransfer(input: ReviewStudentTransferInput!): TransferRequestMutationPayload!
+  saveAttemptAnswer(input: SaveAttemptAnswerInput!, language: Language!): SaveAttemptAnswerPayload!
+  setCourseStatus(input: SetPublicCourseStatusInput!): PublicCoursePayload!
+  setEventStatus(input: SetPublicEventStatusInput!): PublicEventPayload!
+  setLessonMaterialArchived(input: SetLessonMaterialArchivedInput!): LessonMaterialPayload!
+  setLessonStatus(input: SetLessonStatusInput!): LessonPayload!
+  setLibraryCategoryArchived(input: SetLibraryCategoryArchivedInput!): LibraryCategoryPayload!
+  setLibraryItemArchived(input: SetLibraryItemArchivedInput!): LibraryItemPayload!
+  setTeacherGroupArchived(input: SetTeacherGroupArchivedInput!): GroupMutationPayload!
+  setTestArchived(input: SetTestArchivedInput!): TeacherTestPayload!
   startTestAttempt(input: StartTestAttemptInput!): StartTestAttemptPayload!
-  submitTestAttempt(
-    input: SubmitTestAttemptInput!
-    language: Language!
-  ): SubmitTestAttemptPayload!
-  updateLibraryCategory(
-    input: UpdateLibraryCategoryInput!
-  ): LibraryCategoryPayload!
+  submitAssignment(input: SubmitAssignmentInput!): AssignmentSubmissionPayload!
+  submitContactRequest(input: SubmitContactRequestInput!): PublicSubmissionReceipt!
+  submitExamRegistration(input: SubmitExamRegistrationInput!): PublicSubmissionReceipt!
+  submitTestAttempt(input: SubmitTestAttemptInput!, language: Language!): SubmitTestAttemptPayload!
+  updateAssignment(input: UpdateAssignmentInput!): AssignmentPayload!
+  updateCourseDraft(input: UpdateCourseInput!): PublicCoursePayload!
+  updateEventDraft(input: UpdateEventInput!): PublicEventPayload!
+  updateLesson(input: UpdateLessonInput!): LessonPayload!
+  updateLessonMaterial(input: UpdateLessonMaterialInput!): LessonMaterialPayload!
+  updateLibraryCategory(input: UpdateLibraryCategoryInput!): LibraryCategoryPayload!
   updateLibraryItem(input: UpdateLibraryItemInput!): LibraryItemPayload!
+  updateMyProfile(input: UpdateMyProfileInput!): UpdateMyProfilePayload!
+  updateTeacherGroup(input: UpdateTeacherGroupInput!): GroupMutationPayload!
+  updateTestCategory(input: UpdateTestCategoryInput!): TestCategoryPayload!
+  updateTestDraftSettings(input: UpdateTestDraftSettingsInput!): TeacherTestVersionPayload!
+  updateTestQuestion(input: UpdateTestQuestionInput!): TeacherTestVersionPayload!
+}
+
+type Notification {
+  body: String
+  createdAt: DateTime!
+  id: ID!
+  kind: String!
+  readAt: DateTime
+  title: String!
+}
+
+type NotificationConnection {
+  edges: [NotificationEdge!]!
+  pageInfo: PageInfo!
+}
+
+type NotificationEdge {
+  cursor: String!
+  node: Notification!
+}
+
+type NotificationPayload {
+  notification: Notification!
 }
 
 type PageInfo {
@@ -302,73 +923,342 @@ type PageInfo {
   hasNextPage: Boolean!
 }
 
+enum PublicContentStatus {
+  ARCHIVED
+  DRAFT
+  PUBLISHED
+}
+
+input PublicContentTranslationInput {
+  description: String!
+  language: Language!
+  title: String!
+}
+
+type PublicCourse {
+  accent: PublicCourseAccent!
+  audience: String
+  category: PublicCourseCategory!
+  comparisonTitle: String
+  coverMediaId: ID
+  curriculum: [String!]!
+  description: String!
+  duration: String
+  featured: Boolean!
+  focus: String
+  formatLabel: String
+  heroVariant: String
+  highlights: [String!]!
+  id: ID!
+  imageAlt: String
+  imagePath: String
+  language: Language!
+  level: String
+  outcomes: [String!]!
+  overview: [String!]!
+  position: Int!
+  posterAlt: String
+  posterImagePath: String
+  posterTitle: String
+  prerequisites: String
+  publishedAt: DateTime
+  schedule: String
+  slug: String!
+  status: PublicContentStatus!
+  symbol: String!
+  title: String!
+  tracks: [PublicCourseTrack!]!
+}
+
+enum PublicCourseAccent {
+  BLUE
+  TURQUOISE
+  YELLOW
+}
+
+enum PublicCourseCategory {
+  ENGLISH
+  EXAM
+  LANGUAGE
+}
+
+type PublicCourseConnection {
+  edges: [PublicCourseEdge!]!
+  pageInfo: PageInfo!
+}
+
+type PublicCourseEdge {
+  cursor: String!
+  node: PublicCourse!
+}
+
+type PublicCoursePayload {
+  course: PublicCourse!
+}
+
+type PublicCourseTrack {
+  highlights: [String!]!
+  level: String!
+  position: Int!
+  summary: String!
+  title: String!
+}
+
+type PublicEvent {
+  audience: [String!]!
+  capacity: Int
+  coverMediaId: ID
+  dateLabel: String
+  description: String!
+  durationLabel: String
+  endsAt: DateTime
+  faq: [PublicEventFaqItem!]!
+  formatLabel: String
+  id: ID!
+  imageAlt: String
+  imagePath: String
+  language: Language!
+  location: String
+  locationLabel: String
+  overview: [String!]!
+  position: Int!
+  practicalInfo: [String!]!
+  programme: [PublicEventProgrammeItem!]!
+  slug: String!
+  startsAt: DateTime!
+  status: PublicContentStatus!
+  takeaways: [String!]!
+  timeLabel: String
+  timelineStatus: PublicEventTimelineStatus!
+  title: String!
+  topics: [String!]!
+}
+
+type PublicEventConnection {
+  edges: [PublicEventEdge!]!
+  pageInfo: PageInfo!
+}
+
+type PublicEventEdge {
+  cursor: String!
+  node: PublicEvent!
+}
+
+type PublicEventFaqItem {
+  answer: String!
+  position: Int!
+  question: String!
+}
+
+type PublicEventPayload {
+  event: PublicEvent!
+}
+
+type PublicEventProgrammeItem {
+  description: String!
+  position: Int!
+  timeLabel: String!
+  title: String!
+}
+
+enum PublicEventTimelineStatus {
+  PAST
+  UPCOMING
+}
+
+type PublicExamOffering {
+  description: String!
+  duration: String!
+  formatLabel: String!
+  highlights: [String!]!
+  id: ID!
+  key: String!
+  language: Language!
+  level: String!
+  position: Int!
+  sessions: [PublicExamSession!]!
+  title: String!
+}
+
+type PublicExamSession {
+  availablePlaces: Int!
+  capacity: Int
+  id: ID!
+  startsAt: DateTime!
+}
+
+type PublicFaqItem {
+  answer: String!
+  category: String!
+  id: ID!
+  key: String!
+  language: Language!
+  position: Int!
+  question: String!
+}
+
+type PublicResultVideo {
+  duration: String!
+  id: ID!
+  key: String!
+  language: Language!
+  position: Int!
+  posterPath: String!
+  source: PublicResultVideoSource!
+  title: String!
+  videoPath: String!
+}
+
+type PublicResultVideoSource {
+  creator: String!
+  licenseUrl: String!
+  provider: String!
+  url: String!
+}
+
+type PublicSubmissionReceipt {
+  accepted: Boolean!
+  receiptId: ID!
+}
+
 type Query {
   adminAcademicOverview: AdminAcademicOverview!
+  adminAttendance(lessonId: ID!): [LessonAttendance!]!
+  adminAuditLogs(action: String, actorId: ID, after: String, first: Int, from: DateTime, targetType: String, to: DateTime): AdminAuditLogConnection!
+  adminContactRequests(after: String, first: Int, status: IntakeStatus): AdminIntakeConnection!
+  adminCourse(language: Language!, slug: String!): PublicCourse!
+  adminCourses(after: String, first: Int, language: Language!): PublicCourseConnection!
+  adminEvent(language: Language!, slug: String!): PublicEvent!
+  adminEventRegistrations(after: String, first: Int, status: IntakeStatus): AdminIntakeConnection!
+  adminEvents(after: String, first: Int, language: Language!): PublicEventConnection!
+  adminExamRegistrations(after: String, first: Int, status: IntakeStatus): AdminIntakeConnection!
+  adminGroup(groupId: ID!): Group!
   adminGroupProgresses(after: String, first: Int): AdminGroupProgressConnection!
-  adminStudentResults(
-    after: String
-    first: Int
-    language: Language!
-    studentId: ID!
-  ): AdminStudentResultConnection!
+  adminGroups(after: String, first: Int, search: String, status: ContentStatus, teacherId: ID): GroupConnection!
+  adminLibraryItems(after: String, first: Int, ownerId: ID, search: String, status: ContentStatus): AdminLibraryItemConnection!
+  adminLocations: [AdminLocationSummary!]!
+  adminMediaObjects(after: String, first: Int, malwareStatus: MediaMalwareStatus, ownerId: ID, status: MediaObjectStatus): AdminMediaObjectConnection!
+  adminOperationalOverview: AdminOperationalOverview!
+  adminSchedule(from: DateTime!, to: DateTime!): [Lesson!]!
+  adminStudentResults(after: String, first: Int, language: Language!, studentId: ID!): AdminStudentResultConnection!
   adminStudents(after: String, first: Int): AdminStudentConnection!
+  adminTest(language: Language!, testId: ID!): AdminTestSummary!
+  adminTests(after: String, first: Int, language: Language!): AdminTestSummaryConnection!
+  adminTransferRequests(after: String, first: Int, status: TransferRequestStatus): GroupTransferRequestConnection!
+  adminTuitionLedger(after: String, first: Int, studentId: ID): TuitionLedgerConnection!
+  adminUser(userId: ID!): AdminUser!
+  adminUsers(after: String, first: Int, role: UserRole, search: String, status: UserStatus): AdminUserConnection!
+  myNotifications(after: String, first: Int, unreadOnly: Boolean = false): NotificationConnection!
+  myProfile: UserProfile!
+  myUnreadNotificationCount: Int!
+  publicCourse(language: Language!, slug: String!): PublicCourse!
+  publicCourses(after: String, first: Int, language: Language!): PublicCourseConnection!
+  publicEvent(language: Language!, slug: String!): PublicEvent!
+  publicEvents(after: String, first: Int, language: Language!): PublicEventConnection!
+  publicExamOfferings(language: Language!): [PublicExamOffering!]!
+  publicFaq(language: Language!): [PublicFaqItem!]!
+  publicResultVideos(language: Language!): [PublicResultVideo!]!
+  studentAssignment(assignmentId: ID!): Assignment!
+  studentAssignments(after: String, first: Int, status: AssignmentStatus): AssignmentConnection!
   studentAttempt(attemptId: ID!, language: Language!): StudentAttempt!
-  studentAvailableTests(
-    after: String
-    first: Int
-    language: Language!
-  ): StudentTestConnection!
-  studentLibraryItem(
-    language: Language!
-    libraryItemId: ID!
-  ): StudentLibraryItem!
-  studentLibraryItems(
-    after: String
-    categoryId: ID
-    first: Int
-    language: Language!
-  ): StudentLibraryItemConnection!
+  studentAvailableTests(after: String, first: Int, language: Language!): StudentTestConnection!
+  studentCurrentGroup: StudentCurrentGroup
+  studentLesson(lessonId: ID!): Lesson!
+  studentLibraryItem(language: Language!, libraryItemId: ID!): StudentLibraryItem!
+  studentLibraryItems(after: String, categoryId: ID, first: Int, language: Language!): StudentLibraryItemConnection!
   studentProgress: StudentProgress!
-  studentResults(
-    after: String
-    first: Int
-    language: Language!
-  ): StudentResultConnection!
+  studentResults(after: String, first: Int, language: Language!): StudentResultConnection!
+  studentSchedule(from: DateTime!, to: DateTime!): [Lesson!]!
   studentTest(language: Language!, testId: ID!): StudentTest!
-  teacherAttemptReview(
-    attemptId: ID!
-    language: Language!
-  ): TeacherAttemptReview!
+  studentTuitionLedger(after: String, first: Int): TuitionLedgerConnection!
+  teacherAssignment(assignmentId: ID!): Assignment!
+  teacherAssignmentSubmissions(after: String, assignmentId: ID!, first: Int, status: SubmissionStatus): AssignmentSubmissionConnection!
+  teacherAttemptGrants(after: String, first: Int, testId: ID!): AttemptGrantConnection!
+  teacherAttemptReview(attemptId: ID!, language: Language!): TeacherAttemptReview!
+  teacherAttendance(lessonId: ID!): [LessonAttendance!]!
+  teacherDashboard: TeacherDashboard!
+  teacherGroup(groupId: ID!): Group!
+  teacherGroupAssignments(after: String, first: Int, groupId: ID!, status: AssignmentStatus): AssignmentConnection!
+  teacherGroupLessons(after: String, first: Int, groupId: ID!, status: LessonStatus): LessonConnection!
+  teacherGroupMaterials(after: String, first: Int, groupId: ID!): LessonMaterialConnection!
   teacherGroupProgress(groupId: ID!): TeacherGroupProgress!
-  teacherGroupStudents(
-    after: String
-    first: Int
-    groupId: ID!
-  ): TeacherStudentProgressConnection!
-  teacherLibraryCategories(
-    includeArchived: Boolean = false
-  ): [LibraryCategory!]!
-  teacherLibraryItems(
-    after: String
-    categoryId: ID
-    first: Int
-    includeArchived: Boolean = false
-  ): TeacherLibraryItemConnection!
-  teacherStudentAttempts(
-    after: String
-    first: Int
-    groupId: ID!
-    language: Language!
-    studentId: ID!
-  ): TeacherAttemptConnection!
-  teacherStudentTests(
-    after: String
-    first: Int
-    groupId: ID!
-    language: Language!
-    studentId: ID!
-  ): TeacherStudentTestProgressConnection!
+  teacherGroupRoster(after: String, first: Int, groupId: ID!, includeEnded: Boolean = false, search: String): GroupRosterConnection!
+  teacherGroupStudents(after: String, first: Int, groupId: ID!): TeacherStudentProgressConnection!
+  teacherGroups(after: String, first: Int, search: String, status: ContentStatus): GroupConnection!
+  teacherLesson(lessonId: ID!): Lesson!
+  teacherLibraryCategories(includeArchived: Boolean = false): [LibraryCategory!]!
+  teacherLibraryItems(after: String, categoryId: ID, first: Int, includeArchived: Boolean = false): TeacherLibraryItemConnection!
+  teacherSchedule(from: DateTime!, to: DateTime!): [Lesson!]!
+  teacherStudentAttempts(after: String, first: Int, groupId: ID!, language: Language!, studentId: ID!): TeacherAttemptConnection!
+  teacherStudentTests(after: String, first: Int, groupId: ID!, language: Language!, studentId: ID!): TeacherStudentTestProgressConnection!
+  teacherTasks(after: String, first: Int, kind: TeacherTaskKind, status: TeacherTaskStatus): TeacherTaskConnection!
+  teacherTestCategories: [TestCategory!]!
+  teacherTestDraft(testId: ID!): TeacherTestVersion!
+  teacherTestVersion(testVersionId: ID!): TeacherTestVersion!
+  teacherTests(after: String, first: Int, groupId: ID, search: String, status: ContentStatus): TeacherTestConnection!
+  teacherTransferRequests(after: String, first: Int, status: TransferRequestStatus): GroupTransferRequestConnection!
   viewer: Viewer!
+}
+
+input QuestionTranslationInput {
+  language: Language!
+  prompt: String!
+}
+
+input RecordLessonAttendanceInput {
+  correctionReason: String
+  entries: [LessonAttendanceEntryInput!]!
+  lessonId: ID!
+}
+
+input RegisterForCourseInput {
+  consent: Boolean!
+  courseSlug: String!
+  currentLevel: String
+  email: String
+  locale: Language!
+  message: String
+  name: String!
+  phone: String!
+}
+
+input RegisterForEventInput {
+  consent: Boolean!
+  email: String
+  eventId: ID!
+  locale: Language!
+  name: String!
+  participantCount: Int!
+  phone: String!
+}
+
+input ReorderTestQuestionsInput {
+  questionIds: [ID!]!
+  testVersionId: ID!
+}
+
+input ReplaceTestDraftTranslationsInput {
+  testVersionId: ID!
+  translations: [TestTranslationInput!]!
+}
+
+input RequestStudentTransferInput {
+  reason: String!
+  studentId: ID!
+  toGroupId: ID!
+}
+
+input ReviewAssignmentSubmissionInput {
+  feedback: String!
+  score: Int
+  status: SubmissionStatus!
+  submissionId: ID!
+}
+
+input ReviewStudentTransferInput {
+  decision: TransferRequestStatus!
+  reviewNote: String!
+  transferRequestId: ID!
 }
 
 input SaveAttemptAnswerInput {
@@ -381,6 +1271,23 @@ type SaveAttemptAnswerPayload {
   attempt: StudentAttempt!
 }
 
+input SetIntakeStatusInput {
+  intakeId: ID!
+  reviewNote: String!
+  status: IntakeStatus!
+}
+
+input SetLessonMaterialArchivedInput {
+  archived: Boolean!
+  materialId: ID!
+}
+
+input SetLessonStatusInput {
+  lessonId: ID!
+  reason: String
+  status: LessonStatus!
+}
+
 input SetLibraryCategoryArchivedInput {
   archived: Boolean!
   categoryId: ID!
@@ -389,6 +1296,29 @@ input SetLibraryCategoryArchivedInput {
 input SetLibraryItemArchivedInput {
   archived: Boolean!
   libraryItemId: ID!
+}
+
+input SetPublicCourseStatusInput {
+  courseId: ID!
+  reason: String
+  status: PublicContentStatus!
+}
+
+input SetPublicEventStatusInput {
+  eventId: ID!
+  reason: String
+  status: PublicContentStatus!
+}
+
+input SetTeacherGroupArchivedInput {
+  archived: Boolean!
+  groupId: ID!
+  reason: String!
+}
+
+input SetTestArchivedInput {
+  archived: Boolean!
+  testId: ID!
 }
 
 input StartTestAttemptInput {
@@ -428,6 +1358,12 @@ type StudentAttemptResult {
   passed: Boolean!
   percentage: Float!
   totalQuestionCount: Int!
+}
+
+type StudentCurrentGroup {
+  group: Group!
+  membershipId: ID!
+  startedAt: DateTime!
 }
 
 type StudentLibraryItem {
@@ -527,12 +1463,57 @@ type StudentTestEdge {
   node: StudentTest!
 }
 
+enum SubmissionStatus {
+  RETURNED
+  REVIEWED
+  SUBMITTED
+}
+
+input SubmitAssignmentInput {
+  assignmentId: ID!
+  mediaObjectId: ID
+  text: String
+}
+
+input SubmitContactRequestInput {
+  consent: Boolean!
+  email: String
+  locale: Language!
+  message: String!
+  name: String!
+  phone: String
+  subject: String!
+}
+
+input SubmitExamRegistrationInput {
+  consent: Boolean!
+  currentLevel: String!
+  email: String
+  locale: Language!
+  name: String!
+  offeringKey: String!
+  phone: String!
+  sessionId: ID
+}
+
 input SubmitTestAttemptInput {
   attemptId: ID!
 }
 
 type SubmitTestAttemptPayload {
   attempt: StudentAttempt!
+}
+
+type TeacherAnswerOption {
+  id: ID!
+  isCorrect: Boolean!
+  position: Int!
+  translations: [TeacherAnswerOptionTranslation!]!
+}
+
+type TeacherAnswerOptionTranslation {
+  language: Language!
+  text: String!
 }
 
 type TeacherAnswerReview {
@@ -583,6 +1564,15 @@ type TeacherAttemptReview {
   title: String!
 }
 
+type TeacherDashboard {
+  activeGroupCount: Int!
+  activeStudentCount: Int!
+  lessonsToday: Int!
+  openTaskCount: Int!
+  pendingSubmissionCount: Int!
+  unreadNotificationCount: Int!
+}
+
 type TeacherGroupProgress {
   activeStudentCount: Int!
   assignedTestCount: Int!
@@ -623,6 +1613,11 @@ type TeacherLibraryItemConnection {
 type TeacherLibraryItemEdge {
   cursor: String!
   node: TeacherLibraryItem!
+}
+
+type TeacherQuestionTranslation {
+  language: Language!
+  prompt: String!
 }
 
 type TeacherStudentProgress {
@@ -679,6 +1674,211 @@ enum TeacherStudentTestProgressStatus {
   PASSED
 }
 
+type TeacherTask {
+  completedAt: DateTime
+  createdAt: DateTime!
+  dueAt: DateTime
+  groupId: ID
+  id: ID!
+  kind: TeacherTaskKind!
+  status: TeacherTaskStatus!
+  title: String!
+}
+
+type TeacherTaskConnection {
+  edges: [TeacherTaskEdge!]!
+  pageInfo: PageInfo!
+}
+
+type TeacherTaskEdge {
+  cursor: String!
+  node: TeacherTask!
+}
+
+enum TeacherTaskKind {
+  ADMINISTRATIVE
+  FOLLOW_UP
+  PREPARATION
+}
+
+type TeacherTaskPayload {
+  task: TeacherTask!
+}
+
+enum TeacherTaskStatus {
+  COMPLETED
+  OPEN
+}
+
+type TeacherTest {
+  archivedAt: DateTime
+  category: TestCategory!
+  createdAt: DateTime!
+  groupId: ID!
+  id: ID!
+  latestVersion: TeacherTestVersion
+  status: ContentStatus!
+  updatedAt: DateTime!
+}
+
+type TeacherTestConnection {
+  edges: [TeacherTestEdge!]!
+  pageInfo: PageInfo!
+}
+
+type TeacherTestEdge {
+  cursor: String!
+  node: TeacherTest!
+}
+
+type TeacherTestPayload {
+  test: TeacherTest!
+}
+
+type TeacherTestQuestion {
+  id: ID!
+  options: [TeacherAnswerOption!]!
+  position: Int!
+  translations: [TeacherQuestionTranslation!]!
+}
+
+type TeacherTestTranslation {
+  description: String
+  language: Language!
+  title: String!
+}
+
+type TeacherTestVersion {
+  attemptLimit: Int!
+  availabilityEndsAt: DateTime
+  availabilityStartsAt: DateTime
+  durationMinutes: Int
+  id: ID!
+  passingPercentage: Int!
+  primaryLanguage: Language!
+  publishedAt: DateTime
+  questions: [TeacherTestQuestion!]!
+  scoringRuleVersion: String!
+  status: TestVersionStatus!
+  testId: ID!
+  translations: [TeacherTestTranslation!]!
+  version: Int!
+}
+
+type TeacherTestVersionPayload {
+  testVersion: TeacherTestVersion!
+}
+
+type TestCategory {
+  id: ID!
+  name: String!
+}
+
+type TestCategoryPayload {
+  category: TestCategory!
+}
+
+input TestTranslationInput {
+  description: String
+  language: Language!
+  title: String!
+}
+
+input TestVersionIdInput {
+  testVersionId: ID!
+}
+
+enum TestVersionStatus {
+  DRAFT
+  PUBLISHED
+}
+
+type TransferRequestMutationPayload {
+  transferRequest: GroupTransferRequest!
+}
+
+enum TransferRequestStatus {
+  APPROVED
+  CANCELLED
+  DECLINED
+  PENDING
+}
+
+type TuitionLedgerConnection {
+  edges: [TuitionLedgerEntryEdge!]!
+  pageInfo: PageInfo!
+}
+
+type TuitionLedgerEntry {
+  adjustmentAmountUzs: String!
+  allocatedAmountUzs: String!
+  amountUzs: String!
+  billingMonth: DateTime!
+  chargeId: ID!
+  dueDate: DateTime!
+  groupId: ID!
+  groupName: String!
+  outstandingAmountUzs: String!
+  status: TuitionLedgerStatus!
+  studentDisplayName: String!
+  studentId: ID!
+}
+
+type TuitionLedgerEntryEdge {
+  cursor: String!
+  node: TuitionLedgerEntry!
+}
+
+enum TuitionLedgerStatus {
+  DUE
+  OVERDUE
+  PAID
+}
+
+input UpdateAssignmentInput {
+  allowLate: Boolean! = false
+  assignmentId: ID!
+  dueAt: DateTime
+  groupId: ID!
+  lessonId: ID
+  translations: [AssignmentTranslationInput!]!
+}
+
+input UpdateCourseInput {
+  courseId: ID!
+  coverMediaId: ID
+  slug: String!
+  translations: [PublicContentTranslationInput!]!
+}
+
+input UpdateEventInput {
+  capacity: Int
+  coverMediaId: ID
+  endsAt: DateTime
+  eventId: ID!
+  location: String
+  slug: String!
+  startsAt: DateTime!
+  translations: [PublicContentTranslationInput!]!
+}
+
+input UpdateLessonInput {
+  endsAt: DateTime!
+  groupId: ID!
+  lessonId: ID!
+  room: String
+  startsAt: DateTime!
+  translations: [LessonTranslationInput!]!
+}
+
+input UpdateLessonMaterialInput {
+  groupId: ID!
+  lessonId: ID
+  libraryItemId: ID!
+  materialId: ID!
+  position: Int! = 1
+}
+
 input UpdateLibraryCategoryInput {
   categoryId: ID!
   name: String!
@@ -692,6 +1892,80 @@ input UpdateLibraryItemInput {
   primaryLanguage: Language!
   translations: [LibraryTranslationInput!]!
   visibility: LibraryVisibility!
+}
+
+input UpdateMyProfileInput {
+  avatarMediaObjectId: ID
+  branchName: String
+  displayName: String!
+  phone: String
+  preferredLanguage: Language!
+  teacherSubject: String
+}
+
+type UpdateMyProfilePayload {
+  profile: UserProfile!
+}
+
+input UpdateTeacherGroupInput {
+  endsAtMinutes: Int
+  groupId: ID!
+  name: String!
+  room: String
+  scheduleDays: [Int!]!
+  slug: String!
+  startsAtMinutes: Int
+  timeZone: String
+}
+
+input UpdateTestCategoryInput {
+  categoryId: ID!
+  name: String!
+}
+
+input UpdateTestDraftSettingsInput {
+  attemptLimit: Int!
+  availabilityEndsAt: DateTime
+  availabilityStartsAt: DateTime
+  durationMinutes: Int
+  passingPercentage: Int!
+  primaryLanguage: Language!
+  testVersionId: ID!
+}
+
+input UpdateTestQuestionInput {
+  options: [AnswerOptionDraftInput!]!
+  questionId: ID!
+  translations: [QuestionTranslationInput!]!
+}
+
+input UpsertCourseInput {
+  coverMediaId: ID
+  slug: String!
+  translations: [PublicContentTranslationInput!]!
+}
+
+input UpsertEventInput {
+  capacity: Int
+  coverMediaId: ID
+  endsAt: DateTime
+  location: String
+  slug: String!
+  startsAt: DateTime!
+  translations: [PublicContentTranslationInput!]!
+}
+
+type UserProfile {
+  avatarMediaObjectId: ID
+  branchName: String
+  displayName: String!
+  email: String
+  id: ID!
+  phone: String
+  preferredLanguage: Language!
+  role: UserRole!
+  status: UserStatus!
+  teacherSubject: String
 }
 
 enum UserRole {
