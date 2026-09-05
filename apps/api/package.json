@@ -8,7 +8,7 @@
     "generate": "nest generate",
     "lint": "eslint \"{src,test}/**/*.ts\"",
     "start": "node dist/main.js",
-    "test": "tsc -p tsconfig.test.json && node --test ../../.tmp/api-test/test/auth-exchange.service.spec.js ../../.tmp/api-test/test/auth-guards.spec.js ../../.tmp/api-test/test/auth.service.spec.js ../../.tmp/api-test/test/global-exception.filter.spec.js ../../.tmp/api-test/test/media-upload-policy.spec.js",
+    "test": "tsc -p tsconfig.test.json && node --test ../../.tmp/api-test/test/auth-exchange.service.spec.js ../../.tmp/api-test/test/auth-guards.spec.js ../../.tmp/api-test/test/auth.service.spec.js ../../.tmp/api-test/test/finance-ledger.spec.js ../../.tmp/api-test/test/global-exception.filter.spec.js ../../.tmp/api-test/test/media-upload-policy.spec.js",
     "test:integration": "tsc -p tsconfig.integration.json && node --test --test-concurrency=1 ../../.tmp/api-integration/test/graphql-student.integration.spec.js",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },

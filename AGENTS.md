@@ -2,9 +2,25 @@
 
 ## Current milestone
 
-The architecture, typed local infrastructure, reviewed PostgreSQL/Prisma domain
-schema, backend identity contract, GraphQL domain plan, and first backend
-Student test slice are complete. Step 7A through 7D are approved:
+The public BEST LC website is now an approved active backend milestone. The
+sibling `best-react` application reads localized public courses, events and
+event details, About FAQ, exam offerings/MOCK sessions, and result-video
+metadata through this repository's code-first GraphQL contract. PostgreSQL is
+the source of truth; frontend runtime fixture arrays must not be recreated.
+Course registration, event registration, exam registration, and Contact
+messages are real anonymous intake mutations with explicit consent, input
+validation, duplicate/capacity rules where relevant, and persisted receipt ids.
+Each contract change must regenerate `packages/graphql/schema.graphql`, refresh
+frontend GraphQL Code Generator output, and include an integration test that
+uses fictional/reserved data and asserts database persistence. Data ownership,
+localization, migration, seed, and rollback decisions are documented in
+`packages/database/docs/PUBLIC_WEBSITE_DATA_DESIGN.md`.
+
+The user has approved active Student Dashboard and operational Admin Dashboard
+backend integration with the sibling `best-react` frontend. The architecture,
+typed local infrastructure, reviewed PostgreSQL/Prisma domain schema, backend
+identity contract, GraphQL domain plan, and first backend Student test slice are
+complete. Step 7A through 7D are approved:
 provider-neutral S3 object storage, a maintained local provider, the reviewed
 media lifecycle, private media operations, malware scanning, and the first
 Teacher/Student Library contract. SeaweedFS 4.45 is the
@@ -15,30 +31,57 @@ stable Prisma migrations; do not adopt a release candidate migration format.
 
 The approved 7D boundary adds ClamAV verification, Teacher-owned category and
 Library item management, group-scoped Student reads, and authorized signed
-downloads. Telegram import has been removed from the backend plan by the user;
-do not implement TDLib, Telegram queues, credentials, synchronization, or
-related APIs. Permanent media deletion, broader Teacher/Admin operations,
-subscriptions, refresh tokens, and frontend integration remain outside 7D.
+downloads. The revised vocabulary pilot is approved for local Telegram HTML
+exports, PDF text extraction, private SeaweedFS storage, PostgreSQL review
+drafts, and idempotent source identity. Do not implement TDLib, queues,
+credentials, bulk synchronization, automatic rights approval, or automatic
+publication yet. Permanent media deletion and subscriptions remain outside the
+current scope. Student/Admin frontend integration, protected role routes, and
+the contracts required by sections 20B-20D of the frontend `AGENTS.md` are now
+active scope.
 Auth.js OAuth callbacks remain owned by the Next.js web app.
 
-Step 8 is complete. Student progress derives current-group completion and
-best-per-test score aggregates without a summary table. The Teacher-only
-Results contract exposes owned-group aggregates, paginated active Student
-progress, assigned-test status, historical attempts, and detailed answer
-review. Admin academic monitoring exposes global/group aggregates, Student
-discovery, and score history without selected or correct answers. Ownership
+Step 8 is complete. It includes profiles/Admin users, groups/memberships/
+transfers, Teacher test authoring, lessons/attendance, materials/assignments,
+public courses/events/intake, dashboard/tasks/notifications, and operational
+Admin Library/media/audit views in addition to progress/results. Ownership
 mismatches return `NOT_FOUND`; correct answers remain unavailable to Students
-and Admins. Step 9 production hardening is the next separately reviewed scope.
+and Admins. Extend these existing domains instead of recreating them. Production
+hardening required by the active Student/Admin slices is in scope; unrelated
+platform-wide Step 9 expansion still requires separate review.
 
 Do not add product models or migrations until their data-design decisions have
 been documented and approved. Do not replace the selected SeaweedFS local
 provider, add an archived MinIO Community image, or accept a new provider
 license on the user's behalf without a new review.
 
-Do not extend the approved Student, Teacher Results, Admin academic monitoring,
-or 7D Library/media operations, or implement subscriptions, backend OAuth
-provider callbacks, or other business APIs until the applicable later
-milestone is approved. Telegram integration is retired rather than deferred.
+Do not extend the vocabulary pilot, implement subscriptions, or move Auth.js
+OAuth provider callbacks into this repository. Student/Admin education and
+operations APIs are approved only within the route/feature inventory in the
+frontend sections 20B-20D. Payments are limited to authorized invoice/ledger
+status and administrative reconciliation records; do not implement checkout,
+card/bank collection, provider capture, refunds, payouts, or payroll execution.
+
+### Active Student/Admin integration rules
+
+- Audit current Prisma models, modules, resolvers, schema, and tests before
+  adding a domain. Extend existing `users`, `groups`, `courses`, `events`,
+  `lessons`, `assignments`, `tests`, `attempts`, `results`, `library`, `assets`,
+  `memberships`, `notifications`, `finance`, and `audit` ownership in place.
+- Add only genuinely missing operational contracts required for the approved
+  Student/Admin routes, such as locations, schedule projections, attendance,
+  intake/transfer review, reports, and ledger views. Follow the documented data-
+  design and additive-migration process before new persisted models.
+- Deliver each vertical slice with server-loaded authorization, validation,
+  pagination, concurrency/idempotency rules, audit behavior, generated schema,
+  frontend operation compatibility, and proportional tests.
+- Seed and test only fictional/reserved data. Never import identities or values
+  from reference media or expose production records during development.
+- Keep Parent/Guardian, Super Admin, chat, credentials/password services,
+  certificates, AI grading, payment-provider execution, and unrestricted CMS or
+  infrastructure controls out of scope.
+- Preserve `best-react` and `best-server` as sibling repositories. Do not create
+  a combined monorepo or move frontend source into this backend.
 
 Existing placeholder controllers or generated example endpoints are not product
 contracts and must not be extended.
@@ -71,7 +114,7 @@ are approved.
 ```text
 apps/
   api/                  NestJS GraphQL application
-  import-worker/        Dormant legacy scaffold; no processors
+  import-worker/        Approved local vocabulary import pilot
   scoring-worker/       Deterministic scoring worker
 packages/
   database/             Prisma schema, migrations, generated client, and DB API
@@ -241,9 +284,10 @@ sensitive payloads must be masked from clients.
 ### Import worker
 
 The import worker is a NestJS standalone application context, not an HTTP
-server. Telegram import has been removed from the plan, so this existing
-scaffold stays dormant with no processors until a different responsibility is
-separately designed and approved. Do not add Telegram dependencies to it.
+server. Its approved synchronous pilot reads local Telegram HTML exports,
+extracts embedded PDF text, uploads originals privately, and persists
+review-only vocabulary drafts. Do not add Telegram network dependencies,
+credentials, queue processors, bulk synchronization, or automatic publication.
 
 ### Scoring worker
 
@@ -365,7 +409,7 @@ Do not weaken or disable a check to make the repository pass.
 6. First vertical Student test slice.
 7. Object storage and Library.
 8. Results, Progress, and authorized Teacher/Admin integration.
-9. Production hardening.
+9. Approved Student/Admin frontend integration and required production hardening.
 10. Separately approved AI evaluation.
 
 Steps 1 through 5 are complete. The backend scope of step 6 is implemented;
@@ -374,9 +418,11 @@ local provider, signing primitives, and tests are implemented. Step 7B media
 lifecycle migrations and database invariants are also implemented. Step 7C
 private upload, confirmation, and owner-download mutations are implemented.
 Step 7D malware scanning, Teacher Library management, Student authorization,
-and signed delivery are implemented. Step 7 is complete. Telegram import was
-removed from the plan by the user. Step 8A Student Progress is implemented;
-step 8B Teacher Results is next.
+and signed delivery are implemented. Step 7 is complete. The limited revised
+vocabulary import pilot is implemented. Step 8A through 8K are implemented;
+The Student/Admin integration portion of Step 9 and hardening required by those
+vertical slices are approved. Unrelated production-platform expansion still
+requires separate review.
 
 ## BACKEND PLAN
 
@@ -385,8 +431,8 @@ from the frontend planning document. The active milestone and implementation
 boundaries at the top of this file take precedence when a later decision or
 completed phase makes historical planning language stale. The frontend remains
 in the sibling `best-react` repository; it is not moved into this backend repo.
-All Telegram/TDLib language in the historical reference is retired and must not
-be implemented unless the user approves a new plan in the future.
+Historical Telegram/TDLib synchronization language remains inactive. Only the
+approved local-export vocabulary pilot may be implemented.
 
 ### Backend technology decisions
 
@@ -404,8 +450,8 @@ be implemented unless the user approves a new plan in the future.
   object-storage milestone.
 - Use GraphQL Code Generator to derive frontend operation result and variable
   types from the generated GraphQL schema and authored operations.
-- Deploy the web, API, and scoring worker independently. Do not create one
-  backend server per dashboard. The existing import-worker scaffold is dormant.
+- Deploy the web, API, import worker, and scoring worker independently. Do not
+  create one backend server per dashboard.
 - Do not create an AI worker in the initial backend milestone. Define only the
   versioned contracts required for a separately approved AI milestone.
 
@@ -419,7 +465,7 @@ preset guidance rather than copying outdated setup patterns.
 ```text
 apps/
   api/                  NestJS GraphQL API
-  import-worker/        Dormant legacy scaffold
+  import-worker/        Local vocabulary import pilot
   scoring-worker/       Deterministic test-scoring consumer
 packages/
   database/             Prisma schema, migrations, seeds, and client
@@ -709,31 +755,30 @@ CANCELLED
 - Writing and Speaking remain `REVIEW_REQUIRED` until teacher review or a
   separately approved AI-evaluation workflow completes.
 
-### Student Dashboard integration order
+### Student and Admin Dashboard integration order
 
-Create protected routes only after the auth foundation exists:
+The auth foundation exists. Integrate protected Student and operational Admin
+routes as contract-complete vertical slices:
 
-```text
-/[locale]/student
-/[locale]/student/library
-/[locale]/student/tests
-/[locale]/student/tests/[testId]
-/[locale]/student/results
-/[locale]/student/results/[attemptId]
-/[locale]/student/progress
-/[locale]/student/settings
-```
+The authoritative route inventory is in frontend sections 20B-20D. It includes
+the Student dashboard, courses, schedule, assignments, Library, tests, results,
+progress, read-only tuition ledger, notifications, and settings, plus the
+operational Admin dashboard, intake requests, users, groups, courses, events,
+locations, schedule, attendance, read-only ledger, tests/results, Library,
+imports, transfers, notifications, audit, reports, and settings. Keep the
+route-to-operation map current in
+`packages/graphql/DASHBOARD_CONTRACT_MATRIX.md`.
 
-Deliver the first vertical slice as:
+The first vertical slice remains the reference transaction:
 
 ```text
 Auth -> Tests list -> Test Runner -> Submit -> Scoring -> Result
 ```
 
-Then deliver Library content, Results history, Progress, Settings, Teacher
-visibility, and operational Admin review. Every slice must include its
-GraphQL contract, database behavior, authorization, responsive frontend,
-loading/empty/error states, and automated verification.
+Continue every approved domain as a complete slice with its GraphQL contract,
+database behavior, authorization, responsive frontend, loading/empty/error/
+denied/retry states, and automated verification. Extend existing operations
+before adding a parallel model or resolver.
 
 ### Future AI-evaluation boundary
 
@@ -862,14 +907,14 @@ Production deployment order:
 
 ### Implementation phases
 
-Phase 0 — approval and protection:
+Phase 0 — approved baseline and protection:
 
-- Obtain explicit backend implementation approval.
-- Update the active scope boundaries in this file.
-- Safely commit the existing frontend work before structural movement.
-- Record a monorepo migration checklist and rollback point.
+- Preserve the existing frontend and backend worktrees and audit their current
+  contracts before editing.
+- Keep both repositories separate and update their active scope boundaries.
+- Record data-design decisions before additive migrations.
 
-Phase 1 — monorepo foundation:
+Phase 1 — existing backend foundation:
 
 - Preserve the existing Next.js project and its history in the sibling
   `best-react` repository.
@@ -899,7 +944,7 @@ Phase 5 — Library:
 
 - Implement object storage, Library GraphQL API, media safety, localization
   readiness, and protected Student Library integration. This phase is complete;
-  Telegram import is not part of the backend plan.
+  the limited local-export vocabulary pilot is implemented separately.
 
 Phase 6 — Results and Progress:
 

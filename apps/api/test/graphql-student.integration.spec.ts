@@ -20,6 +20,10 @@ import {
   AttemptStatus,
   AttemptSubmissionReason,
   Language,
+  PublicContentStatus,
+  PublicCourseAccent,
+  PublicCourseCategory,
+  PublicEventTimelineStatus,
   TestVersionStatus,
   UserRole,
 } from '@best/database';
@@ -1151,6 +1155,274 @@ void test('Teacher manages Library and only an authorized Student can read and d
   );
 });
 
+void test('Section 8 profile, learning, public, and operations flows are connected', async () => {
+  const profile = await executeGraphql(
+    teacherToken,
+    `mutation UpdateProfile($input: UpdateMyProfileInput!) {
+      updateMyProfile(input: $input) { profile { id displayName preferredLanguage } }
+    }`,
+    { input: { displayName: 'Section 8 Teacher', preferredLanguage: 'UZ' } },
+  );
+  assert.equal(
+    requireRecordField(
+      requireRecordField(profile, 'updateMyProfile'),
+      'profile',
+    ).displayName,
+    'Section 8 Teacher',
+  );
+
+  const lesson = await executeGraphql(
+    teacherToken,
+    `mutation CreateLesson($input: CreateLessonInput!) {
+      createLesson(input: $input) { lesson { id status } }
+    }`,
+    {
+      input: {
+        endsAt: '2032-01-10T11:00:00.000Z',
+        groupId,
+        startsAt: '2032-01-10T10:00:00.000Z',
+        translations: [{ language: 'UZ', title: 'Sinov darsi' }],
+      },
+    },
+  );
+  const lessonId = requireStringField(
+    requireRecordField(requireRecordField(lesson, 'createLesson'), 'lesson'),
+    'id',
+  );
+  await executeGraphql(
+    teacherToken,
+    `mutation ScheduleLesson($input: SetLessonStatusInput!) {
+      setLessonStatus(input: $input) { lesson { id status } }
+    }`,
+    { input: { lessonId, status: 'SCHEDULED' } },
+  );
+
+  const assignment = await executeGraphql(
+    teacherToken,
+    `mutation CreateAssignment($input: CreateAssignmentInput!) {
+      createAssignment(input: $input) { assignment { id status } }
+    }`,
+    {
+      input: {
+        allowLate: false,
+        groupId,
+        lessonId,
+        translations: [{ language: 'UZ', title: 'Uy vazifasi' }],
+      },
+    },
+  );
+  const assignmentId = requireStringField(
+    requireRecordField(
+      requireRecordField(assignment, 'createAssignment'),
+      'assignment',
+    ),
+    'id',
+  );
+  await executeGraphql(
+    teacherToken,
+    `mutation PublishAssignment($input: AssignmentIdInput!) {
+      publishAssignment(input: $input) { assignment { id status } }
+    }`,
+    { input: { assignmentId } },
+  );
+  const submission = await executeGraphql(
+    studentToken,
+    `mutation SubmitAssignment($input: SubmitAssignmentInput!) {
+      submitAssignment(input: $input) { submission { id status } }
+    }`,
+    { input: { assignmentId, text: 'Tayyor javob' } },
+  );
+  const submissionId = requireStringField(
+    requireRecordField(
+      requireRecordField(submission, 'submitAssignment'),
+      'submission',
+    ),
+    'id',
+  );
+  await executeGraphql(
+    teacherToken,
+    `mutation ReviewSubmission($input: ReviewAssignmentSubmissionInput!) {
+      reviewAssignmentSubmission(input: $input) { submission { id status score } }
+    }`,
+    {
+      input: {
+        feedback: 'Qabul qilindi',
+        score: 90,
+        status: 'REVIEWED',
+        submissionId,
+      },
+    },
+  );
+
+  const slug = `section-${randomUUID().replaceAll('-', '')}`;
+  await executeGraphql(
+    adminToken,
+    `mutation CreateCourse($input: UpsertCourseInput!) {
+      createCourseDraft(input: $input) { course { id slug status } }
+    }`,
+    {
+      input: {
+        slug,
+        translations: [
+          { description: 'Section 8 course', language: 'UZ', title: 'Kurs' },
+        ],
+      },
+    },
+  );
+  const overview = await executeGraphql(
+    adminToken,
+    `query OperationalOverview { adminOperationalOverview { activeGroups activeUsers } }`,
+  );
+  assert.equal(
+    typeof requireRecordField(overview, 'adminOperationalOverview')
+      .activeGroups,
+    'number',
+  );
+});
+
+void test('public registration and contact endpoints persist validated submissions', async () => {
+  if (app === undefined) throw new Error('Test application is not ready.');
+  const database = app.get(DatabaseService);
+  const suffix = randomUUID().replaceAll('-', '').slice(0, 12);
+  const courseSlug = `public-course-${suffix}`;
+  const course = await database.publicCourse.create({
+    data: {
+      accent: PublicCourseAccent.BLUE,
+      category: PublicCourseCategory.ENGLISH,
+      publishedAt: new Date(),
+      slug: courseSlug,
+      status: PublicContentStatus.PUBLISHED,
+      symbol: 'EN',
+      translations: {
+        create: {
+          description: 'Fake course used by the public API integration test.',
+          language: Language.EN,
+          title: 'Fake public course',
+        },
+      },
+    },
+  });
+  const event = await database.publicEvent.create({
+    data: {
+      capacity: 8,
+      publishedAt: new Date(),
+      slug: `public-event-${suffix}`,
+      startsAt: new Date(Date.now() + 86_400_000),
+      status: PublicContentStatus.PUBLISHED,
+      timelineStatus: PublicEventTimelineStatus.UPCOMING,
+      translations: {
+        create: {
+          description: 'Fake event used by the public API integration test.',
+          language: Language.EN,
+          title: 'Fake public event',
+        },
+      },
+    },
+  });
+  await database.publicExamOffering.create({
+    data: {
+      key: `exam-${suffix}`,
+      publishedAt: new Date(),
+      status: PublicContentStatus.PUBLISHED,
+      translations: {
+        create: {
+          description: 'Fake exam used by the public API integration test.',
+          duration: '60 minutes',
+          formatLabel: 'In person',
+          language: Language.EN,
+          level: 'B1',
+          title: 'Fake public exam',
+        },
+      },
+    },
+  });
+
+  const courseResponse = await executeGraphql(
+    undefined,
+    `mutation RegisterCourse($input: RegisterForCourseInput!) {
+      registerForCourse(input: $input) { accepted receiptId }
+    }`,
+    {
+      input: {
+        consent: true,
+        courseSlug,
+        email: `course-${suffix}@example.com`,
+        locale: 'EN',
+        name: 'Fake Course Learner',
+        phone: `+9989000${suffix.slice(0, 5)}`,
+      },
+    },
+  );
+  assert.equal(requireRecordField(courseResponse, 'registerForCourse').accepted, true);
+
+  const eventResponse = await executeGraphql(
+    undefined,
+    `mutation RegisterEvent($input: RegisterForEventInput!) {
+      registerForEvent(input: $input) { accepted receiptId }
+    }`,
+    {
+      input: {
+        consent: true,
+        email: `event-${suffix}@example.com`,
+        eventId: event.id,
+        locale: 'EN',
+        name: 'Fake Event Guest',
+        participantCount: 2,
+        phone: `+9989100${suffix.slice(0, 5)}`,
+      },
+    },
+  );
+  assert.equal(requireRecordField(eventResponse, 'registerForEvent').accepted, true);
+
+  const examResponse = await executeGraphql(
+    undefined,
+    `mutation RegisterExam($input: SubmitExamRegistrationInput!) {
+      submitExamRegistration(input: $input) { accepted receiptId }
+    }`,
+    {
+      input: {
+        consent: true,
+        currentLevel: 'B1',
+        email: `exam-${suffix}@example.com`,
+        locale: 'EN',
+        name: 'Fake Exam Candidate',
+        offeringKey: `exam-${suffix}`,
+        phone: `+9989200${suffix.slice(0, 5)}`,
+      },
+    },
+  );
+  assert.equal(requireRecordField(examResponse, 'submitExamRegistration').accepted, true);
+
+  const contactResponse = await executeGraphql(
+    undefined,
+    `mutation Contact($input: SubmitContactRequestInput!) {
+      submitContactRequest(input: $input) { accepted receiptId }
+    }`,
+    {
+      input: {
+        consent: true,
+        email: `contact-${suffix}@example.com`,
+        locale: 'EN',
+        message: 'Fake contact request for integration testing.',
+        name: 'Fake Contact',
+        subject: 'API integration test',
+      },
+    },
+  );
+  assert.equal(requireRecordField(contactResponse, 'submitContactRequest').accepted, true);
+
+  assert.equal(await database.courseRegistration.count({ where: { courseId: course.id } }), 1);
+  assert.equal(await database.eventRegistration.count({ where: { eventId: event.id } }), 1);
+  assert.equal(
+    await database.examRegistration.count({ where: { email: `exam-${suffix}@example.com` } }),
+    1,
+  );
+  assert.equal(
+    await database.contactRequest.count({ where: { email: `contact-${suffix}@example.com` } }),
+    1,
+  );
+});
+
 void test('generated schema keeps answer review out of Student and Admin types', async () => {
   const schema = await readFile(
     resolve(__dirname, '../../../packages/graphql/schema.graphql'),
@@ -1182,6 +1454,39 @@ void test('generated schema keeps answer review out of Student and Admin types',
   assert.match(schema, /adminGroupProgresses/);
   assert.match(schema, /adminStudents/);
   assert.match(schema, /adminStudentResults/);
+  for (const operation of [
+    'myProfile',
+    'adminUsers',
+    'updateMyProfile',
+    'teacherGroups',
+    'teacherGroupRoster',
+    'requestStudentTransfer',
+    'teacherTests',
+    'createTestDraft',
+    'publishTestVersion',
+    'grantAdditionalTestAttempt',
+    'teacherSchedule',
+    'studentSchedule',
+    'recordLessonAttendance',
+    'teacherGroupMaterials',
+    'studentAssignments',
+    'submitAssignment',
+    'reviewAssignmentSubmission',
+    'publicCourses',
+    'publicEvents',
+    'registerForCourse',
+    'submitContactRequest',
+    'submitExamRegistration',
+    'registerForEvent',
+    'teacherDashboard',
+    'myNotifications',
+    'adminOperationalOverview',
+    'adminLibraryItems',
+    'adminMediaObjects',
+    'adminAuditLogs',
+  ]) {
+    assert.match(schema, new RegExp(operation));
+  }
 });
 
 async function uploadAndConfirmPdf(
@@ -1258,6 +1563,7 @@ async function createStudentProgressFixture(
     data: {
       id: fixtureGroupId,
       name: groupName,
+      slug: `progress-${fixtureGroupId}`,
       paymentDeadlineDay: 15,
       teacherId: fixtureTeacherId,
     },
@@ -1521,6 +1827,7 @@ async function createStudentTestFixture(database: DatabaseService): Promise<{
     data: {
       id: groupId,
       name: 'Fake GraphQL Group',
+      slug: `graphql-${groupId}`,
       paymentDeadlineDay: 10,
       teacherId,
     },
@@ -1603,7 +1910,7 @@ async function createStudentTestFixture(database: DatabaseService): Promise<{
 }
 
 async function executeGraphql(
-  token: string,
+  token: string | undefined,
   query: string,
   variables?: Readonly<Record<string, unknown>>,
 ): Promise<Record<string, unknown>> {
@@ -1619,15 +1926,15 @@ async function executeGraphql(
 }
 
 async function executeGraphqlExpectingErrors(
-  token: string,
+  token: string | undefined,
   query: string,
   variables?: Readonly<Record<string, unknown>>,
 ): Promise<Record<string, unknown>> {
   const response = await fetch(apiUrl, {
     body: JSON.stringify({ query, variables }),
     headers: {
-      authorization: `Bearer ${token}`,
       'content-type': 'application/json',
+      ...(token === undefined ? {} : { authorization: `Bearer ${token}` }),
     },
     method: 'POST',
   });
@@ -1648,6 +1955,11 @@ async function applyMigrations(connectionString: string): Promise<void> {
       '20260901031000_media_object_updated_at_default',
       '20260901040000_media_malware_scan',
       '20260901041000_fix_media_attachment_trigger',
+      '20260904010000_user_profiles',
+      '20260904020000_groups_memberships_transfers',
+      '20260904030000_learning_public_notifications',
+      '20260904040000_vocabulary_import_pilot',
+      '20260905090000_public_website_content',
     ]) {
       const sql = await readFile(
         resolve(

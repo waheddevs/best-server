@@ -47,6 +47,10 @@ void test('initial migration exposes the reviewed database surface', async () =>
           '20260901031000_media_object_updated_at_default',
           '20260901040000_media_malware_scan',
           '20260901041000_fix_media_attachment_trigger',
+          '20260904010000_user_profiles',
+          '20260904020000_groups_memberships_transfers',
+          '20260904030000_learning_public_notifications',
+          '20260904040000_vocabulary_import_pilot',
         ],
       ],
     );
@@ -70,9 +74,9 @@ void test('initial migration exposes the reviewed database surface', async () =>
        WHERE "trigger_schema" = 'public'`,
     );
 
-    assert.equal(migrations.rowCount, 7);
-    assert.equal(tables.rows[0]?.count, '31');
-    assert.equal(enums.rows[0]?.count, '18');
+    assert.equal(migrations.rowCount, 11);
+    assert.equal(tables.rows[0]?.count, '51');
+    assert.equal(enums.rows[0]?.count, '31');
     assert.deepEqual(
       new Set(triggers.rows.map(({ trigger_name }) => trigger_name)),
       new Set([
@@ -82,6 +86,7 @@ void test('initial migration exposes the reviewed database surface', async () =>
         'attempts_protect_lifecycle',
         'audit_logs_append_only',
         'finance_adjustments_append_only',
+        'import_source_documents_protect_identity',
         'library_attachments_require_ready_media',
         'media_objects_protect_lifecycle',
         'outbox_events_protect_source',
@@ -171,9 +176,14 @@ void test('a student cannot have two active group memberships', async () => {
 
     await client.query(
       `INSERT INTO "groups"
-        ("id", "teacher_id", "name", "payment_deadline_day", "updated_at")
-       VALUES ($1, $2, $3, 15, CURRENT_TIMESTAMP)`,
-      [secondGroupId, fixture.teacherId, `Second group ${secondGroupId}`],
+        ("id", "teacher_id", "name", "slug", "payment_deadline_day", "updated_at")
+       VALUES ($1, $2, $3, $4, 15, CURRENT_TIMESTAMP)`,
+      [
+        secondGroupId,
+        fixture.teacherId,
+        `Second group ${secondGroupId}`,
+        `second-${secondGroupId}`,
+      ],
     );
 
     await expectDatabaseError(
@@ -529,6 +539,84 @@ void test('Telegram import retries are idempotent and provenance is immutable', 
   });
 });
 
+void test('vocabulary import drafts preserve source identity and ordered entries', async () => {
+  await withTransaction(async (client) => {
+    const fixture = await createEducationFixture(client);
+    const mediaObjectId = randomUUID();
+    const sourceDocumentId = randomUUID();
+    const draftId = randomUUID();
+    const channelId = `channel-${randomUUID()}`;
+
+    await client.query(
+      `INSERT INTO "media_objects"
+        ("id", "created_by_id", "media_type", "status", "source",
+         "visibility", "bucket", "object_key", "original_name", "mime_type",
+         "upload_expires_at", "updated_at")
+       VALUES
+        ($1, $2, 'PDF', 'VERIFYING', 'TELEGRAM_IMPORT', 'OWNER_ONLY',
+         'best-private', $3, 'unit-1.pdf', 'application/pdf',
+         CURRENT_TIMESTAMP + INTERVAL '5 minutes', CURRENT_TIMESTAMP)`,
+      [
+        mediaObjectId,
+        fixture.teacherId,
+        `private/${fixture.teacherId}/${mediaObjectId}`,
+      ],
+    );
+    await client.query(
+      `INSERT INTO "import_source_documents"
+        ("id", "channel_id", "message_id", "content_message_id",
+         "media_object_id", "checksum_sha256", "original_name",
+         "source_published_at", "extraction_method", "extraction_status",
+         "rights_status", "detected_brands", "updated_at")
+       VALUES
+        ($1, $2, 261, 264, $3, repeat('a', 64), 'unit-1.pdf',
+         CURRENT_TIMESTAMP, 'EMBEDDED_TEXT', 'COMPLETED', 'REVIEW_REQUIRED',
+         '["Cambridge"]'::jsonb, CURRENT_TIMESTAMP)`,
+      [sourceDocumentId, channelId, mediaObjectId],
+    );
+    await client.query(
+      `INSERT INTO "vocabulary_drafts"
+        ("id", "source_document_id", "title", "parser_version", "status",
+         "unparsed_lines", "updated_at")
+       VALUES ($1, $2, 'The family', 1, 'DRAFT', '[]'::jsonb, CURRENT_TIMESTAMP)`,
+      [draftId, sourceDocumentId],
+    );
+    await client.query(
+      `INSERT INTO "vocabulary_draft_entries"
+        ("id", "draft_id", "position", "section", "term", "pronunciation", "translation")
+       VALUES
+        ($1, $2, 1, 'Family words', 'mother', 'mʌðə', 'ona'),
+        ($3, $2, 2, 'Family words', 'father', 'fɑːðə', 'ota')`,
+      [randomUUID(), draftId, randomUUID()],
+    );
+
+    const entries = await client.query<{ position: number; term: string }>(
+      `SELECT "position", "term"
+       FROM "vocabulary_draft_entries"
+       WHERE "draft_id" = $1
+       ORDER BY "position"`,
+      [draftId],
+    );
+
+    assert.deepEqual(entries.rows, [
+      { position: 1, term: 'mother' },
+      { position: 2, term: 'father' },
+    ]);
+
+    await expectDatabaseError(
+      client,
+      () =>
+        client.query(
+          `UPDATE "import_source_documents"
+           SET "message_id" = 999
+           WHERE "id" = $1`,
+          [sourceDocumentId],
+        ),
+      /import source document identity is immutable/,
+    );
+  });
+});
+
 async function createEducationFixture(
   client: PoolClient,
 ): Promise<EducationFixture> {
@@ -546,9 +634,9 @@ async function createEducationFixture(
   );
   await client.query(
     `INSERT INTO "groups"
-      ("id", "teacher_id", "name", "payment_deadline_day", "updated_at")
-     VALUES ($1, $2, $3, 10, CURRENT_TIMESTAMP)`,
-    [groupId, teacherId, `Group ${groupId}`],
+      ("id", "teacher_id", "name", "slug", "payment_deadline_day", "updated_at")
+     VALUES ($1, $2, $3, $4, 10, CURRENT_TIMESTAMP)`,
+    [groupId, teacherId, `Group ${groupId}`, `group-${groupId}`],
   );
   await client.query(
     `INSERT INTO "group_memberships" ("id", "group_id", "student_id")
