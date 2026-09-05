@@ -96,6 +96,30 @@ enum ImportRunStatus {
   FAILED
 }
 
+enum ImportExtractionMethod {
+  EMBEDDED_TEXT
+  OCR
+}
+
+enum ImportExtractionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum ImportRightsStatus {
+  REVIEW_REQUIRED
+  APPROVED
+  REJECTED
+}
+
+enum VocabularyDraftStatus {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  REJECTED
+}
+
 enum PaymentMethod {
   CASH
   CARD
@@ -111,6 +135,87 @@ enum OutboxEventType {
   ATTEMPT_SUBMITTED
 }
 
+enum TransferRequestStatus {
+  PENDING
+  APPROVED
+  DECLINED
+  CANCELLED
+}
+
+enum LessonStatus {
+  DRAFT
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  EXCUSED
+}
+
+enum AssignmentStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+}
+
+enum SubmissionStatus {
+  SUBMITTED
+  REVIEWED
+  RETURNED
+}
+
+enum PublicContentStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum IntakeStatus {
+  NEW
+  IN_REVIEW
+  RESOLVED
+  REJECTED
+}
+
+enum TeacherTaskStatus {
+  OPEN
+  COMPLETED
+}
+
+enum TeacherTaskKind {
+  FOLLOW_UP
+  PREPARATION
+  ADMINISTRATIVE
+}
+
+enum PublicCourseCategory {
+  ENGLISH
+  EXAM
+  LANGUAGE
+}
+
+enum PublicCourseAccent {
+  BLUE
+  TURQUOISE
+  YELLOW
+}
+
+enum PublicCourseContentKind {
+  OVERVIEW
+  HIGHLIGHT
+  OUTCOME
+  CURRICULUM
+}
+
+enum PublicEventTimelineStatus {
+  UPCOMING
+  PAST
+}
+
 model User {
   id                       String                   @id @default(uuid()) @db.Uuid
   role                     UserRole
@@ -118,6 +223,11 @@ model User {
   displayName              String                   @map("display_name") @db.VarChar(160)
   email                    String?                  @unique @db.VarChar(320)
   emailVerifiedAt          DateTime?                @map("email_verified_at") @db.Timestamptz(3)
+  phone                    String?                  @db.VarChar(32)
+  preferredLanguage        Language                 @default(UZ) @map("preferred_language")
+  teacherSubject           String?                  @map("teacher_subject") @db.VarChar(160)
+  branchName               String?                  @map("branch_name") @db.VarChar(160)
+  avatarMediaObjectId      String?                  @unique @map("avatar_media_object_id") @db.Uuid
   createdAt                DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt                DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
   authAccounts             AuthAccount[]
@@ -130,6 +240,7 @@ model User {
   createdLibraryCategories LibraryCategory[]        @relation("LibraryCategoryCreator")
   ownedLibraryItems        LibraryItem[]            @relation("LibraryItemOwner")
   createdMediaObjects      MediaObject[]            @relation("MediaObjectCreator")
+  avatarMediaObject        MediaObject?             @relation("UserAvatar", fields: [avatarMediaObjectId], references: [id], onDelete: SetNull)
   tuitionOverrides         StudentTuitionOverride[] @relation("TuitionOverrideStudent")
   createdTuitionOverrides  StudentTuitionOverride[] @relation("TuitionOverrideActor")
   tuitionCharges           TuitionCharge[]          @relation("TuitionChargeStudent")
@@ -139,6 +250,17 @@ model User {
   recordedAdjustments      FinanceAdjustment[]      @relation("FinanceAdjustmentActor")
   createdTuitionRates      GroupTuitionRate[]       @relation("TuitionRateActor")
   auditLogs                AuditLog[]               @relation("AuditActor")
+  requestedTransfers       GroupTransferRequest[]   @relation("TransferRequester")
+  reviewedTransfers        GroupTransferRequest[]   @relation("TransferReviewer")
+  transferRequests         GroupTransferRequest[]   @relation("TransferStudent")
+  lessonAttendances        LessonAttendance[]       @relation("AttendanceStudent")
+  assignmentSubmissions    AssignmentSubmission[]   @relation("SubmissionStudent")
+  reviewedSubmissions      AssignmentSubmission[]   @relation("SubmissionReviewer")
+  createdLessons           Lesson[]                 @relation("LessonCreator")
+  createdMaterials         LessonMaterial[]         @relation("MaterialCreator")
+  createdAssignments       Assignment[]             @relation("AssignmentCreator")
+  teacherTasks             TeacherTask[]            @relation("TeacherTaskOwner")
+  notifications            Notification[]
 
   @@index([role, status])
   @@map("users")
@@ -164,8 +286,14 @@ model Group {
   id                 String                   @id @default(uuid()) @db.Uuid
   teacherId          String                   @map("teacher_id") @db.Uuid
   name               String                   @db.VarChar(160)
+  slug               String                   @unique @db.VarChar(160)
+  room               String?                  @db.VarChar(80)
+  scheduleDays       Int[]                    @default([]) @map("schedule_days") @db.SmallInt
+  startsAtMinutes    Int?                     @map("starts_at_minutes") @db.SmallInt
+  endsAtMinutes      Int?                     @map("ends_at_minutes") @db.SmallInt
+  timeZone           String                   @default("Asia/Tashkent") @map("time_zone") @db.VarChar(64)
   status             ContentStatus            @default(ACTIVE)
-  paymentDeadlineDay Int                      @map("payment_deadline_day")
+  paymentDeadlineDay Int?                     @map("payment_deadline_day")
   archivedAt         DateTime?                @map("archived_at") @db.Timestamptz(3)
   createdAt          DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt          DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -175,6 +303,12 @@ model Group {
   libraryAccesses    LibraryGroupAccess[]
   tuitionRates       GroupTuitionRate[]
   tuitionOverrides   StudentTuitionOverride[]
+  outgoingTransfers  GroupTransferRequest[]   @relation("TransferFromGroup")
+  incomingTransfers  GroupTransferRequest[]   @relation("TransferToGroup")
+  lessons            Lesson[]
+  lessonMaterials    LessonMaterial[]
+  assignments        Assignment[]
+  teacherTasks       TeacherTask[]
 
   @@unique([teacherId, name])
   @@index([status])
@@ -182,20 +316,46 @@ model Group {
 }
 
 model GroupMembership {
-  id             String          @id @default(uuid()) @db.Uuid
-  groupId        String          @map("group_id") @db.Uuid
-  studentId      String          @map("student_id") @db.Uuid
-  startedAt      DateTime        @default(now()) @map("started_at") @db.Timestamptz(3)
-  endedAt        DateTime?       @map("ended_at") @db.Timestamptz(3)
-  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
-  group          Group           @relation(fields: [groupId], references: [id], onDelete: Restrict)
-  student        User            @relation("StudentMembership", fields: [studentId], references: [id], onDelete: Restrict)
+  id             String             @id @default(uuid()) @db.Uuid
+  groupId        String             @map("group_id") @db.Uuid
+  studentId      String             @map("student_id") @db.Uuid
+  startedAt      DateTime           @default(now()) @map("started_at") @db.Timestamptz(3)
+  endedAt        DateTime?          @map("ended_at") @db.Timestamptz(3)
+  createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  group          Group              @relation(fields: [groupId], references: [id], onDelete: Restrict)
+  student        User               @relation("StudentMembership", fields: [studentId], references: [id], onDelete: Restrict)
   attempts       Attempt[]
   tuitionCharges TuitionCharge[]
+  attendances    LessonAttendance[]
 
   @@index([groupId, endedAt])
   @@index([studentId, startedAt])
   @@map("group_memberships")
+}
+
+model GroupTransferRequest {
+  id            String                @id @default(uuid()) @db.Uuid
+  studentId     String                @map("student_id") @db.Uuid
+  fromGroupId   String                @map("from_group_id") @db.Uuid
+  toGroupId     String                @map("to_group_id") @db.Uuid
+  requestedById String                @map("requested_by_id") @db.Uuid
+  reviewedById  String?               @map("reviewed_by_id") @db.Uuid
+  status        TransferRequestStatus @default(PENDING)
+  reason        String                @db.Text
+  reviewNote    String?               @map("review_note") @db.Text
+  reviewedAt    DateTime?             @map("reviewed_at") @db.Timestamptz(3)
+  createdAt     DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+  student       User                  @relation("TransferStudent", fields: [studentId], references: [id], onDelete: Restrict)
+  fromGroup     Group                 @relation("TransferFromGroup", fields: [fromGroupId], references: [id], onDelete: Restrict)
+  toGroup       Group                 @relation("TransferToGroup", fields: [toGroupId], references: [id], onDelete: Restrict)
+  requestedBy   User                  @relation("TransferRequester", fields: [requestedById], references: [id], onDelete: Restrict)
+  reviewedBy    User?                 @relation("TransferReviewer", fields: [reviewedById], references: [id], onDelete: Restrict)
+
+  @@index([requestedById, status, createdAt])
+  @@index([toGroupId, status, createdAt])
+  @@index([studentId, createdAt])
+  @@map("group_transfer_requests")
 }
 
 model TestCategory {
@@ -406,6 +566,7 @@ model LibraryItem {
   groupAccesses   LibraryGroupAccess[]
   attachments     LibraryAttachment[]
   importRecord    TelegramImportRecord?
+  lessonMaterials LessonMaterial[]
 
   @@index([categoryId, status])
   @@index([ownerTeacherId, visibility])
@@ -435,33 +596,38 @@ model LibraryGroupAccess {
 }
 
 model MediaObject {
-  id                      String              @id @default(uuid()) @db.Uuid
-  createdById             String              @map("created_by_id") @db.Uuid
-  mediaType               MediaType           @map("media_type")
-  status                  MediaObjectStatus   @default(PENDING_UPLOAD)
-  source                  MediaObjectSource   @default(USER_UPLOAD)
-  visibility              MediaVisibility     @default(OWNER_ONLY)
-  bucket                  String              @db.VarChar(120)
-  objectKey               String              @unique @map("object_key") @db.VarChar(1024)
-  originalName            String              @map("original_name") @db.VarChar(255)
-  mimeType                String              @map("mime_type") @db.VarChar(160)
-  sizeBytes               BigInt?             @map("size_bytes")
-  checksumSha256          String?             @map("checksum_sha256") @db.Char(64)
-  uploadExpiresAt         DateTime?           @map("upload_expires_at") @db.Timestamptz(3)
-  verifiedAt              DateTime?           @map("verified_at") @db.Timestamptz(3)
-  rejectedAt              DateTime?           @map("rejected_at") @db.Timestamptz(3)
-  rejectionCode           String?             @map("rejection_code") @db.VarChar(80)
-  malwareStatus           MediaMalwareStatus  @default(PENDING) @map("malware_status")
-  malwareScannedAt        DateTime?           @map("malware_scanned_at") @db.Timestamptz(3)
-  malwareEngine           String?             @map("malware_engine") @db.VarChar(80)
-  malwareEngineVersion    String?             @map("malware_engine_version") @db.VarChar(80)
-  malwareSignatureVersion String?             @map("malware_signature_version") @db.VarChar(120)
-  malwareThreatName       String?             @map("malware_threat_name") @db.VarChar(240)
-  createdAt               DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt               DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
-  createdBy               User                @relation("MediaObjectCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  id                      String                 @id @default(uuid()) @db.Uuid
+  createdById             String                 @map("created_by_id") @db.Uuid
+  mediaType               MediaType              @map("media_type")
+  status                  MediaObjectStatus      @default(PENDING_UPLOAD)
+  source                  MediaObjectSource      @default(USER_UPLOAD)
+  visibility              MediaVisibility        @default(OWNER_ONLY)
+  bucket                  String                 @db.VarChar(120)
+  objectKey               String                 @unique @map("object_key") @db.VarChar(1024)
+  originalName            String                 @map("original_name") @db.VarChar(255)
+  mimeType                String                 @map("mime_type") @db.VarChar(160)
+  sizeBytes               BigInt?                @map("size_bytes")
+  checksumSha256          String?                @map("checksum_sha256") @db.Char(64)
+  uploadExpiresAt         DateTime?              @map("upload_expires_at") @db.Timestamptz(3)
+  verifiedAt              DateTime?              @map("verified_at") @db.Timestamptz(3)
+  rejectedAt              DateTime?              @map("rejected_at") @db.Timestamptz(3)
+  rejectionCode           String?                @map("rejection_code") @db.VarChar(80)
+  malwareStatus           MediaMalwareStatus     @default(PENDING) @map("malware_status")
+  malwareScannedAt        DateTime?              @map("malware_scanned_at") @db.Timestamptz(3)
+  malwareEngine           String?                @map("malware_engine") @db.VarChar(80)
+  malwareEngineVersion    String?                @map("malware_engine_version") @db.VarChar(80)
+  malwareSignatureVersion String?                @map("malware_signature_version") @db.VarChar(120)
+  malwareThreatName       String?                @map("malware_threat_name") @db.VarChar(240)
+  createdAt               DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt               DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdBy               User                   @relation("MediaObjectCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  profileAvatar           User?                  @relation("UserAvatar")
   attachments             LibraryAttachment[]
-  paymentReceipts         Payment[]           @relation("PaymentReceipt")
+  paymentReceipts         Payment[]              @relation("PaymentReceipt")
+  courseCovers            PublicCourse[]
+  eventCovers             PublicEvent[]
+  submissionAttachments   AssignmentSubmission[]
+  importSourceDocument    ImportSourceDocument?
 
   @@index([createdById, mediaType])
   @@index([status, uploadExpiresAt])
@@ -480,6 +646,543 @@ model LibraryAttachment {
   @@unique([libraryItemId, position])
   @@unique([libraryItemId, mediaObjectId])
   @@map("library_attachments")
+}
+
+model Lesson {
+  id           String              @id @default(uuid()) @db.Uuid
+  groupId      String              @map("group_id") @db.Uuid
+  createdById  String              @map("created_by_id") @db.Uuid
+  status       LessonStatus        @default(DRAFT)
+  startsAt     DateTime            @map("starts_at") @db.Timestamptz(3)
+  endsAt       DateTime            @map("ends_at") @db.Timestamptz(3)
+  room         String?             @db.VarChar(80)
+  createdAt    DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  group        Group               @relation(fields: [groupId], references: [id], onDelete: Restrict)
+  createdBy    User                @relation("LessonCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  translations LessonTranslation[]
+  attendances  LessonAttendance[]
+  materials    LessonMaterial[]
+  assignments  Assignment[]
+
+  @@index([groupId, startsAt])
+  @@index([createdById, startsAt])
+  @@map("lessons")
+}
+
+model LessonTranslation {
+  id       String   @id @default(uuid()) @db.Uuid
+  lessonId String   @map("lesson_id") @db.Uuid
+  language Language
+  title    String   @db.VarChar(240)
+  summary  String?  @db.Text
+  lesson   Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([lessonId, language])
+  @@map("lesson_translations")
+}
+
+model LessonAttendance {
+  id                String           @id @default(uuid()) @db.Uuid
+  lessonId          String           @map("lesson_id") @db.Uuid
+  groupMembershipId String           @map("group_membership_id") @db.Uuid
+  studentId         String           @map("student_id") @db.Uuid
+  status            AttendanceStatus
+  note              String?          @db.VarChar(500)
+  recordedAt        DateTime         @default(now()) @map("recorded_at") @db.Timestamptz(3)
+  lesson            Lesson           @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  groupMembership   GroupMembership  @relation(fields: [groupMembershipId], references: [id], onDelete: Restrict)
+  student           User             @relation("AttendanceStudent", fields: [studentId], references: [id], onDelete: Restrict)
+
+  @@unique([lessonId, studentId])
+  @@index([groupMembershipId, lessonId])
+  @@map("lesson_attendance")
+}
+
+model LessonMaterial {
+  id            String      @id @default(uuid()) @db.Uuid
+  groupId       String      @map("group_id") @db.Uuid
+  lessonId      String?     @map("lesson_id") @db.Uuid
+  libraryItemId String      @map("library_item_id") @db.Uuid
+  createdById   String      @map("created_by_id") @db.Uuid
+  position      Int         @default(1)
+  archivedAt    DateTime?   @map("archived_at") @db.Timestamptz(3)
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  group         Group       @relation(fields: [groupId], references: [id], onDelete: Restrict)
+  lesson        Lesson?     @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+  libraryItem   LibraryItem @relation(fields: [libraryItemId], references: [id], onDelete: Restrict)
+  createdBy     User        @relation("MaterialCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@unique([groupId, libraryItemId])
+  @@index([lessonId, position])
+  @@map("lesson_materials")
+}
+
+model Assignment {
+  id           String                  @id @default(uuid()) @db.Uuid
+  groupId      String                  @map("group_id") @db.Uuid
+  lessonId     String?                 @map("lesson_id") @db.Uuid
+  createdById  String                  @map("created_by_id") @db.Uuid
+  status       AssignmentStatus        @default(DRAFT)
+  dueAt        DateTime?               @map("due_at") @db.Timestamptz(3)
+  allowLate    Boolean                 @default(false) @map("allow_late")
+  publishedAt  DateTime?               @map("published_at") @db.Timestamptz(3)
+  closedAt     DateTime?               @map("closed_at") @db.Timestamptz(3)
+  createdAt    DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
+  group        Group                   @relation(fields: [groupId], references: [id], onDelete: Restrict)
+  lesson       Lesson?                 @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+  createdBy    User                    @relation("AssignmentCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  translations AssignmentTranslation[]
+  submissions  AssignmentSubmission[]
+
+  @@index([groupId, status, dueAt])
+  @@map("assignments")
+}
+
+model AssignmentTranslation {
+  id           String     @id @default(uuid()) @db.Uuid
+  assignmentId String     @map("assignment_id") @db.Uuid
+  language     Language
+  title        String     @db.VarChar(240)
+  instructions String?    @db.Text
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+  @@unique([assignmentId, language])
+  @@map("assignment_translations")
+}
+
+model AssignmentSubmission {
+  id            String           @id @default(uuid()) @db.Uuid
+  assignmentId  String           @map("assignment_id") @db.Uuid
+  studentId     String           @map("student_id") @db.Uuid
+  mediaObjectId String?          @map("media_object_id") @db.Uuid
+  text          String?          @db.Text
+  status        SubmissionStatus @default(SUBMITTED)
+  submittedAt   DateTime         @default(now()) @map("submitted_at") @db.Timestamptz(3)
+  reviewedById  String?          @map("reviewed_by_id") @db.Uuid
+  reviewedAt    DateTime?        @map("reviewed_at") @db.Timestamptz(3)
+  score         Int?
+  feedback      String?          @db.Text
+  assignment    Assignment       @relation(fields: [assignmentId], references: [id], onDelete: Restrict)
+  student       User             @relation("SubmissionStudent", fields: [studentId], references: [id], onDelete: Restrict)
+  mediaObject   MediaObject?     @relation(fields: [mediaObjectId], references: [id], onDelete: Restrict)
+  reviewedBy    User?            @relation("SubmissionReviewer", fields: [reviewedById], references: [id], onDelete: Restrict)
+
+  @@unique([assignmentId, studentId])
+  @@index([assignmentId, status, submittedAt])
+  @@map("assignment_submissions")
+}
+
+model PublicCourse {
+  id           String                    @id @default(uuid()) @db.Uuid
+  slug         String                    @unique @db.VarChar(160)
+  status       PublicContentStatus       @default(DRAFT)
+  coverMediaId String?                   @map("cover_media_id") @db.Uuid
+  publishedAt  DateTime?                 @map("published_at") @db.Timestamptz(3)
+  archivedAt   DateTime?                 @map("archived_at") @db.Timestamptz(3)
+  createdAt    DateTime                  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  coverMedia   MediaObject?              @relation(fields: [coverMediaId], references: [id], onDelete: SetNull)
+  translations PublicCourseTranslation[]
+  category     PublicCourseCategory      @default(ENGLISH)
+  accent       PublicCourseAccent        @default(BLUE)
+  symbol       String                    @default("A") @db.VarChar(16)
+  featured     Boolean                   @default(false)
+  position     Int                       @default(0)
+  heroVariant  String?                   @map("hero_variant") @db.VarChar(40)
+  imagePath    String?                   @map("image_path") @db.VarChar(500)
+  posterImagePath String?                @map("poster_image_path") @db.VarChar(500)
+  contentItems PublicCourseContentItem[]
+  tracks       PublicCourseTrack[]
+  registrations CourseRegistration[]
+
+  @@index([status, publishedAt])
+  @@map("public_courses")
+}
+
+model PublicCourseTranslation {
+  id          String       @id @default(uuid()) @db.Uuid
+  courseId    String       @map("course_id") @db.Uuid
+  language    Language
+  title       String       @db.VarChar(240)
+  description String       @db.Text
+  audience    String?      @db.Text
+  comparisonTitle String?  @map("comparison_title") @db.VarChar(240)
+  duration    String?      @db.VarChar(160)
+  focus       String?      @db.Text
+  formatLabel String?      @map("format_label") @db.VarChar(160)
+  imageAlt    String?      @map("image_alt") @db.VarChar(500)
+  level       String?      @db.VarChar(160)
+  posterAlt   String?      @map("poster_alt") @db.VarChar(500)
+  posterTitle String?      @map("poster_title") @db.VarChar(240)
+  prerequisites String?    @db.Text
+  schedule    String?      @db.VarChar(240)
+  course      PublicCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, language])
+  @@map("public_course_translations")
+}
+
+model PublicCourseContentItem {
+  id           String                    @id @default(uuid()) @db.Uuid
+  courseId     String                    @map("course_id") @db.Uuid
+  kind         PublicCourseContentKind
+  position     Int
+  course       PublicCourse              @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  translations PublicCourseContentTranslation[]
+
+  @@unique([courseId, kind, position])
+  @@map("public_course_content_items")
+}
+
+model PublicCourseContentTranslation {
+  id        String                  @id @default(uuid()) @db.Uuid
+  itemId    String                  @map("item_id") @db.Uuid
+  language  Language
+  value     String                  @db.Text
+  item      PublicCourseContentItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([itemId, language])
+  @@map("public_course_content_translations")
+}
+
+model PublicCourseTrack {
+  id           String                         @id @default(uuid()) @db.Uuid
+  courseId     String                         @map("course_id") @db.Uuid
+  position     Int
+  course       PublicCourse                   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  translations PublicCourseTrackTranslation[]
+
+  @@unique([courseId, position])
+  @@map("public_course_tracks")
+}
+
+model PublicCourseTrackTranslation {
+  id         String            @id @default(uuid()) @db.Uuid
+  trackId    String            @map("track_id") @db.Uuid
+  language   Language
+  title      String            @db.VarChar(240)
+  summary    String            @db.Text
+  level      String            @db.VarChar(160)
+  highlights String[]          @default([])
+  track      PublicCourseTrack @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@unique([trackId, language])
+  @@map("public_course_track_translations")
+}
+
+model PublicEvent {
+  id            String                   @id @default(uuid()) @db.Uuid
+  slug          String                   @unique @db.VarChar(160)
+  status        PublicContentStatus      @default(DRAFT)
+  startsAt      DateTime                 @map("starts_at") @db.Timestamptz(3)
+  endsAt        DateTime?                @map("ends_at") @db.Timestamptz(3)
+  location      String?                  @db.VarChar(240)
+  capacity      Int?
+  coverMediaId  String?                  @map("cover_media_id") @db.Uuid
+  publishedAt   DateTime?                @map("published_at") @db.Timestamptz(3)
+  archivedAt    DateTime?                @map("archived_at") @db.Timestamptz(3)
+  createdAt     DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
+  coverMedia    MediaObject?             @relation(fields: [coverMediaId], references: [id], onDelete: SetNull)
+  translations  PublicEventTranslation[]
+  registrations EventRegistration[]
+  timelineStatus PublicEventTimelineStatus @default(UPCOMING) @map("timeline_status")
+  position       Int                       @default(0)
+  imagePath      String?                   @map("image_path") @db.VarChar(500)
+  programmeItems PublicEventProgrammeItem[]
+  faqItems       PublicEventFaqItem[]
+
+  @@index([status, startsAt])
+  @@map("public_events")
+}
+
+model PublicEventTranslation {
+  id          String      @id @default(uuid()) @db.Uuid
+  eventId     String      @map("event_id") @db.Uuid
+  language    Language
+  title       String      @db.VarChar(240)
+  description String      @db.Text
+  imageAlt    String?     @map("image_alt") @db.VarChar(500)
+  formatLabel String?     @map("format_label") @db.VarChar(160)
+  dateLabel   String?     @map("date_label") @db.VarChar(160)
+  timeLabel   String?     @map("time_label") @db.VarChar(160)
+  durationLabel String?   @map("duration_label") @db.VarChar(160)
+  locationLabel String?   @map("location_label") @db.VarChar(240)
+  topics      String[]    @default([])
+  overview    String[]    @default([])
+  audience    String[]    @default([])
+  takeaways   String[]    @default([])
+  practicalInfo String[]  @default([]) @map("practical_info")
+  event       PublicEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, language])
+  @@map("public_event_translations")
+}
+
+model PublicEventProgrammeItem {
+  id           String                                  @id @default(uuid()) @db.Uuid
+  eventId      String                                  @map("event_id") @db.Uuid
+  position     Int
+  timeLabel    String                                  @map("time_label") @db.VarChar(40)
+  event        PublicEvent                             @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  translations PublicEventProgrammeItemTranslation[]
+
+  @@unique([eventId, position])
+  @@map("public_event_programme_items")
+}
+
+model PublicEventProgrammeItemTranslation {
+  id          String                   @id @default(uuid()) @db.Uuid
+  itemId      String                   @map("item_id") @db.Uuid
+  language    Language
+  title       String                   @db.VarChar(240)
+  description String                   @db.Text
+  item        PublicEventProgrammeItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([itemId, language])
+  @@map("public_event_programme_item_translations")
+}
+
+model PublicEventFaqItem {
+  id           String                          @id @default(uuid()) @db.Uuid
+  eventId      String                          @map("event_id") @db.Uuid
+  position     Int
+  event        PublicEvent                     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  translations PublicEventFaqItemTranslation[]
+
+  @@unique([eventId, position])
+  @@map("public_event_faq_items")
+}
+
+model PublicEventFaqItemTranslation {
+  id       String             @id @default(uuid()) @db.Uuid
+  itemId   String             @map("item_id") @db.Uuid
+  language Language
+  question String             @db.Text
+  answer   String             @db.Text
+  item     PublicEventFaqItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([itemId, language])
+  @@map("public_event_faq_item_translations")
+}
+
+model PublicFaq {
+  id           String                 @id @default(uuid()) @db.Uuid
+  key          String                 @unique @db.VarChar(160)
+  category     String                 @db.VarChar(80)
+  position     Int                    @default(0)
+  status       PublicContentStatus    @default(DRAFT)
+  publishedAt  DateTime?              @map("published_at") @db.Timestamptz(3)
+  translations PublicFaqTranslation[]
+
+  @@index([status, position])
+  @@map("public_faqs")
+}
+
+model PublicFaqTranslation {
+  id       String    @id @default(uuid()) @db.Uuid
+  faqId    String    @map("faq_id") @db.Uuid
+  language Language
+  question String    @db.Text
+  answer   String    @db.Text
+  faq      PublicFaq @relation(fields: [faqId], references: [id], onDelete: Cascade)
+
+  @@unique([faqId, language])
+  @@map("public_faq_translations")
+}
+
+model PublicExamOffering {
+  id           String                          @id @default(uuid()) @db.Uuid
+  key          String                          @unique @db.VarChar(80)
+  position     Int                             @default(0)
+  status       PublicContentStatus             @default(DRAFT)
+  publishedAt  DateTime?                       @map("published_at") @db.Timestamptz(3)
+  translations PublicExamOfferingTranslation[]
+  sessions     PublicExamSession[]
+  registrations ExamRegistration[]
+
+  @@index([status, position])
+  @@map("public_exam_offerings")
+}
+
+model PublicExamOfferingTranslation {
+  id          String             @id @default(uuid()) @db.Uuid
+  offeringId  String             @map("offering_id") @db.Uuid
+  language    Language
+  title       String             @db.VarChar(160)
+  description String             @db.Text
+  formatLabel String             @map("format_label") @db.VarChar(160)
+  duration    String             @db.VarChar(160)
+  level       String             @db.VarChar(160)
+  highlights  String[]           @default([])
+  offering    PublicExamOffering @relation(fields: [offeringId], references: [id], onDelete: Cascade)
+
+  @@unique([offeringId, language])
+  @@map("public_exam_offering_translations")
+}
+
+model PublicExamSession {
+  id            String               @id @default(uuid()) @db.Uuid
+  offeringId    String               @map("offering_id") @db.Uuid
+  startsAt      DateTime             @map("starts_at") @db.Timestamptz(3)
+  capacity      Int?
+  active        Boolean              @default(true)
+  offering      PublicExamOffering   @relation(fields: [offeringId], references: [id], onDelete: Restrict)
+  registrations ExamRegistration[]
+
+  @@unique([offeringId, startsAt])
+  @@index([active, startsAt])
+  @@map("public_exam_sessions")
+}
+
+model PublicResultVideo {
+  id          String                         @id @default(uuid()) @db.Uuid
+  key         String                         @unique @db.VarChar(160)
+  position    Int                            @default(0)
+  duration    String                         @db.VarChar(20)
+  posterPath  String                         @map("poster_path") @db.VarChar(500)
+  videoPath   String                         @map("video_path") @db.VarChar(500)
+  sourceCreator String                       @map("source_creator") @db.VarChar(240)
+  sourceProvider String                      @map("source_provider") @db.VarChar(80)
+  sourceUrl   String                         @map("source_url") @db.VarChar(1000)
+  licenseUrl  String                         @map("license_url") @db.VarChar(1000)
+  status      PublicContentStatus            @default(DRAFT)
+  publishedAt DateTime?                      @map("published_at") @db.Timestamptz(3)
+  translations PublicResultVideoTranslation[]
+
+  @@index([status, position])
+  @@map("public_result_videos")
+}
+
+model PublicResultVideoTranslation {
+  id       String            @id @default(uuid()) @db.Uuid
+  videoId  String            @map("video_id") @db.Uuid
+  language Language
+  title    String            @db.VarChar(240)
+  video    PublicResultVideo @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([videoId, language])
+  @@map("public_result_video_translations")
+}
+
+model ContactRequest {
+  id         String       @id @default(uuid()) @db.Uuid
+  name       String       @db.VarChar(160)
+  email      String?      @db.VarChar(320)
+  phone      String?      @db.VarChar(32)
+  message    String       @db.Text
+  subject    String?      @db.VarChar(240)
+  locale     Language     @default(UZ)
+  consent    Boolean
+  status     IntakeStatus @default(NEW)
+  reviewNote String?      @map("review_note") @db.Text
+  createdAt  DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([status, createdAt])
+  @@map("contact_requests")
+}
+
+model ExamRegistration {
+  id         String       @id @default(uuid()) @db.Uuid
+  name       String       @db.VarChar(160)
+  email      String?      @db.VarChar(320)
+  phone      String       @db.VarChar(32)
+  courseSlug String?      @map("course_slug") @db.VarChar(160)
+  offeringId String?      @map("offering_id") @db.Uuid
+  sessionId  String?      @map("session_id") @db.Uuid
+  currentLevel String?    @map("current_level") @db.VarChar(80)
+  locale     Language     @default(UZ)
+  consent    Boolean
+  status     IntakeStatus @default(NEW)
+  reviewNote String?      @map("review_note") @db.Text
+  createdAt  DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  offering   PublicExamOffering? @relation(fields: [offeringId], references: [id], onDelete: Restrict)
+  session    PublicExamSession?  @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+
+  @@index([status, createdAt])
+  @@unique([offeringId, phone])
+  @@map("exam_registrations")
+}
+
+model EventRegistration {
+  id         String       @id @default(uuid()) @db.Uuid
+  eventId    String       @map("event_id") @db.Uuid
+  name       String       @db.VarChar(160)
+  email      String?      @db.VarChar(320)
+  phone      String       @db.VarChar(32)
+  consent    Boolean
+  participantCount Int    @default(1) @map("participant_count")
+  locale     Language     @default(UZ)
+  status     IntakeStatus @default(NEW)
+  reviewNote String?      @map("review_note") @db.Text
+  createdAt  DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  event      PublicEvent  @relation(fields: [eventId], references: [id], onDelete: Restrict)
+
+  @@unique([eventId, phone])
+  @@index([status, createdAt])
+  @@map("event_registrations")
+}
+
+model CourseRegistration {
+  id           String       @id @default(uuid()) @db.Uuid
+  courseId     String       @map("course_id") @db.Uuid
+  name         String       @db.VarChar(160)
+  email        String?      @db.VarChar(320)
+  phone        String       @db.VarChar(32)
+  currentLevel String?      @map("current_level") @db.VarChar(80)
+  message      String?      @db.Text
+  consent      Boolean
+  locale       Language     @default(UZ)
+  status       IntakeStatus @default(NEW)
+  reviewNote   String?      @map("review_note") @db.Text
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  course       PublicCourse @relation(fields: [courseId], references: [id], onDelete: Restrict)
+
+  @@unique([courseId, phone])
+  @@index([status, createdAt])
+  @@map("course_registrations")
+}
+
+model TeacherTask {
+  id          String            @id @default(uuid()) @db.Uuid
+  teacherId   String            @map("teacher_id") @db.Uuid
+  groupId     String?           @map("group_id") @db.Uuid
+  kind        TeacherTaskKind
+  status      TeacherTaskStatus @default(OPEN)
+  title       String            @db.VarChar(240)
+  dueAt       DateTime?         @map("due_at") @db.Timestamptz(3)
+  completedAt DateTime?         @map("completed_at") @db.Timestamptz(3)
+  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  teacher     User              @relation("TeacherTaskOwner", fields: [teacherId], references: [id], onDelete: Restrict)
+  group       Group?            @relation(fields: [groupId], references: [id], onDelete: SetNull)
+
+  @@index([teacherId, status, dueAt])
+  @@map("teacher_tasks")
+}
+
+model Notification {
+  id             String    @id @default(uuid()) @db.Uuid
+  recipientId    String    @map("recipient_id") @db.Uuid
+  eventKey       String    @map("event_key") @db.VarChar(180)
+  kind           String    @db.VarChar(80)
+  title          String    @db.VarChar(240)
+  body           String?   @db.Text
+  payloadVersion Int       @default(1) @map("payload_version")
+  payload        Json?     @db.JsonB
+  readAt         DateTime? @map("read_at") @db.Timestamptz(3)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  recipient      User      @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@unique([recipientId, eventKey])
+  @@index([recipientId, readAt, createdAt])
+  @@map("notifications")
 }
 
 model TelegramImportRun {
@@ -512,6 +1215,62 @@ model TelegramImportRecord {
   @@unique([channelId, messageId])
   @@index([importRunId])
   @@map("telegram_import_records")
+}
+
+model ImportSourceDocument {
+  id                String                 @id @default(uuid()) @db.Uuid
+  channelId         String                 @map("channel_id") @db.VarChar(120)
+  messageId         BigInt                 @map("message_id")
+  contentMessageId  BigInt?                @map("content_message_id")
+  mediaObjectId     String                 @unique @map("media_object_id") @db.Uuid
+  checksumSha256    String                 @map("checksum_sha256") @db.Char(64)
+  originalName      String                 @map("original_name") @db.VarChar(255)
+  sourcePublishedAt DateTime               @map("source_published_at") @db.Timestamptz(3)
+  extractionMethod  ImportExtractionMethod @map("extraction_method")
+  extractionStatus  ImportExtractionStatus @default(PENDING) @map("extraction_status")
+  rightsStatus      ImportRightsStatus     @default(REVIEW_REQUIRED) @map("rights_status")
+  detectedBrands    Json                   @map("detected_brands") @db.JsonB
+  createdAt         DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+  mediaObject       MediaObject            @relation(fields: [mediaObjectId], references: [id], onDelete: Restrict)
+  drafts            VocabularyDraft[]
+
+  @@unique([channelId, messageId])
+  @@index([checksumSha256])
+  @@index([rightsStatus, extractionStatus])
+  @@map("import_source_documents")
+}
+
+model VocabularyDraft {
+  id               String                 @id @default(uuid()) @db.Uuid
+  sourceDocumentId String                 @map("source_document_id") @db.Uuid
+  title            String                 @db.VarChar(240)
+  parserVersion    Int                    @map("parser_version")
+  status           VocabularyDraftStatus  @default(DRAFT)
+  unparsedLines    Json                   @map("unparsed_lines") @db.JsonB
+  createdAt        DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+  sourceDocument   ImportSourceDocument   @relation(fields: [sourceDocumentId], references: [id], onDelete: Restrict)
+  entries          VocabularyDraftEntry[]
+
+  @@unique([sourceDocumentId, parserVersion])
+  @@index([status, createdAt])
+  @@map("vocabulary_drafts")
+}
+
+model VocabularyDraftEntry {
+  id            String          @id @default(uuid()) @db.Uuid
+  draftId       String          @map("draft_id") @db.Uuid
+  position      Int
+  section       String          @db.VarChar(160)
+  term          String          @db.VarChar(240)
+  pronunciation String?         @db.VarChar(240)
+  translation   String          @db.Text
+  draft         VocabularyDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
+
+  @@unique([draftId, position])
+  @@index([term])
+  @@map("vocabulary_draft_entries")
 }
 
 model GroupTuitionRate {

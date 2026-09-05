@@ -1,0 +1,2700 @@
+{
+  "aboutFaqItems": [
+    {
+      "id": "offline-application",
+      "category": "registration",
+      "question": {
+        "uz": "Oflayn kursga qanday ariza topshiraman?",
+        "ru": "Как подать заявку на офлайн-курс?",
+        "en": "How can I apply for an offline course?"
+      },
+      "answer": {
+        "uz": "Kontakt formasida kurs nomini mavzu sifatida yozing, xabarda esa oflayn format va sizga qulay vaqtni ko‘rsating. Jamoa mavjud guruhlar va keyingi qadamlar bo‘yicha yo‘l-yo‘riq beradi.",
+        "ru": "Укажите название курса в теме формы, а в сообщении напишите, что вам нужен офлайн-формат, и добавьте удобное время. Команда подскажет доступные группы и следующие шаги.",
+        "en": "Add the course name as the form title, then mention that you prefer in-person learning and include a convenient time. The team will guide you through available groups and next steps."
+      }
+    },
+    {
+      "id": "course-guidance",
+      "category": "courses",
+      "question": {
+        "uz": "Qaysi kurs menga mosligini tanlashda yordam berasizmi?",
+        "ru": "Вы поможете выбрать подходящий курс?",
+        "en": "Can you help me choose the right course?"
+      },
+      "answer": {
+        "uz": "Maqsadingiz, hozirgi darajangiz va haftalik jadvalingizni yozib qoldiring. Shu ma’lumotlar asosida sizga mos yo‘nalish va o‘quv formatini tavsiya qilish mumkin.",
+        "ru": "Расскажите о своей цели, текущем уровне и удобном недельном расписании. На основе этой информации можно подобрать подходящее направление и формат обучения.",
+        "en": "Share your goal, current level, and preferred weekly schedule. This information helps identify a suitable course direction and learning format."
+      }
+    },
+    {
+      "id": "placement-check",
+      "category": "courses",
+      "question": {
+        "uz": "Kursni boshlashdan oldin daraja testi kerakmi?",
+        "ru": "Нужно ли проходить тест уровня перед началом курса?",
+        "en": "Do I need a level check before starting?"
+      },
+      "answer": {
+        "uz": "Til kurslarida mos guruhni aniqlash uchun qisqa daraja tekshiruvi tavsiya qilinishi mumkin. Uning formati tanlangan yo‘nalish va boshlang‘ich darajaga qarab belgilanadi.",
+        "ru": "Для языковых курсов может быть рекомендована короткая проверка уровня, чтобы подобрать подходящую группу. Формат зависит от выбранного направления и стартового уровня.",
+        "en": "A short level check may be recommended for language courses to find the right group. Its format depends on the selected direction and starting level."
+      }
+    },
+    {
+      "id": "class-schedule",
+      "category": "format",
+      "question": {
+        "uz": "Darslar qaysi kun va vaqtlarda o‘tkaziladi?",
+        "ru": "В какие дни и время проходят занятия?",
+        "en": "What days and times are classes available?"
+      },
+      "answer": {
+        "uz": "Jadval kurs va shakllanayotgan guruhga bog‘liq. Murojaatda sizga qulay kun va vaqtni ko‘rsatsangiz, mos variantlarni solishtirish osonroq bo‘ladi.",
+        "ru": "Расписание зависит от курса и формирующейся группы. Укажите удобные дни и время в обращении, чтобы было проще сопоставить подходящие варианты.",
+        "en": "Schedules depend on the course and the group being formed. Include your preferred days and times so suitable options can be compared more easily."
+      }
+    },
+    {
+      "id": "format-change",
+      "category": "format",
+      "question": {
+        "uz": "Keyinchalik guruh yoki o‘qish formatini almashtirsam bo‘ladimi?",
+        "ru": "Можно ли позже сменить группу или формат обучения?",
+        "en": "Can I change my group or learning format later?"
+      },
+      "answer": {
+        "uz": "Almashtirish imkoniyati tanlangan kurs, bo‘sh joylar va mavjud guruhlarga bog‘liq. Yangi variantga o‘tishdan oldin jadval va daraja mosligi tekshiriladi.",
+        "ru": "Возможность перехода зависит от курса, свободных мест и доступных групп. Перед сменой варианта проверяется соответствие расписания и уровня.",
+        "en": "Changes depend on the selected course, available places, and active groups. Schedule and level compatibility are checked before moving to another option."
+      }
+    },
+    {
+      "id": "reply-time",
+      "category": "registration",
+      "question": {
+        "uz": "Murojaatimga qachon javob olaman?",
+        "ru": "Когда я получу ответ на своё обращение?",
+        "en": "How soon will I receive a reply?"
+      },
+      "answer": {
+        "uz": "Jamoa murojaatlarni imkon qadar tez ko‘rib chiqadi. Savolda kurs nomi, maqsad va qulay aloqa ma’lumoti bo‘lsa, aniqroq javob tayyorlash osonlashadi.",
+        "ru": "Команда старается рассматривать обращения как можно быстрее. Название курса, цель и удобный способ связи помогут подготовить более точный ответ.",
+        "en": "The team reviews enquiries as soon as possible. Including the course name, your goal, and a convenient contact detail makes it easier to prepare a useful reply."
+      }
+    }
+  ],
+  "courses": [
+    {
+      "accent": "blue",
+      "audience": {
+        "uz": "Ingliz tilini noldan boshlayotgan yoki kundalik muloqot uchun bilimlarini tizimli mustahkamlashni istagan o‘quvchilar uchun.",
+        "ru": "Для учеников, которые начинают английский с нуля или хотят системно укрепить знания для повседневного общения.",
+        "en": "For learners starting English from zero or strengthening their skills for everyday communication."
+      },
+      "category": "english",
+      "curriculum": {
+        "uz": [
+          "Asosiy grammatika va faol lug‘at",
+          "Tinglab tushunish va talaffuz",
+          "Kundalik suhbat amaliyoti",
+          "O‘qish va qisqa yozuv",
+          "Bosqich yakunidagi progress review"
+        ],
+        "ru": [
+          "Базовая грамматика и активная лексика",
+          "Аудирование и произношение",
+          "Практика повседневной речи",
+          "Чтение и короткие письменные задания",
+          "Итоговый обзор прогресса"
+        ],
+        "en": [
+          "Core grammar and active vocabulary",
+          "Listening and pronunciation",
+          "Everyday conversation practice",
+          "Reading and short-form writing",
+          "End-of-stage progress review"
+        ]
+      },
+      "duration": {
+        "uz": "Har bir bosqich 3 oy",
+        "ru": "Каждый уровень — 3 месяца",
+        "en": "3 months per level"
+      },
+      "focus": {
+        "uz": "Kundalik erkin muloqot",
+        "ru": "Свободное повседневное общение",
+        "en": "Confident everyday communication"
+      },
+      "formatLabel": {
+        "uz": "Oflayn guruh",
+        "ru": "Офлайн-группа",
+        "en": "In-person group"
+      },
+      "highlights": {
+        "uz": [
+          "Beginner’dan Upper-Intermediate / Pre-IELTS’gacha 5 bosqich",
+          "Haftasiga 3 marta, har bir dars 80 daqiqa",
+          "Cambridge University Press asosidagi bosqichma-bosqich materiallar"
+        ],
+        "ru": [
+          "5 уровней: от Beginner до Upper-Intermediate / Pre-IELTS",
+          "3 занятия в неделю по 80 минут",
+          "Последовательные материалы на основе Cambridge University Press"
+        ],
+        "en": [
+          "Five stages from Beginner to Upper-Intermediate / Pre-IELTS",
+          "Three 80-minute lessons each week",
+          "Structured materials based on Cambridge University Press"
+        ]
+      },
+      "heroVariant": "immersive",
+      "image": "/images/courses-page/general-english-fullscreen-hero.webp",
+      "imageAlt": {
+        "uz": "Yorug‘ sinfda suhbat mashqini bajarayotgan o‘quvchilar",
+        "ru": "Ученики практикуют разговорную речь в светлом классе",
+        "en": "Learners practising conversation in a bright classroom"
+      },
+      "level": {
+        "uz": "Beginner — Pre-IELTS",
+        "ru": "Beginner — Pre-IELTS",
+        "en": "Beginner — Pre-IELTS"
+      },
+      "outcomes": {
+        "uz": [
+          "Kundalik mavzularda aniq va erkinroq fikr bildirish",
+          "Tinglash, o‘qish, yozish va speaking ko‘nikmalarini parallel rivojlantirish",
+          "Keyingi CEFR yoki IELTS bosqichiga tayyor poydevor yaratish",
+          "Movie Day, Speaking Club va yakshanba faoliyatlarida tilni amalda ishlatish"
+        ],
+        "ru": [
+          "Увереннее выражать мысли на повседневные темы",
+          "Параллельно развивать аудирование, чтение, письмо и речь",
+          "Создать основу для следующего уровня CEFR или IELTS",
+          "Применять язык на Movie Day, Speaking Club и воскресных активностях"
+        ],
+        "en": [
+          "Communicate more clearly across everyday topics",
+          "Develop listening, reading, writing, and speaking together",
+          "Build a foundation for the next CEFR or IELTS stage",
+          "Use English during Movie Day, Speaking Club, and Sunday activities"
+        ]
+      },
+      "overview": {
+        "uz": [
+          "Har bir bosqich grammatika va faol lug‘atni real muloqot vazifalari bilan bog‘laydi. O‘quvchilar yangi mavzuni qisqa tushuntirishdan keyin juftlikdagi suhbat, tinglash va yozish mashqlarida qo‘llaydi.",
+          "Dastur davomida kichik diagnostikalar va progress review’lar o‘tkaziladi. Natijalar keyingi bosqich, mustaqil mashq va qo‘shimcha speaking faoliyatlari uchun aniq yo‘nalish beradi."
+        ],
+        "ru": [
+          "Каждый уровень связывает грамматику и активную лексику с реальными коммуникативными задачами. После короткого объяснения ученики применяют тему в диалогах, аудировании и письменной практике.",
+          "Небольшие диагностики и progress review помогают отслеживать развитие в течение программы. Результаты определяют следующий уровень, самостоятельную практику и дополнительные разговорные активности."
+        ],
+        "en": [
+          "Each stage connects grammar and active vocabulary with realistic communication tasks. After a concise explanation, learners apply the topic through paired speaking, listening, and short writing practice.",
+          "Regular diagnostics and progress reviews make development visible throughout the programme. The results shape the next level, independent practice, and optional speaking activities."
+        ]
+      },
+      "posterAlt": {
+        "uz": "Kinematik osmon ostida General English ko‘nikmalarini ko‘rsatuvchi yo‘nalish taxtalari",
+        "ru": "Указатели с навыками General English на фоне кинематографичного неба",
+        "en": "Direction signs showing General English skills beneath a cinematic sky"
+      },
+      "posterImage": "/images/courses-page/general-english-poster.webp",
+      "posterTitle": {
+        "uz": "English",
+        "ru": "English",
+        "en": "English"
+      },
+      "prerequisites": {
+        "uz": "Boshlang‘ich level check tavsiya etiladi; oldingi bilim talab qilinmaydi.",
+        "ru": "Рекомендуется стартовая проверка уровня; предварительные знания не обязательны.",
+        "en": "An initial level check is recommended; prior knowledge is not required."
+      },
+      "schedule": {
+        "uz": "Haftasiga 3 marta · 80 daqiqa",
+        "ru": "3 раза в неделю · 80 минут",
+        "en": "3 times a week · 80 minutes"
+      },
+      "slug": "english-general",
+      "summary": {
+        "uz": "Besh bosqichli dastur grammatika, lug‘at va jonli muloqotni bir yo‘nalishda rivojlantiradi.",
+        "ru": "Пятиуровневая программа последовательно развивает грамматику, лексику и живое общение.",
+        "en": "A five-stage programme that develops grammar, vocabulary, and real communication together."
+      },
+      "symbol": "EN",
+      "title": {
+        "uz": "General English",
+        "ru": "General English",
+        "en": "General English"
+      }
+    },
+    {
+      "accent": "turquoise",
+      "audience": {
+        "uz": "IELTS formatini tizimli o‘rganish, mavjud bilimini mustahkamlash yoki yuqori band uchun intensiv tayyorlanishni istaganlar uchun.",
+        "ru": "Для тех, кто хочет системно освоить формат IELTS, укрепить базу или интенсивно готовиться к высокому баллу.",
+        "en": "For learners who want a structured introduction to IELTS, stronger foundations, or intensive high-band preparation."
+      },
+      "category": "exam",
+      "comparisonTitle": {
+        "uz": "IELTS",
+        "ru": "IELTS",
+        "en": "IELTS"
+      },
+      "curriculum": {
+        "uz": [
+          "IELTS formati va band descriptors",
+          "Listening va Reading strategiyalari",
+          "Writing Task 1 va Task 2",
+          "Speaking Part 1–2–3",
+          "To‘liq MOCK va individual tahlil"
+        ],
+        "ru": [
+          "Формат IELTS и band descriptors",
+          "Стратегии Listening и Reading",
+          "Writing Task 1 и Task 2",
+          "Speaking Part 1–2–3",
+          "Полный MOCK и индивидуальный анализ"
+        ],
+        "en": [
+          "IELTS format and band descriptors",
+          "Listening and Reading strategies",
+          "Writing Task 1 and Task 2",
+          "Speaking Parts 1–2–3",
+          "Full MOCK and individual analysis"
+        ]
+      },
+      "duration": {
+        "uz": "Trekka qarab 3–6 oy",
+        "ru": "3–6 месяцев в зависимости от трека",
+        "en": "3–6 months by track"
+      },
+      "focus": {
+        "uz": "IELTS strategiyasi va band o‘sishi",
+        "ru": "Стратегия IELTS и рост band score",
+        "en": "IELTS strategy and band development"
+      },
+      "formatLabel": {
+        "uz": "Oflayn intensiv",
+        "ru": "Офлайн-интенсив",
+        "en": "In-person intensive"
+      },
+      "highlights": {
+        "uz": [
+          "Pre-IELTS, Standard va Advanced treklar",
+          "Barcha 4 skill real imtihon formatida",
+          "Muntazam MOCK, professional feedback va progress monitoring"
+        ],
+        "ru": [
+          "Треки Pre-IELTS, Standard и Advanced",
+          "Все 4 навыка в формате реального экзамена",
+          "Регулярные MOCK, профессиональная обратная связь и мониторинг прогресса"
+        ],
+        "en": [
+          "Pre-IELTS, Standard, and Advanced tracks",
+          "All four skills practised in real exam format",
+          "Regular MOCK exams, professional feedback, and progress monitoring"
+        ]
+      },
+      "heroVariant": "immersive",
+      "image": "/images/courses-page/ielts-fullscreen-hero.webp",
+      "imageAlt": {
+        "uz": "Zamonaviy test xonasida IELTS listening va writing mashqlarini bajarayotgan o‘quvchi",
+        "ru": "Ученик выполняет задания IELTS Listening и Writing в современном экзаменационном классе",
+        "en": "A learner completing IELTS listening and writing practice in a modern test room"
+      },
+      "level": {
+        "uz": "B1 — C1",
+        "ru": "B1 — C1",
+        "en": "B1 — C1"
+      },
+      "outcomes": {
+        "uz": [
+          "Har bir IELTS bo‘limining baholash mezonlarini tushunish",
+          "Murakkab savol turlarida vaqtni boshqarish",
+          "Writing’da aniq struktura va dalil yaratish",
+          "Speaking’da chuqur va mantiqiy javob berish"
+        ],
+        "ru": [
+          "Понимать критерии оценки каждого раздела IELTS",
+          "Управлять временем в сложных типах заданий",
+          "Строить чёткую структуру и аргументацию в Writing",
+          "Давать глубокие и логичные ответы в Speaking"
+        ],
+        "en": [
+          "Understand assessment criteria across every IELTS section",
+          "Manage time across complex question types",
+          "Build clear structure and arguments in Writing",
+          "Give deeper, more logical Speaking responses"
+        ]
+      },
+      "overview": {
+        "uz": [
+          "Kurs Listening, Reading, Writing va Speaking’ni bitta imtihon strategiyasi ichida rivojlantiradi. Har bir modul task turi, vaqt boshqaruvi va baholash mezonlarini amaliy misollar orqali ochib beradi.",
+          "Boshlang‘ich diagnostika o‘quvchini mos trekka yo‘naltiradi, muntazam MOCK bloklari esa real formatdagi progressni ko‘rsatadi. Feedback keyingi haftadagi aniq fokus va mustaqil mashq rejasiga aylantiriladi."
+        ],
+        "ru": [
+          "Курс развивает Listening, Reading, Writing и Speaking в рамках единой экзаменационной стратегии. Каждый модуль раскрывает типы заданий, управление временем и критерии оценивания через практические примеры.",
+          "Стартовая диагностика помогает выбрать подходящий трек, а регулярные MOCK-блоки показывают прогресс в реальном формате. Обратная связь превращается в конкретный фокус и план самостоятельной работы на следующую неделю."
+        ],
+        "en": [
+          "The course develops Listening, Reading, Writing, and Speaking through one coherent exam strategy. Each module explores task types, time management, and assessment criteria through practical examples.",
+          "An initial diagnostic places learners on a suitable track, while regular MOCK blocks reveal progress in a realistic format. Feedback becomes a clear weekly focus and an independent practice plan."
+        ]
+      },
+      "posterAlt": {
+        "uz": "Qizil eshikdagi xat tirqishidan chiqib turgan oq IELTS konverti",
+        "ru": "Белый конверт IELTS в почтовой прорези красной двери",
+        "en": "A white IELTS envelope emerging from the mail slot of a red door"
+      },
+      "posterImage": "/images/courses-page/ielts-course-poster.webp",
+      "posterTitle": {
+        "uz": "IELTS",
+        "ru": "IELTS",
+        "en": "IELTS"
+      },
+      "prerequisites": {
+        "uz": "Trek level check va qisqa diagnostika natijasiga ko‘ra tanlanadi.",
+        "ru": "Трек выбирается по результатам проверки уровня и короткой диагностики.",
+        "en": "The track is selected after a level check and short diagnostic."
+      },
+      "schedule": {
+        "uz": "Haftasiga 3 marta · 80 daqiqa",
+        "ru": "3 раза в неделю · 80 минут",
+        "en": "3 times a week · 80 minutes"
+      },
+      "slug": "ielts",
+      "summary": {
+        "uz": "Pre-IELTS’dan yuqori band maqsadigacha uch trekli, to‘liq formatdagi imtihon tayyorgarligi.",
+        "ru": "Трёхуровневая подготовка к полному формату экзамена — от Pre-IELTS до высокого band score.",
+        "en": "Three focused tracks covering the full exam journey from Pre-IELTS to a high-band goal."
+      },
+      "symbol": "IE",
+      "title": {
+        "uz": "IELTS",
+        "ru": "IELTS",
+        "en": "IELTS"
+      },
+      "tracks": [
+        {
+          "highlights": {
+            "uz": [
+              "Academic English va formal uslubga kirish",
+              "Advanced grammar va academic vocabulary",
+              "Writing Task 1–2 strukturasi",
+              "Speaking Part 1–2–3 bo‘yicha feedback"
+            ],
+            "ru": [
+              "Введение в Academic English и формальный стиль",
+              "Advanced grammar и академическая лексика",
+              "Структура Writing Task 1–2",
+              "Обратная связь по Speaking Part 1–2–3"
+            ],
+            "en": [
+              "Introduction to Academic English and formal style",
+              "Advanced grammar and academic vocabulary",
+              "Writing Task 1–2 structure",
+              "Feedback across Speaking Parts 1–2–3"
+            ]
+          },
+          "level": {
+            "uz": "Upper-Intermediate",
+            "ru": "Upper-Intermediate",
+            "en": "Upper-Intermediate"
+          },
+          "summary": {
+            "uz": "General English’dan to‘liq IELTS tayyorgarligiga o‘tish bosqichi.",
+            "ru": "Переходный этап от General English к полной подготовке IELTS.",
+            "en": "A bridge from General English into full IELTS preparation."
+          },
+          "title": {
+            "uz": "Pre-IELTS",
+            "ru": "Pre-IELTS",
+            "en": "Pre-IELTS"
+          }
+        },
+        {
+          "highlights": {
+            "uz": [
+              "Barcha skilllar official descriptors asosida",
+              "Writing’da 5.5+ uchun struktura va argument",
+              "Speaking’da individual feedback",
+              "Ko‘proq full-format MOCK va progress tahlili"
+            ],
+            "ru": [
+              "Все навыки по official band descriptors",
+              "Структура и аргументация Writing для 5.5+",
+              "Индивидуальная обратная связь по Speaking",
+              "Больше full-format MOCK и анализа прогресса"
+            ],
+            "en": [
+              "All skills aligned with official band descriptors",
+              "Writing structure and argument for a 5.5+ target",
+              "Individual Speaking feedback",
+              "More full-format MOCK exams and progress analysis"
+            ]
+          },
+          "level": {
+            "uz": "B1+",
+            "ru": "B1+",
+            "en": "B1+"
+          },
+          "summary": {
+            "uz": "Tizimli tayyorgarlik va ishonchli official exam readiness.",
+            "ru": "Системная подготовка и уверенная готовность к официальному экзамену.",
+            "en": "Systematic preparation for confident official-exam readiness."
+          },
+          "title": {
+            "uz": "IELTS Standard",
+            "ru": "IELTS Standard",
+            "en": "IELTS Standard"
+          }
+        },
+        {
+          "highlights": {
+            "uz": [
+              "Murakkab real-exam savollari",
+              "Advanced argumentation va collocations",
+              "Yuqori band mezonlari bo‘yicha Speaking",
+              "Strategik MOCK tahlili va exam psychology"
+            ],
+            "ru": [
+              "Сложные задания реального экзамена",
+              "Advanced argumentation и collocations",
+              "Speaking по критериям высокого band score",
+              "Стратегический анализ MOCK и exam psychology"
+            ],
+            "en": [
+              "Complex real-exam question types",
+              "Advanced argumentation and collocations",
+              "Speaking against high-band criteria",
+              "Strategic MOCK analysis and exam psychology"
+            ]
+          },
+          "level": {
+            "uz": "B2 — C1",
+            "ru": "B2 — C1",
+            "en": "B2 — C1"
+          },
+          "summary": {
+            "uz": "Yuqori band maqsadi uchun intensiv va individual yo‘naltirilgan trek.",
+            "ru": "Интенсивный трек с индивидуальным фокусом на высокий band score.",
+            "en": "An intensive, individually focused track for a high-band target."
+          },
+          "title": {
+            "uz": "IELTS Advanced",
+            "ru": "IELTS Advanced",
+            "en": "IELTS Advanced"
+          }
+        }
+      ]
+    },
+    {
+      "accent": "yellow",
+      "audience": {
+        "uz": "CEFR imtihoniga tayyorlanayotgan yoki o‘z darajasini A2–C1 oralig‘ida tasdiqlashni rejalashtirganlar uchun.",
+        "ru": "Для тех, кто готовится к экзамену CEFR или планирует подтвердить уровень от A2 до C1.",
+        "en": "For learners preparing for CEFR assessment or planning to confirm a level from A2 to C1."
+      },
+      "category": "exam",
+      "comparisonTitle": {
+        "uz": "CEFR",
+        "ru": "CEFR",
+        "en": "CEFR"
+      },
+      "curriculum": {
+        "uz": [
+          "CEFR descriptorlari va diagnostika",
+          "Grammar va vocabulary development",
+          "Reading va listening tasklari",
+          "Writing va speaking mezonlari",
+          "Final simulation va feedback"
+        ],
+        "ru": [
+          "Дескрипторы CEFR и диагностика",
+          "Развитие грамматики и словаря",
+          "Задания Reading и Listening",
+          "Критерии Writing и Speaking",
+          "Финальная симуляция и обратная связь"
+        ],
+        "en": [
+          "CEFR descriptors and diagnostics",
+          "Grammar and vocabulary development",
+          "Reading and listening tasks",
+          "Writing and speaking criteria",
+          "Final simulation and feedback"
+        ]
+      },
+      "duration": {
+        "uz": "12–16 hafta",
+        "ru": "12–16 недель",
+        "en": "12–16 weeks"
+      },
+      "focus": {
+        "uz": "Darajani tizimli tasdiqlash",
+        "ru": "Системное подтверждение уровня",
+        "en": "Structured level certification"
+      },
+      "formatLabel": {
+        "uz": "Oflayn guruh",
+        "ru": "Офлайн-группа",
+        "en": "In-person group"
+      },
+      "highlights": {
+        "uz": [
+          "A2’dan C1’gacha levelga mos dastur",
+          "Haftasiga 3 marta, 80 daqiqalik amaliy dars",
+          "Skill-by-skill diagnostika va final simulation"
+        ],
+        "ru": [
+          "Программа по уровням от A2 до C1",
+          "3 практических занятия в неделю по 80 минут",
+          "Диагностика каждого навыка и финальная симуляция"
+        ],
+        "en": [
+          "Level-specific programme from A2 to C1",
+          "Three practical 80-minute lessons each week",
+          "Skill-by-skill diagnostics and a final simulation"
+        ]
+      },
+      "heroVariant": "immersive",
+      "image": "/images/courses-page/cefr-fullscreen-hero.webp",
+      "imageAlt": {
+        "uz": "CEFR A1 dan C2 gacha daraja xaritasini tutor bilan ko‘rib chiqayotgan o‘quvchi",
+        "ru": "Ученик вместе с преподавателем изучает карту уровней CEFR от A1 до C2",
+        "en": "A learner reviewing the CEFR level map from A1 to C2 with a tutor"
+      },
+      "level": {
+        "uz": "A2 — C1",
+        "ru": "A2 — C1",
+        "en": "A2 — C1"
+      },
+      "outcomes": {
+        "uz": [
+          "Tanlangan CEFR level descriptorlarini tushunish",
+          "Har bir skill bo‘yicha kuchli va rivojlanadigan tomonlarni bilish",
+          "Imtihon topshiriqlarini vaqt ichida bajarish",
+          "Aniq keyingi bosqich rejasiga ega bo‘lish"
+        ],
+        "ru": [
+          "Понимать дескрипторы выбранного уровня CEFR",
+          "Знать сильные стороны и зоны развития по каждому навыку",
+          "Выполнять экзаменационные задания в заданное время",
+          "Получить ясный план следующего этапа"
+        ],
+        "en": [
+          "Understand the descriptors for the selected CEFR level",
+          "Identify strengths and development areas in each skill",
+          "Complete assessment tasks within the time limit",
+          "Leave with a clear plan for the next stage"
+        ]
+      },
+      "overview": {
+        "uz": [
+          "Dastur tanlangan CEFR darajasining descriptorlarini kundalik skill mashqlari bilan bog‘laydi. Speaking, listening, reading va writing bir xil progress xaritasi asosida parallel rivojlantiriladi.",
+          "Bosqichma-bosqich diagnostika o‘quvchining kuchli tomonlari va rivojlanadigan zonalarini ko‘rsatadi. Tutor feedback’i keyingi levelga o‘tish uchun aniq vazifalar va o‘lchanadigan haftalik maqsadlarni belgilaydi."
+        ],
+        "ru": [
+          "Программа связывает дескрипторы выбранного уровня CEFR с ежедневной практикой навыков. Speaking, listening, reading и writing развиваются параллельно по единой карте прогресса.",
+          "Поэтапная диагностика показывает сильные стороны ученика и зоны развития. Обратная связь преподавателя формирует конкретные задания и измеримые недельные цели для перехода на следующий уровень."
+        ],
+        "en": [
+          "The programme connects the descriptors of the selected CEFR level with practical skill work. Speaking, listening, reading, and writing develop together through one visible progression map.",
+          "Stage-by-stage diagnostics identify strengths and development areas. Tutor feedback then defines concrete tasks and measurable weekly goals for moving towards the next level."
+        ]
+      },
+      "posterAlt": {
+        "uz": "C2 markaziga yo‘naltirilgan nayzali qorong‘i CEFR target posteri",
+        "ru": "Тёмный постер CEFR с дротиком, направленным в центр C2",
+        "en": "A dark CEFR target poster with a dart aimed at the C2 centre"
+      },
+      "posterImage": "/images/courses-page/cefr-target-poster.webp",
+      "posterTitle": {
+        "uz": "CEFR",
+        "ru": "CEFR",
+        "en": "CEFR"
+      },
+      "prerequisites": {
+        "uz": "Level check natijasi asosida mos A2, B1, B2 yoki C1 guruhi tavsiya qilinadi.",
+        "ru": "Подходящая группа A2, B1, B2 или C1 рекомендуется по результатам level check.",
+        "en": "A suitable A2, B1, B2, or C1 group is recommended after a level check."
+      },
+      "schedule": {
+        "uz": "Haftasiga 3 marta · 80 daqiqa",
+        "ru": "3 раза в неделю · 80 минут",
+        "en": "3 times a week · 80 minutes"
+      },
+      "slug": "cefr",
+      "summary": {
+        "uz": "Tanlangan daraja descriptorlari, real tasklar va muntazam diagnostikaga asoslangan tizimli dastur.",
+        "ru": "Системная программа на основе дескрипторов выбранного уровня, реальных заданий и регулярной диагностики.",
+        "en": "A structured programme built around level descriptors, realistic tasks, and regular diagnostics."
+      },
+      "symbol": "CF",
+      "title": {
+        "uz": "CEFR",
+        "ru": "CEFR",
+        "en": "CEFR"
+      }
+    },
+    {
+      "accent": "blue",
+      "audience": {
+        "uz": "Rus tilini kundalik hayot, o‘qish yoki ish uchun amaliy o‘rganishni istaganlar uchun.",
+        "ru": "Для тех, кто хочет практично изучать русский язык для жизни, учёбы или работы.",
+        "en": "For learners who need practical Russian for daily life, study, or work."
+      },
+      "category": "language",
+      "curriculum": {
+        "uz": [
+          "Kiril alifbosi va talaffuz",
+          "Kundalik grammatika",
+          "Dialog va tinglash",
+          "O‘qish va yozish",
+          "Amaliy speaking review"
+        ],
+        "ru": [
+          "Кириллица и произношение",
+          "Практическая грамматика",
+          "Диалоги и аудирование",
+          "Чтение и письмо",
+          "Практический speaking review"
+        ],
+        "en": [
+          "Cyrillic and pronunciation",
+          "Practical grammar",
+          "Dialogue and listening",
+          "Reading and writing",
+          "Practical speaking review"
+        ]
+      },
+      "duration": {
+        "uz": "Har bir bosqich 4 oy",
+        "ru": "Каждый уровень — 4 месяца",
+        "en": "4 months per level"
+      },
+      "focus": {
+        "uz": "Kundalik va ish muloqoti",
+        "ru": "Общение в жизни и на работе",
+        "en": "Daily and workplace communication"
+      },
+      "formatLabel": {
+        "uz": "Oflayn guruh",
+        "ru": "Офлайн-группа",
+        "en": "In-person group"
+      },
+      "highlights": {
+        "uz": [
+          "Noldan B2’gacha bosqichli dastur",
+          "Haftasiga 3 marta, 80 daqiqa",
+          "Dialog, talaffuz va real vaziyatlarga urg‘u"
+        ],
+        "ru": [
+          "Пошаговая программа от нуля до B2",
+          "3 занятия в неделю по 80 минут",
+          "Фокус на диалогах, произношении и реальных ситуациях"
+        ],
+        "en": [
+          "A staged route from zero to B2",
+          "Three 80-minute lessons each week",
+          "Focus on dialogue, pronunciation, and real situations"
+        ]
+      },
+      "heroVariant": "immersive",
+      "image": "/images/courses-page/russian-fullscreen-hero.png",
+      "imageAlt": {
+        "uz": "Rus tili darsida o‘qituvchi doskada kirill harflarini tushuntirmoqda",
+        "ru": "Преподаватель объясняет кириллические буквы на уроке русского языка",
+        "en": "A teacher explains Cyrillic letters during a Russian language lesson"
+      },
+      "level": {
+        "uz": "A0 — B2",
+        "ru": "A0 — B2",
+        "en": "A0 — B2"
+      },
+      "outcomes": {
+        "uz": [
+          "Kundalik vaziyatlarda rus tilida muloqot qilish",
+          "Asosiy grammatikani nutqda qo‘llash",
+          "Kiril yozuvini erkinroq o‘qish",
+          "Ish va o‘qish mavzularida fikr bildirish"
+        ],
+        "ru": [
+          "Общаться по-русски в повседневных ситуациях",
+          "Использовать базовую грамматику в речи",
+          "Увереннее читать кириллицу",
+          "Выражать мысли на темы работы и учёбы"
+        ],
+        "en": [
+          "Communicate in everyday Russian",
+          "Use core grammar in speech",
+          "Read Cyrillic with greater confidence",
+          "Discuss work and study topics"
+        ]
+      },
+      "overview": {
+        "uz": [
+          "Kurs kiril alifbosi, talaffuz va asosiy grammatikani kundalik dialoglar bilan birlashtiradi. Har bir mavzu transport, xarid, o‘qish yoki ish kabi tanish vaziyatlarda qo‘llanadi.",
+          "Qisqa audio mashqlar, role-play va yozma topshiriqlar yangi lug‘atni faol nutqqa olib chiqadi. Bosqich yakunidagi suhbat o‘quvchining keyingi guruhga tayyorligini ko‘rsatadi."
+        ],
+        "ru": [
+          "Курс объединяет кириллицу, произношение и базовую грамматику с повседневными диалогами. Каждая тема применяется в знакомых ситуациях: транспорт, покупки, учёба или работа.",
+          "Короткие аудиозадания, role-play и письменная практика переводят новую лексику в активную речь. Итоговая беседа показывает готовность ученика к следующей группе."
+        ],
+        "en": [
+          "The course combines Cyrillic, pronunciation, and core grammar with practical everyday dialogue. Each topic is applied to familiar situations such as transport, shopping, study, or work.",
+          "Short listening tasks, role-play, and writing practice move new vocabulary into active speech. An end-of-stage conversation shows whether the learner is ready for the next group."
+        ]
+      },
+      "prerequisites": {
+        "uz": "Boshlang‘ich guruh uchun oldingi bilim talab qilinmaydi.",
+        "ru": "Для начальной группы предварительные знания не нужны.",
+        "en": "No prior knowledge is required for the beginner group."
+      },
+      "schedule": {
+        "uz": "Haftasiga 3 marta · 80 daqiqa",
+        "ru": "3 раза в неделю · 80 минут",
+        "en": "3 times a week · 80 minutes"
+      },
+      "slug": "russian",
+      "summary": {
+        "uz": "Talaffuz, grammatika va real dialoglarga asoslangan amaliy rus tili yo‘li.",
+        "ru": "Практический русский язык с опорой на произношение, грамматику и реальные диалоги.",
+        "en": "A practical Russian pathway built around pronunciation, grammar, and real dialogue."
+      },
+      "symbol": "RU",
+      "title": {
+        "uz": "Russian",
+        "ru": "Русский язык",
+        "en": "Russian"
+      }
+    },
+    {
+      "accent": "turquoise",
+      "audience": {
+        "uz": "Fransuz tilini sayohat, o‘qish va madaniy muloqot uchun boshlamoqchi bo‘lganlar uchun.",
+        "ru": "Для тех, кто начинает французский для путешествий, учёбы и культурного общения.",
+        "en": "For learners beginning French for travel, study, and cultural communication."
+      },
+      "category": "language",
+      "curriculum": {
+        "uz": [
+          "Tovushlar va talaffuz",
+          "Kundalik iboralar",
+          "Grammar patterns",
+          "Listening va dialog",
+          "Mini presentation"
+        ],
+        "ru": [
+          "Звуки и произношение",
+          "Повседневные фразы",
+          "Грамматические модели",
+          "Аудирование и диалог",
+          "Мини-презентация"
+        ],
+        "en": [
+          "Sounds and pronunciation",
+          "Everyday phrases",
+          "Grammar patterns",
+          "Listening and dialogue",
+          "Mini presentation"
+        ]
+      },
+      "duration": {
+        "uz": "Har bir bosqich 4 oy",
+        "ru": "Каждый уровень — 4 месяца",
+        "en": "4 months per level"
+      },
+      "focus": {
+        "uz": "Sayohat va madaniy muloqot",
+        "ru": "Путешествия и культурное общение",
+        "en": "Travel and cultural communication"
+      },
+      "formatLabel": {
+        "uz": "Oflayn guruh",
+        "ru": "Офлайн-группа",
+        "en": "In-person group"
+      },
+      "highlights": {
+        "uz": [
+          "A0’dan B1’gacha tushunarli bosqichlar",
+          "Haftasiga 3 marta, 80 daqiqa",
+          "Talaffuz va conversational French amaliyoti"
+        ],
+        "ru": [
+          "Понятные уровни от A0 до B1",
+          "3 занятия в неделю по 80 минут",
+          "Практика произношения и разговорного французского"
+        ],
+        "en": [
+          "Clear stages from A0 to B1",
+          "Three 80-minute lessons each week",
+          "Pronunciation and conversational French practice"
+        ]
+      },
+      "heroVariant": "immersive",
+      "image": "/images/courses-page/french-fullscreen-hero.png",
+      "imageAlt": {
+        "uz": "Fransuz tili darsida o‘qituvchi tanishuv iboralari va talaffuzni tushuntirmoqda",
+        "ru": "Преподаватель объясняет фразы для знакомства и произношение на уроке французского языка",
+        "en": "A teacher explains introductory phrases and pronunciation during a French lesson"
+      },
+      "level": {
+        "uz": "A0 — B1",
+        "ru": "A0 — B1",
+        "en": "A0 — B1"
+      },
+      "outcomes": {
+        "uz": [
+          "O‘zingizni tanishtirish va kundalik suhbat qurish",
+          "Asosiy fransuz talaffuzini boshqarish",
+          "Qisqa matn va e’lonlarni tushunish",
+          "Sayohat vaziyatlarida mustaqil muloqot qilish"
+        ],
+        "ru": [
+          "Представляться и вести повседневный разговор",
+          "Освоить базовое французское произношение",
+          "Понимать короткие тексты и объявления",
+          "Самостоятельно общаться в путешествиях"
+        ],
+        "en": [
+          "Introduce yourself and hold everyday conversations",
+          "Handle core French pronunciation",
+          "Understand short texts and announcements",
+          "Communicate independently while travelling"
+        ]
+      },
+      "overview": {
+        "uz": [
+          "Dastur fransuz tilining tovush tizimi va ritmini sodda dialoglardan boshlab o‘rgatadi. Yangi grammatika kundalik tanishuv, sayohat, kafe va shahar vaziyatlari orqali mustahkamlanadi.",
+          "Har darsda listening, talaffuz va qisqa speaking vazifasi bir-birini to‘ldiradi. Mini-loyihalar o‘quvchiga yangi iboralarni mustaqil va tabiiyroq ishlatish imkonini beradi."
+        ],
+        "ru": [
+          "Программа знакомит со звуковой системой и ритмом французского через простые диалоги. Новая грамматика закрепляется в ситуациях знакомства, путешествия, кафе и города.",
+          "На каждом занятии аудирование, произношение и короткая разговорная задача дополняют друг друга. Мини-проекты помогают использовать новые выражения более самостоятельно и естественно."
+        ],
+        "en": [
+          "The programme introduces French sound patterns and rhythm through simple dialogue. New grammar is reinforced through familiar situations involving introductions, travel, cafés, and city life.",
+          "Listening, pronunciation, and a short speaking task support one another in every lesson. Mini-projects help learners use new expressions more independently and naturally."
+        ]
+      },
+      "prerequisites": {
+        "uz": "Boshlang‘ich guruh ochiq; level check faqat tajribali o‘quvchilar uchun.",
+        "ru": "Начальная группа открыта всем; level check нужен только ученикам с опытом.",
+        "en": "The beginner group is open to all; a level check is only needed for experienced learners."
+      },
+      "schedule": {
+        "uz": "Haftasiga 3 marta · 80 daqiqa",
+        "ru": "3 раза в неделю · 80 минут",
+        "en": "3 times a week · 80 minutes"
+      },
+      "slug": "french",
+      "summary": {
+        "uz": "Aniq talaffuz va kundalik vaziyatlardan boshlangan conversational French dasturi.",
+        "ru": "Разговорный французский, который начинается с ясного произношения и повседневных ситуаций.",
+        "en": "Conversational French beginning with clear pronunciation and everyday situations."
+      },
+      "symbol": "FR",
+      "title": {
+        "uz": "French",
+        "ru": "Французский язык",
+        "en": "French"
+      }
+    },
+    {
+      "accent": "yellow",
+      "audience": {
+        "uz": "Nemis tilini ta’lim, ish yoki kelajakdagi xalqaro rejalari uchun o‘rganayotganlar uchun.",
+        "ru": "Для тех, кто изучает немецкий для образования, работы или будущих международных планов.",
+        "en": "For learners studying German for education, work, or future international plans."
+      },
+      "category": "language",
+      "curriculum": {
+        "uz": [
+          "Talaffuz va sentence structure",
+          "Core grammar",
+          "Kundalik vocabulary",
+          "Reading va listening",
+          "Goethe-style task preview"
+        ],
+        "ru": [
+          "Произношение и структура предложений",
+          "Основная грамматика",
+          "Повседневная лексика",
+          "Чтение и аудирование",
+          "Знакомство с заданиями Goethe"
+        ],
+        "en": [
+          "Pronunciation and sentence structure",
+          "Core grammar",
+          "Everyday vocabulary",
+          "Reading and listening",
+          "Goethe-style task preview"
+        ]
+      },
+      "duration": {
+        "uz": "Har bir bosqich 4 oy",
+        "ru": "Каждый уровень — 4 месяца",
+        "en": "4 months per level"
+      },
+      "focus": {
+        "uz": "Ta’lim va professional muloqot",
+        "ru": "Учёба и профессиональное общение",
+        "en": "Study and professional communication"
+      },
+      "formatLabel": {
+        "uz": "Oflayn guruh",
+        "ru": "Офлайн-группа",
+        "en": "In-person group"
+      },
+      "highlights": {
+        "uz": [
+          "A0’dan B2’gacha strukturali yo‘l",
+          "Haftasiga 3 marta, 80 daqiqa",
+          "Grammar accuracy va faol speaking muvozanati"
+        ],
+        "ru": [
+          "Структурированный путь от A0 до B2",
+          "3 занятия в неделю по 80 минут",
+          "Баланс точной грамматики и активной речи"
+        ],
+        "en": [
+          "A structured path from A0 to B2",
+          "Three 80-minute lessons each week",
+          "A balance of grammar accuracy and active speaking"
+        ]
+      },
+      "heroVariant": "immersive",
+      "image": "/images/courses-page/german-fullscreen-hero.png",
+      "imageAlt": {
+        "uz": "Nemis tili darsida o‘qituvchi doskada gap tuzilishini tushuntirmoqda",
+        "ru": "Преподаватель объясняет структуру предложения на уроке немецкого языка",
+        "en": "A teacher explains sentence structure during a German language lesson"
+      },
+      "level": {
+        "uz": "A0 — B2",
+        "ru": "A0 — B2",
+        "en": "A0 — B2"
+      },
+      "outcomes": {
+        "uz": [
+          "Nemischa gap tuzilishini ishonchli qo‘llash",
+          "Kundalik va akademik matnlarni tushunish",
+          "Fikrni aniq va tartibli ifodalash",
+          "Keyingi sertifikat bosqichiga tayyorlanish"
+        ],
+        "ru": [
+          "Уверенно использовать немецкую структуру предложений",
+          "Понимать повседневные и учебные тексты",
+          "Ясно и последовательно выражать мысли",
+          "Подготовиться к следующему уровню сертификации"
+        ],
+        "en": [
+          "Use German sentence structure confidently",
+          "Understand everyday and academic texts",
+          "Express ideas clearly and logically",
+          "Prepare for the next certification stage"
+        ]
+      },
+      "overview": {
+        "uz": [
+          "Kurs nemischa gap tuzilishini faol lug‘at va muloqot vazifalari bilan bosqichma-bosqich quradi. O‘quvchilar qoidani faqat yodlamaydi, balki uni tinglash, o‘qish va speaking kontekstida ishlatadi.",
+          "Har modul yakunida qisqa practical checkpoint mavjud. U aniqlik, tushunish va fikrni tartibli ifodalash bo‘yicha keyingi darslarning fokusini belgilaydi."
+        ],
+        "ru": [
+          "Курс поэтапно соединяет структуру немецкого предложения с активной лексикой и коммуникативными задачами. Ученики не просто запоминают правило, а применяют его в аудировании, чтении и речи.",
+          "Каждый модуль завершается коротким practical checkpoint. Он определяет фокус следующих занятий по точности, пониманию и последовательному выражению мысли."
+        ],
+        "en": [
+          "The course builds German sentence structure alongside active vocabulary and communication tasks. Learners do more than memorise rules; they apply them through listening, reading, and speaking contexts.",
+          "Each module closes with a short practical checkpoint. It defines the next lesson focus for accuracy, comprehension, and expressing ideas in a clear sequence."
+        ]
+      },
+      "prerequisites": {
+        "uz": "A1+ guruhlariga kirish uchun qisqa level check o‘tkaziladi.",
+        "ru": "Для групп A1+ проводится короткий level check.",
+        "en": "A short level check is used for entry into A1+ groups."
+      },
+      "schedule": {
+        "uz": "Haftasiga 3 marta · 80 daqiqa",
+        "ru": "3 раза в неделю · 80 минут",
+        "en": "3 times a week · 80 minutes"
+      },
+      "slug": "german",
+      "summary": {
+        "uz": "Grammar aniqligi, faol lug‘at va bosqichma-bosqich speaking’ni birlashtirgan nemis tili dasturi.",
+        "ru": "Немецкий язык с балансом точной грамматики, активной лексики и поэтапной разговорной практики.",
+        "en": "German combining accurate grammar, active vocabulary, and progressive speaking practice."
+      },
+      "symbol": "DE",
+      "title": {
+        "uz": "German",
+        "ru": "Немецкий язык",
+        "en": "German"
+      }
+    },
+    {
+      "accent": "blue",
+      "audience": {
+        "uz": "Mandarin tilini noldan, to‘g‘ri talaffuz va yozuv asoslari bilan boshlamoqchi bo‘lganlar uchun.",
+        "ru": "Для тех, кто начинает мандаринский с нуля и хочет освоить произношение и основы письма.",
+        "en": "For learners beginning Mandarin from zero with a strong base in pronunciation and writing."
+      },
+      "category": "language",
+      "curriculum": {
+        "uz": [
+          "Pinyin va tones",
+          "Asosiy characters",
+          "Kundalik sentence patterns",
+          "Listening va repetition",
+          "HSK-style vocabulary review"
+        ],
+        "ru": [
+          "Pinyin и тоны",
+          "Базовые иероглифы",
+          "Повседневные речевые модели",
+          "Аудирование и повторение",
+          "Повторение лексики в формате HSK"
+        ],
+        "en": [
+          "Pinyin and tones",
+          "Core characters",
+          "Everyday sentence patterns",
+          "Listening and repetition",
+          "HSK-style vocabulary review"
+        ]
+      },
+      "duration": {
+        "uz": "Har bir bosqich 4 oy",
+        "ru": "Каждый уровень — 4 месяца",
+        "en": "4 months per level"
+      },
+      "focus": {
+        "uz": "Mandarin asoslari va HSK yo‘li",
+        "ru": "Основы мандаринского и путь HSK",
+        "en": "Mandarin foundations and an HSK pathway"
+      },
+      "formatLabel": {
+        "uz": "Oflayn guruh",
+        "ru": "Офлайн-группа",
+        "en": "In-person group"
+      },
+      "highlights": {
+        "uz": [
+          "HSK 1’dan HSK 4’gacha bosqichlar",
+          "Haftasiga 3 marta, 80 daqiqa",
+          "Pinyin, tones, characters va dialog birgalikda"
+        ],
+        "ru": [
+          "Уровни от HSK 1 до HSK 4",
+          "3 занятия в неделю по 80 минут",
+          "Pinyin, тоны, иероглифы и диалог в одной программе"
+        ],
+        "en": [
+          "Stages from HSK 1 to HSK 4",
+          "Three 80-minute lessons each week",
+          "Pinyin, tones, characters, and dialogue developed together"
+        ]
+      },
+      "heroVariant": "immersive",
+      "image": "/images/courses-page/chinese-fullscreen-hero.png",
+      "imageAlt": {
+        "uz": "Mandarin darsida o‘qituvchi pinyin va to‘rt tonni tushuntirmoqda",
+        "ru": "Преподаватель объясняет пиньинь и четыре тона на уроке китайского языка",
+        "en": "A teacher explains pinyin and the four tones during a Mandarin lesson"
+      },
+      "level": {
+        "uz": "HSK 1 — HSK 4",
+        "ru": "HSK 1 — HSK 4",
+        "en": "HSK 1 — HSK 4"
+      },
+      "outcomes": {
+        "uz": [
+          "To‘rt tonni aniqroq farqlash va qo‘llash",
+          "Asosiy characters’ni o‘qish va yozish",
+          "Kundalik savol-javoblarni olib borish",
+          "HSK vocabulary bloklarini tizimli o‘zlashtirish"
+        ],
+        "ru": [
+          "Точнее различать и использовать четыре тона",
+          "Читать и писать базовые иероглифы",
+          "Вести простые повседневные диалоги",
+          "Системно осваивать блоки лексики HSK"
+        ],
+        "en": [
+          "Distinguish and use the four tones more accurately",
+          "Read and write core characters",
+          "Handle simple everyday exchanges",
+          "Build HSK vocabulary in structured blocks"
+        ]
+      },
+      "overview": {
+        "uz": [
+          "Dastur pinyin va to‘rt tonni kundalik iboralar bilan birga o‘rgatadi, so‘ng asosiy characters va HSK vocabulary bloklariga o‘tadi. Har yangi element talaffuz, tinglash va dialogda qayta ishlatiladi.",
+          "Vizual character kartalari, qisqa dictation va spaced review xotirani mustahkamlaydi. Bosqich yakunida o‘quvchi keyingi HSK blokiga o‘tish uchun shaxsiy takrorlash ro‘yxatini oladi."
+        ],
+        "ru": [
+          "Программа изучает pinyin и четыре тона вместе с повседневными выражениями, затем переходит к базовым иероглифам и блокам лексики HSK. Каждый новый элемент повторяется в произношении, аудировании и диалогах.",
+          "Визуальные карточки иероглифов, короткие диктанты и spaced review укрепляют память. В конце этапа ученик получает личный список повторения для перехода к следующему блоку HSK."
+        ],
+        "en": [
+          "The programme teaches pinyin and the four tones alongside everyday expressions before moving into core characters and structured HSK vocabulary blocks. Every new element returns in pronunciation, listening, and dialogue practice.",
+          "Visual character cards, short dictation, and spaced review strengthen recall. At the end of each stage, learners receive a personal revision list for moving into the next HSK block."
+        ]
+      },
+      "prerequisites": {
+        "uz": "Boshlang‘ich bosqich uchun oldingi Mandarin bilimi talab qilinmaydi.",
+        "ru": "Для начального уровня знание мандаринского не требуется.",
+        "en": "No previous Mandarin knowledge is required for the beginner stage."
+      },
+      "schedule": {
+        "uz": "Haftasiga 3 marta · 80 daqiqa",
+        "ru": "3 раза в неделю · 80 минут",
+        "en": "3 times a week · 80 minutes"
+      },
+      "slug": "chinese",
+      "summary": {
+        "uz": "Pinyin, tones, characters va kundalik dialogni birga rivojlantiradigan Mandarin dasturi.",
+        "ru": "Программа мандаринского, которая объединяет pinyin, тоны, иероглифы и повседневный диалог.",
+        "en": "A Mandarin programme developing pinyin, tones, characters, and everyday dialogue together."
+      },
+      "symbol": "ZH",
+      "title": {
+        "uz": "Chinese",
+        "ru": "Китайский язык",
+        "en": "Chinese"
+      }
+    }
+  ],
+  "eventDetailsBySlug": {
+    "language-thinking-webinar": {
+      "uz": {
+        "overview": [
+          "“Aniq fikr, aniq nutq” vebinari 30 nafar qatnashchi uchun mo‘ljallangan 90 daqiqalik onlayn laboratoriyadir. Dr. Edmund kundalik suhbat, IELTS javobi va qisqa taqdimotdan olingan uchta namunaviy vaziyat orqali fikrning so‘z tanlovi va gap tartibiga qanday bog‘liqligini ko‘rsatadi.",
+          "Ishtirokchilar avval 60 soniyalik chalkash javobdan asosiy g‘oyani topadi, keyin uni “g‘oya–dalil–xulosa” modeli bilan qayta yozadi. Ikkinchi mashqda bir xil fikr rasmiy, do‘stona va imtihon uslubida ifodalanib, ohang o‘zgarishi solishtiriladi.",
+          "Yakuniy blokda har bir qatnashchi o‘zi tanlagan mavzu bo‘yicha 45 soniyalik javob tayyorlaydi va kichik xonada mashq qiladi. Sessiya oxirida reja shabloni, noaniq jumlalarni tekshirish ro‘yxati va yetti kunlik mini-mashq rejasi beriladi."
+        ],
+        "programme": [
+          {
+            "time": "18:30",
+            "title": "Kirish va yo‘nalish",
+            "description": "Sessiya maqsadi, foydalaniladigan misollar va faol ishtirok qoidalari bilan tanishish."
+          },
+          {
+            "time": "18:45",
+            "title": "Til fikrni qanday shakllantiradi?",
+            "description": "So‘z tanlovi, gap tuzilishi va mantiqiy ketma-ketlikning fikr aniqligiga ta’siri."
+          },
+          {
+            "time": "19:15",
+            "title": "Amaliy ifoda modeli",
+            "description": "G‘oya, dalil va xulosani qisqa nutq ichida joylashtirish bo‘yicha boshqariladigan mashq."
+          },
+          {
+            "time": "19:45",
+            "title": "Savollar va yakuniy refleksiya",
+            "description": "Ishtirokchilar savollari, asosiy xulosalar va mustaqil mashq uchun tavsiyalar."
+          }
+        ],
+        "audience": [
+          "Ingliz yoki boshqa tilda fikrini aniqroq ifodalamoqchi bo‘lgan o‘quvchilar",
+          "Taqdimot, suhbat yoki imtihon javoblarida ishonchni oshirmoqchi bo‘lganlar",
+          "Til va tafakkur mavzusiga qiziqadigan ota-onalar hamda pedagoglar"
+        ],
+        "takeaways": [
+          "Fikrni g‘oya–dalil–xulosa shaklida tuzish uchun sodda model",
+          "Noaniq jumlalarni qisqartirish va mazmunni kuchaytirish usullari",
+          "Keyingi hafta davomida bajarish mumkin bo‘lgan mini-mashqlar to‘plami"
+        ],
+        "practicalInfo": [
+          "Barqaror internet, quloqchin va yozuv uchun daftar tayyorlash tavsiya etiladi.",
+          "Sessiyaga boshlanishidan 10 daqiqa oldin ulanish qulay.",
+          "Kamera majburiy emas, mikrofon faqat amaliy blok va savol-javobda kerak bo‘ladi.",
+          "Ulanish bo‘yicha yakuniy ko‘rsatma registration xizmati ishga tushgach tasdiqlanadi."
+        ],
+        "faq": [
+          {
+            "question": "Vebinar qaysi til darajasi uchun?",
+            "answer": "Material umumiy tushunchalar va sodda misollarga qurilgan. A2 darajadan yuqori o‘quvchilar amaliy qismlardan bemalol foydalana oladi."
+          },
+          {
+            "question": "Oldindan tayyorlanish kerakmi?",
+            "answer": "Maxsus tayyorgarlik talab qilinmaydi. Faqat yaqinda ifodalash qiyin bo‘lgan biror fikr yoki savolni eslab kelish foydali."
+          },
+          {
+            "question": "Yozuv taqdim etiladimi?",
+            "answer": "Yozuv yoki tarqatma material formati hozircha tasdiqlanmagan. Faqat sahifada aniq ko‘rsatilgan materiallarni mavjud deb hisoblang."
+          }
+        ]
+      },
+      "ru": {
+        "overview": [
+          "Вебинар «Ясная мысль, ясная речь» — 90-минутная онлайн-лаборатория для 30 участников. Доктор Эдмунд разберёт три учебные ситуации: повседневный разговор, ответ IELTS и короткую презентацию, показывая, как выбор слов и порядок предложений влияют на мысль.",
+          "Сначала участники выделят главную идею из запутанного 60-секундного ответа, а затем перепишут его по модели «идея–аргумент–вывод». Во втором упражнении одна мысль прозвучит в официальном, дружеском и экзаменационном стиле, чтобы сравнить изменение тона.",
+          "В финальном блоке каждый подготовит 45-секундный ответ на выбранную тему и потренируется в малой онлайн-комнате. После встречи участники получат шаблон плана, чек-лист неясных формулировок и семидневную программу мини-упражнений."
+        ],
+        "programme": [
+          {
+            "time": "18:30",
+            "title": "Введение и ориентиры",
+            "description": "Знакомство с целями встречи, примерами и правилами активного участия."
+          },
+          {
+            "time": "18:45",
+            "title": "Как язык формирует мысль?",
+            "description": "Влияние выбора слов, структуры предложения и логической последовательности на ясность."
+          },
+          {
+            "time": "19:15",
+            "title": "Практическая модель ответа",
+            "description": "Управляемое упражнение: идея, аргумент и вывод внутри короткого выступления."
+          },
+          {
+            "time": "19:45",
+            "title": "Вопросы и рефлексия",
+            "description": "Ответы на вопросы, ключевые выводы и рекомендации для самостоятельной практики."
+          }
+        ],
+        "audience": [
+          "Учащиеся, которые хотят яснее выражать мысли на английском или другом языке",
+          "Те, кому нужна уверенность для презентаций, бесед или экзаменационных ответов",
+          "Родители и преподаватели, интересующиеся связью языка и мышления"
+        ],
+        "takeaways": [
+          "Простая модель построения ответа: идея–аргумент–вывод",
+          "Приёмы сокращения неясных фраз и усиления смысла",
+          "Набор мини-упражнений для практики в течение следующей недели"
+        ],
+        "practicalInfo": [
+          "Рекомендуются стабильный интернет, наушники и блокнот для записей.",
+          "Удобно подключиться за 10 минут до начала встречи.",
+          "Камера необязательна; микрофон понадобится только в практике и вопросах.",
+          "Финальная инструкция по подключению будет подтверждена после запуска регистрации."
+        ],
+        "faq": [
+          {
+            "question": "Для какого уровня подходит вебинар?",
+            "answer": "Материал построен на общих понятиях и простых примерах. Учащиеся уровня A2 и выше смогут полноценно участвовать в практике."
+          },
+          {
+            "question": "Нужно ли готовиться заранее?",
+            "answer": "Специальная подготовка не нужна. Полезно вспомнить мысль или вопрос, которые недавно было трудно сформулировать."
+          },
+          {
+            "question": "Будет ли доступна запись?",
+            "answer": "Формат записи или дополнительных материалов пока не подтверждён. Доступными считаются только материалы, явно указанные на странице."
+          }
+        ]
+      },
+      "en": {
+        "overview": [
+          "“Clear Thought, Clear Speech” is a 90-minute online lab for 30 participants. Dr Edmund uses three sample situations—a daily conversation, an IELTS response, and a short presentation—to show how word choice and sentence order shape an idea.",
+          "Participants first identify the central point inside a confusing 60-second answer, then rebuild it with an idea–evidence–conclusion model. A second task expresses the same message in formal, friendly, and exam settings so the change in tone is easy to compare.",
+          "In the final block, each learner prepares a 45-second response on a chosen topic and practises it in a small breakout room. The session closes with a planning template, an unclear-sentence checklist, and a seven-day mini-practice plan."
+        ],
+        "programme": [
+          {
+            "time": "18:30",
+            "title": "Welcome and orientation",
+            "description": "An introduction to the session goals, working examples, and active-participation format."
+          },
+          {
+            "time": "18:45",
+            "title": "How language shapes thought?",
+            "description": "How word choice, sentence structure, and logical sequence affect clarity."
+          },
+          {
+            "time": "19:15",
+            "title": "A practical expression model",
+            "description": "A guided exercise placing an idea, evidence, and conclusion inside a short response."
+          },
+          {
+            "time": "19:45",
+            "title": "Questions and reflection",
+            "description": "Participant questions, key conclusions, and recommendations for independent practice."
+          }
+        ],
+        "audience": [
+          "Learners who want to express ideas more clearly in English or another language",
+          "People building confidence for presentations, conversations, or exam responses",
+          "Parents and educators interested in the relationship between language and thought"
+        ],
+        "takeaways": [
+          "A simple idea–evidence–conclusion framework for structuring a response",
+          "Techniques for shortening unclear sentences and strengthening meaning",
+          "A set of mini exercises to practise during the following week"
+        ],
+        "practicalInfo": [
+          "A stable connection, headphones, and a notebook are recommended.",
+          "Joining 10 minutes before the start will make setup more comfortable.",
+          "A camera is optional; a microphone is only needed during practice and questions.",
+          "Final joining instructions will be confirmed when the registration service is connected."
+        ],
+        "faq": [
+          {
+            "question": "What language level is the webinar for?",
+            "answer": "The material uses general concepts and accessible examples. Learners at A2 level and above should be able to participate comfortably."
+          },
+          {
+            "question": "Do I need to prepare in advance?",
+            "answer": "No special preparation is required. It may help to bring one idea or question that you recently found difficult to express."
+          },
+          {
+            "question": "Will a recording be available?",
+            "answer": "A recording or handout format has not been confirmed. Only materials explicitly listed on this page should be considered available."
+          }
+        ]
+      }
+    },
+    "football-match": {
+      "uz": {
+        "overview": [
+          "BEST LC Community Cup — 24 o‘quvchini to‘rtta aralash jamoaga birlashtiradigan 6×6 formatdagi do‘stona futbol uchrashuvi. Jamoalar turli kurs va til darajalaridagi qatnashchilardan tuziladi; natijadan tashqari hamkorlik, halol o‘yin va maydondagi muloqot ham qadrlanadi.",
+          "Har bir jamoa 12 daqiqalik uchta mini-o‘yin o‘tkazadi. Uchrashuvlar orasida besh daqiqalik suv tanaffusi bo‘ladi, darvozabon va maydon rollari esa navbat bilan almashtiriladi, shuning uchun tajribasi kam qatnashchilar ham faol ishtirok eta oladi.",
+          "Finaldan oldin murabbiy “eng yaxshi pas zanjiri” va “eng qo‘llab-quvvatlovchi jamoa” bo‘yicha qisqa xulosa beradi. Tadbir penaltilar seriyasi bilan emas, barcha jamoalar qatnashadigan yengil sovush mashqi va umumiy surat bilan yakunlanadi."
+        ],
+        "programme": [
+          {
+            "time": "19:00",
+            "title": "Kelish va jamoalarga bo‘linish",
+            "description": "Qisqa check-in, xavfsizlik eslatmasi va muvozanatli jamoalarni shakllantirish."
+          },
+          {
+            "time": "19:15",
+            "title": "Jamoaviy qizish",
+            "description": "Yengil yugurish, to‘p bilan mashqlar va maydon qoidalarini sinab ko‘rish."
+          },
+          {
+            "time": "19:30",
+            "title": "Do‘stona o‘yin bloklari",
+            "description": "Almashinuvli qisqa uchrashuvlar, suv tanaffuslari va jamoaviy rotatsiya."
+          },
+          {
+            "time": "20:45",
+            "title": "Sovush va yakun",
+            "description": "Cho‘zilish, o‘yin xulosasi va umumiy jamoa surati uchun qisqa vaqt."
+          }
+        ],
+        "audience": [
+          "Faol hordiq va jamoaviy muhitni yoqtiradigan BEST LC o‘quvchilari",
+          "Yangi tanishlar orttirish va turli guruhlar bilan muloqot qilishni istaganlar",
+          "Boshlang‘ich yoki o‘rta darajada futbol o‘ynaydigan ishtirokchilar"
+        ],
+        "takeaways": [
+          "Jamoa ichida tez kelishish va vazifalarni bo‘lishish tajribasi",
+          "O‘qishdan tashqari sog‘lom va faol ijtimoiy muhit",
+          "Do‘stona bellashuv orqali ishonch va o‘zaro qo‘llab-quvvatlash"
+        ],
+        "practicalInfo": [
+          "Sport kiyimi, yopiq bog‘ichli oyoq kiyim va shaxsiy suv idishi olib kelish kerak.",
+          "Uchrashuv boshlanishidan 15 daqiqa oldin kelish tavsiya etiladi.",
+          "Qimmatbaho buyumlarni maydonga olib chiqmaslik va shaxsiy holatingizni hisobga olish muhim.",
+          "Keskin ob-havo bo‘lsa, tadbir holati tasdiqlangan aloqa kanali orqali yangilanadi."
+        ],
+        "faq": [
+          {
+            "question": "Professional futbol tajribasi kerakmi?",
+            "answer": "Yo‘q. Jamoalar tajriba darajasi bo‘yicha muvozanatlanadi va tadbir do‘stona formatda o‘tadi."
+          },
+          {
+            "question": "O‘z to‘pimni olib kelishim kerakmi?",
+            "answer": "Asosiy o‘yin jihozlari tashkilotchilar tomonidan tayyorlanishi rejalashtirilgan. Shaxsiy himoya buyumlari bo‘lsa, olib kelish mumkin."
+          },
+          {
+            "question": "Tomoshabin sifatida kelish mumkinmi?",
+            "answer": "Tomoshabin joylari va kirish tartibi hozircha tasdiqlanmagan. Registration ochilganda yakuniy qoida ko‘rsatiladi."
+          }
+        ]
+      },
+      "ru": {
+        "overview": [
+          "BEST LC Community Cup — дружеский турнир 6×6 для 24 учащихся, разделённых на четыре смешанные команды. Составы объединят участников разных курсов и языковых уровней; помимо счёта будут отмечаться сотрудничество, честная игра и общение на поле.",
+          "Каждая команда проведёт три 12-минутных мини-матча. Между играми предусмотрены пятиминутные перерывы на воду, а роли вратаря и полевых игроков будут меняться, чтобы активно участвовать могли и новички.",
+          "Перед завершением тренер отметит «лучшую цепочку передач» и «самую поддерживающую команду». Событие закончится не серией пенальти, а общей лёгкой заминкой и групповой фотографией всех четырёх команд."
+        ],
+        "programme": [
+          {
+            "time": "19:00",
+            "title": "Сбор и распределение по командам",
+            "description": "Короткая регистрация, напоминание о безопасности и формирование равных составов."
+          },
+          {
+            "time": "19:15",
+            "title": "Командная разминка",
+            "description": "Лёгкий бег, упражнения с мячом и знакомство с правилами площадки."
+          },
+          {
+            "time": "19:30",
+            "title": "Блоки дружеских матчей",
+            "description": "Короткие игры со сменами, перерывами на воду и ротацией команд."
+          },
+          {
+            "time": "20:45",
+            "title": "Заминка и завершение",
+            "description": "Растяжка, короткое подведение итогов и время для общей фотографии."
+          }
+        ],
+        "audience": [
+          "Учащиеся BEST LC, которым нравится активный отдых и командная атмосфера",
+          "Те, кто хочет познакомиться и пообщаться с участниками других групп",
+          "Игроки начального или среднего любительского уровня"
+        ],
+        "takeaways": [
+          "Опыт быстрой договорённости и распределения ролей внутри команды",
+          "Здоровая и активная социальная среда вне учебных занятий",
+          "Уверенность и взаимная поддержка через дружеское соревнование"
+        ],
+        "practicalInfo": [
+          "Нужны спортивная одежда, обувь с закрытой шнуровкой и личная бутылка воды.",
+          "Рекомендуется прибыть за 15 минут до начала матча.",
+          "Не берите ценные вещи на поле и учитывайте своё физическое состояние.",
+          "При сложной погоде статус события будет обновлён через подтверждённый канал связи."
+        ],
+        "faq": [
+          {
+            "question": "Нужен ли профессиональный опыт?",
+            "answer": "Нет. Команды будут сбалансированы по уровню, а матч пройдёт в дружеском формате."
+          },
+          {
+            "question": "Нужно ли приносить свой мяч?",
+            "answer": "Основной игровой инвентарь планируют подготовить организаторы. Личные защитные аксессуары можно взять с собой."
+          },
+          {
+            "question": "Можно ли прийти зрителем?",
+            "answer": "Зрительские места и порядок входа пока не подтверждены. Финальные правила появятся после открытия регистрации."
+          }
+        ]
+      },
+      "en": {
+        "overview": [
+          "The BEST LC Community Cup is a friendly 6-a-side event for 24 learners split across four mixed teams. The line-ups combine different courses and language levels; alongside the score, cooperation, fair play, and communication on the pitch will be recognised.",
+          "Each team plays three 12-minute mini-matches. Five-minute water breaks separate the games, while goalkeeper and outfield roles rotate so participants with less experience can still take an active part.",
+          "Before the close, the coach highlights the best passing sequence and the most supportive team. The event ends without a penalty shoot-out, using a shared light cool-down and one group photograph with all four teams instead."
+        ],
+        "programme": [
+          {
+            "time": "19:00",
+            "title": "Arrival and team allocation",
+            "description": "A quick check-in, safety reminder, and creation of balanced teams."
+          },
+          {
+            "time": "19:15",
+            "title": "Team warm-up",
+            "description": "Light running, ball exercises, and a practical review of pitch rules."
+          },
+          {
+            "time": "19:30",
+            "title": "Friendly match blocks",
+            "description": "Short rotating games with substitutions, water breaks, and team changes."
+          },
+          {
+            "time": "20:45",
+            "title": "Cool-down and close",
+            "description": "Stretching, a short match reflection, and time for a group photograph."
+          }
+        ],
+        "audience": [
+          "BEST LC learners who enjoy active recreation and a team atmosphere",
+          "People who want to meet and interact with learners from other groups",
+          "Beginner or intermediate recreational football players"
+        ],
+        "takeaways": [
+          "Experience coordinating quickly and sharing roles within a team",
+          "A healthy and active social setting beyond regular lessons",
+          "Confidence and mutual support through friendly competition"
+        ],
+        "practicalInfo": [
+          "Bring sports clothing, securely fastened footwear, and a personal water bottle.",
+          "Arriving 15 minutes before the match is recommended.",
+          "Avoid taking valuables onto the pitch and consider your personal physical condition.",
+          "In severe weather, the event status will be updated through a confirmed contact channel."
+        ],
+        "faq": [
+          {
+            "question": "Do I need professional playing experience?",
+            "answer": "No. Teams will be balanced by experience and the match will use a friendly format."
+          },
+          {
+            "question": "Should I bring my own football?",
+            "answer": "Core match equipment is planned to be provided. You may bring personal protective accessories if needed."
+          },
+          {
+            "question": "Can I attend as a spectator?",
+            "answer": "Spectator capacity and entry rules have not been confirmed. Final guidance will appear when registration opens."
+          }
+        ]
+      }
+    },
+    "movie-day": {
+      "uz": {
+        "overview": [
+          "Bu safargi Kino kunida ingliz tilidagi “Paddington” (2014) filmi inglizcha subtitrlar bilan namoyish etiladi. Londonda yangi hayot boshlagan Paddingtonning hikoyasi kundalik iboralar, britancha talaffuz va notanish muhitga moslashish mavzusini tabiiy kontekstda kuzatish imkonini beradi.",
+          "Tomoshadan oldin ishtirokchilarga uchta kuzatuv savoli beriladi: Paddington kimlarning ishonchini qozonadi, tushunmovchiliklar qanday paydo bo‘ladi va mehribonlik voqealar yo‘nalishini qayerda o‘zgartiradi? Film tugagach, 4–6 kishilik guruhlar aynan shu sahnalar asosida inglizcha fikr almashadi.",
+          "Muhokama uchun mukammal grammatika talab qilinmaydi. Moderatorlar “I noticed…”, “In my view…” va “The turning point was…” kabi tayanch iboralarni taqdim etadi; qatnashchilar esa sevimli sahna, qahramon qarori va filmning asosiy xabarini sodda jumlalar bilan tushuntiradi."
+        ],
+        "programme": [
+          {
+            "time": "16:00",
+            "title": "Mehmonlarni kutib olish",
+            "description": "Joylashish, tadbir formati va filmni faol kuzatish uchun qisqa yo‘nalish."
+          },
+          {
+            "time": "16:10",
+            "title": "“Paddington” namoyishi",
+            "description": "95 daqiqalik filmni original inglizcha ovoz va inglizcha subtitrlar bilan tomosha qilish."
+          },
+          {
+            "time": "17:45",
+            "title": "Popkorn tanaffusi",
+            "description": "Qisqa dam olish va muhokama guruhlariga joylashish."
+          },
+          {
+            "time": "17:50",
+            "title": "Inglizcha muhokama",
+            "description": "Paddingtonning moslashuvi, Brown oilasining qarorlari va mehribonlik mavzusi haqida kichik guruh suhbati."
+          }
+        ],
+        "audience": [
+          "Ingliz tilini film va hikoyalar orqali mashq qilishni yoqtiradigan o‘quvchilar",
+          "Tinglab tushunish va erkin gapirishga yumshoq muhitda odatlanmoqchi bo‘lganlar",
+          "BEST LC hamjamiyatida ijodiy va norasmiy tadbir izlayotgan ishtirokchilar"
+        ],
+        "takeaways": [
+          "Tabiiy nutqdagi ohang, ibora va kontekstni kuzatish tajribasi",
+          "Film haqida fikr bildirish uchun ishlatiladigan sodda inglizcha savollar",
+          "Kichik guruhda bosimsiz suhbat qilish va yangi nuqtai nazarlarni eshitish"
+        ],
+        "practicalInfo": [
+          "Namoyish uchun “Paddington” (2014) tanlangan; tadbir uchun tavsiya etilgan yosh 10+.",
+          "Zalga 10–15 daqiqa oldin kirish qulay joy tanlash imkonini beradi.",
+          "Popkorn dasturga kiritilgan, boshqa ichimliklar mavjudligi tasdiqlanmagan.",
+          "Zalda telefon ovozini o‘chirish va namoyish paytida suratga olmaslik so‘raladi."
+        ],
+        "faq": [
+          {
+            "question": "Film inglizcha subtitr bilan bo‘ladimi?",
+            "answer": "Ha. “Paddington” original inglizcha ovoz va inglizcha subtitrlar bilan namoyish etiladi."
+          },
+          {
+            "question": "Muhokamada gapirish majburiymi?",
+            "answer": "Yo‘q. Tinglash mumkin, lekin kichik savollarga qisqa javob berish tajribani foydaliroq qiladi."
+          },
+          {
+            "question": "O‘zim bilan yegulik olib kelsam bo‘ladimi?",
+            "answer": "Zal qoidalari va tashqaridan yegulik olib kirish tartibi hozircha tasdiqlanmagan."
+          }
+        ]
+      },
+      "ru": {
+        "overview": [
+          "На этом Дне кино покажут фильм «Приключения Паддингтона» (2014) на английском языке с английскими субтитрами. История медвежонка, начинающего новую жизнь в Лондоне, помогает услышать повседневные выражения и британское произношение, а также поговорить об адаптации в незнакомой среде.",
+          "Перед просмотром участники получат три вопроса для наблюдения: как Паддингтон завоёвывает доверие, из-за чего возникают недоразумения и в какие моменты доброта меняет ход истории? После фильма группы по 4–6 человек обсудят конкретные сцены на английском.",
+          "Идеальная грамматика для обсуждения не требуется. Модераторы предложат опорные фразы “I noticed…”, “In my view…” и “The turning point was…”, а участники объяснят простыми предложениями выбор героя, любимую сцену и главную мысль фильма."
+        ],
+        "programme": [
+          {
+            "time": "16:00",
+            "title": "Встреча гостей",
+            "description": "Рассадка, знакомство с форматом и короткие ориентиры для активного просмотра."
+          },
+          {
+            "time": "16:10",
+            "title": "Показ «Приключений Паддингтона»",
+            "description": "Просмотр 95-минутного фильма с оригинальной английской дорожкой и английскими субтитрами."
+          },
+          {
+            "time": "17:45",
+            "title": "Перерыв с попкорном",
+            "description": "Короткий отдых и распределение по группам для обсуждения."
+          },
+          {
+            "time": "17:50",
+            "title": "Обсуждение на английском",
+            "description": "Разговор в малых группах об адаптации Паддингтона, решениях семьи Браун и теме доброты."
+          }
+        ],
+        "audience": [
+          "Учащиеся, которым нравится практиковать английский через фильмы и истории",
+          "Те, кто хочет развивать понимание на слух и разговорную свободу без давления",
+          "Участники, ищущие творческое неформальное событие в сообществе BEST LC"
+        ],
+        "takeaways": [
+          "Опыт наблюдения за интонацией, выражениями и контекстом живой речи",
+          "Простые английские вопросы для обсуждения фильма",
+          "Непринуждённая беседа в малой группе и знакомство с другими взглядами"
+        ],
+        "practicalInfo": [
+          "Для показа выбран фильм «Приключения Паддингтона» (2014); рекомендованный возраст участников — 10+.",
+          "Вход за 10–15 минут позволит спокойно выбрать удобное место.",
+          "Попкорн включён в программу; наличие других напитков не подтверждено.",
+          "Просим выключить звук телефона и не снимать во время показа."
+        ],
+        "faq": [
+          {
+            "question": "Будут ли английские субтитры?",
+            "answer": "Да. Фильм покажут с оригинальной английской дорожкой и английскими субтитрами."
+          },
+          {
+            "question": "Обязательно ли говорить на обсуждении?",
+            "answer": "Нет. Можно слушать, но короткие ответы на простые вопросы помогут получить больше пользы."
+          },
+          {
+            "question": "Можно ли принести свою еду?",
+            "answer": "Правила зала и порядок проноса еды извне пока не подтверждены."
+          }
+        ]
+      },
+      "en": {
+        "overview": [
+          "This Movie Day features “Paddington” (2014) in English with English subtitles. The story of Paddington beginning a new life in London gives learners a natural context for noticing everyday expressions, British pronunciation, and the experience of adapting to an unfamiliar place.",
+          "Before the screening, participants receive three viewing prompts: how Paddington earns people’s trust, what creates the misunderstandings, and where kindness changes the direction of the story. After the film, groups of 4–6 discuss those specific scenes in English.",
+          "Perfect grammar is not expected. Facilitators provide useful frames such as “I noticed…”, “In my view…”, and “The turning point was…”, while participants explain a favourite scene, a character decision, and the film’s central message in accessible language."
+        ],
+        "programme": [
+          {
+            "time": "16:00",
+            "title": "Guest welcome",
+            "description": "Seating, a quick introduction to the format, and prompts for active viewing."
+          },
+          {
+            "time": "16:10",
+            "title": "“Paddington” screening",
+            "description": "The 95-minute film shown with its original English audio and English subtitles."
+          },
+          {
+            "time": "17:45",
+            "title": "Popcorn break",
+            "description": "A short pause and arrangement into small discussion groups."
+          },
+          {
+            "time": "17:50",
+            "title": "English discussion",
+            "description": "Small-group conversation about Paddington’s adaptation, the Brown family’s choices, and kindness."
+          }
+        ],
+        "audience": [
+          "Learners who enjoy practising English through films and stories",
+          "People developing listening comprehension and conversational ease without pressure",
+          "Participants looking for a creative and informal BEST LC community event"
+        ],
+        "takeaways": [
+          "Experience noticing tone, expressions, and context in natural speech",
+          "Accessible English questions that can be used to discuss a film",
+          "Low-pressure small-group conversation and exposure to different viewpoints"
+        ],
+        "practicalInfo": [
+          "“Paddington” (2014) is selected for the screening; the recommended participant age is 10+.",
+          "Entering 10–15 minutes early will make it easier to choose a comfortable seat.",
+          "Popcorn is included in the programme; other refreshments are not confirmed.",
+          "Phones should be silenced and photography avoided during the screening."
+        ],
+        "faq": [
+          {
+            "question": "Will the film have English subtitles?",
+            "answer": "Yes. The film will be shown with its original English audio and English subtitles."
+          },
+          {
+            "question": "Do I have to speak during the discussion?",
+            "answer": "No. Listening is welcome, although brief answers to simple prompts will make the experience more useful."
+          },
+          {
+            "question": "Can I bring my own food?",
+            "answer": "Venue rules and the policy for outside food have not yet been confirmed."
+          }
+        ]
+      }
+    },
+    "spelling-bee": {
+      "uz": {
+        "overview": [
+          "BEST LC Spelling Bee bellashuvida A2–B2 guruhlaridan 24 o‘quvchi qatnashdi. Dastur uchun maktab hayoti, sayohat, tabiat va akademik ingliz tili mavzularidan 72 ta so‘zdan iborat ro‘yxat tayyorlandi.",
+          "Saralashda har bir qatnashchi beshta so‘zni eshitib harfladi; keyingi tezkor bosqichda javob vaqti 20 soniyaga tushirildi. Finalda “environment”, “opportunity” va “rhythm” kabi murakkabligi turlicha so‘zlar ma’no va namunaviy gap bilan berildi.",
+          "Hakamlar faqat to‘g‘ri harflashni emas, so‘zni qayta so‘rash, bo‘g‘inlarga ajratish va xatodan keyin xotirjam davom etishni ham kuzatdi. Tadbir yakunida barcha qatnashchilarga shaxsiy ism yoki natija e’lon qilinmasdan umumiy mashq ro‘yxati taqdim etildi."
+        ],
+        "programme": [
+          {
+            "time": "15:00",
+            "title": "Ro‘yxat va qoidalar",
+            "description": "Ishtirokchilar tartibi, so‘zni takrorlash imkoniyati va baholash mezonlari tushuntirildi."
+          },
+          {
+            "time": "15:15",
+            "title": "Saralash bosqichi",
+            "description": "Kundalik lug‘atdan olingan so‘zlar bilan individual navbatlar o‘tkazildi."
+          },
+          {
+            "time": "15:50",
+            "title": "Tezkor raundlar",
+            "description": "Qisqa vaqt ichida murakkabroq so‘zlar va tinglab aniqlash topshiriqlari bajarildi."
+          },
+          {
+            "time": "16:20",
+            "title": "Final va e’tirof",
+            "description": "Yakuniy so‘zlar, ishtirokchilarni olqishlash va umumiy xulosa."
+          }
+        ],
+        "audience": [
+          "Inglizcha lug‘at va imlo ustida ishlayotgan o‘quvchilar",
+          "Sahna oldida xotirjam javob berish tajribasini rivojlantirmoqchi bo‘lganlar",
+          "Do‘stona akademik bellashuvlarni kuzatishni yoqtiradigan hamjamiyat a’zolari"
+        ],
+        "takeaways": [
+          "So‘zni tinglab, bo‘g‘in va tovushlarga ajratish bo‘yicha amaliy tajriba",
+          "Xato qilgandan keyin tez tiklanish va keyingi savolga diqqatni qaytarish",
+          "Lug‘atni kichik mavzular bo‘yicha muntazam takrorlash uchun yangi motivatsiya"
+        ],
+        "practicalInfo": [
+          "Bu tadbir yakunlangan; sahifadagi dastur arxiv ma’lumoti sifatida berilgan.",
+          "Natijalar, shaxsiy ballar va ishtirokchi ma’lumotlari ochiq e’lon qilinmaydi.",
+          "Kelajakdagi bellashuv sanasi tasdiqlansa, Events katalogida alohida event sifatida chiqadi.",
+          "Arxiv sahifasi ro‘yxatdan o‘tish yoki sertifikat olish imkonini bermaydi."
+        ],
+        "faq": [
+          {
+            "question": "Bu tadbirga hozir ro‘yxatdan o‘tish mumkinmi?",
+            "answer": "Yo‘q. Tadbir yakunlangan va sahifa faqat arxiv tafsilotlarini ko‘rsatadi."
+          },
+          {
+            "question": "G‘oliblar ro‘yxati qayerda?",
+            "answer": "Tasdiqlangan rozilik va rasmiy natijalar berilmagani uchun shaxsiy ism yoki ballar e’lon qilinmaydi."
+          },
+          {
+            "question": "Yangi Spelling Bee bo‘ladimi?",
+            "answer": "Yangi sana hozircha tasdiqlanmagan. Tasdiqlansa, u Upcoming Events bo‘limida paydo bo‘ladi."
+          }
+        ]
+      },
+      "ru": {
+        "overview": [
+          "В BEST LC Spelling Bee участвовали 24 учащихся из групп A2–B2. Для программы подготовили список из 72 слов по темам школьной жизни, путешествий, природы и академического английского.",
+          "В отборочном раунде каждый участник произносил по буквам пять услышанных слов; в быстром раунде время ответа сократилось до 20 секунд. В финале слова разной сложности — например, “environment”, “opportunity” и “rhythm” — сопровождались значением и примером.",
+          "Судьи наблюдали не только за точностью, но и за умением попросить повтор, разделить слово на слоги и спокойно продолжить после ошибки. В конце всем участникам передали общий тренировочный список без публикации личных имён и результатов."
+        ],
+        "programme": [
+          {
+            "time": "15:00",
+            "title": "Регистрация и правила",
+            "description": "Объяснение порядка выступлений, возможности повторить слово и критериев оценки."
+          },
+          {
+            "time": "15:15",
+            "title": "Отборочный раунд",
+            "description": "Индивидуальные очереди со словами из повседневной лексики."
+          },
+          {
+            "time": "15:50",
+            "title": "Быстрые раунды",
+            "description": "Более сложные слова и задания на распознавание в ограниченное время."
+          },
+          {
+            "time": "16:20",
+            "title": "Финал и признание",
+            "description": "Финальные слова, поддержка участников и общее завершение события."
+          }
+        ],
+        "audience": [
+          "Учащиеся, работающие над английской лексикой и правописанием",
+          "Те, кто хотел развить спокойствие при ответе перед аудиторией",
+          "Члены сообщества, которым интересны дружеские академические соревнования"
+        ],
+        "takeaways": [
+          "Практика распознавания слова на слух и разделения его на звуки и слоги",
+          "Умение восстановиться после ошибки и сосредоточиться на следующем вопросе",
+          "Новая мотивация регулярно повторять лексику небольшими тематическими блоками"
+        ],
+        "practicalInfo": [
+          "Событие завершено; программа представлена как архивная информация.",
+          "Результаты, личные баллы и данные участников публично не размещаются.",
+          "Если новая дата будет подтверждена, она появится отдельным событием в каталоге.",
+          "Архивная страница не предоставляет регистрацию или получение сертификата."
+        ],
+        "faq": [
+          {
+            "question": "Можно ли зарегистрироваться сейчас?",
+            "answer": "Нет. Событие завершено, а страница показывает только архивные детали."
+          },
+          {
+            "question": "Где опубликован список победителей?",
+            "answer": "Без подтверждённого согласия и официальных результатов имена и личные баллы не публикуются."
+          },
+          {
+            "question": "Будет ли новый Spelling Bee?",
+            "answer": "Новая дата пока не подтверждена. После подтверждения событие появится в разделе Upcoming Events."
+          }
+        ]
+      },
+      "en": {
+        "overview": [
+          "The BEST LC Spelling Bee brought together 24 learners from A2–B2 groups. Its event list contained 72 words drawn from school life, travel, nature, and academic English.",
+          "In the qualifier, each participant heard and spelled five words; the quick round then reduced response time to 20 seconds. The final used varied words such as “environment”, “opportunity”, and “rhythm”, each supported by a meaning and sample sentence.",
+          "Judges observed more than accuracy: learners could request a repetition, divide a word into syllables, and recover calmly after a mistake. Everyone received a shared practice list at the close without publishing personal names or results."
+        ],
+        "programme": [
+          {
+            "time": "15:00",
+            "title": "Check-in and rules",
+            "description": "An explanation of participant order, word repetition, and judging criteria."
+          },
+          {
+            "time": "15:15",
+            "title": "Qualifying round",
+            "description": "Individual turns using words selected from everyday vocabulary."
+          },
+          {
+            "time": "15:50",
+            "title": "Quick rounds",
+            "description": "More demanding words and listening-recognition tasks within a shorter response time."
+          },
+          {
+            "time": "16:20",
+            "title": "Final and recognition",
+            "description": "Final words, appreciation for participants, and a shared event conclusion."
+          }
+        ],
+        "audience": [
+          "Learners working on English vocabulary and spelling",
+          "People developing confidence when answering in front of an audience",
+          "Community members who enjoy friendly academic challenges"
+        ],
+        "takeaways": [
+          "Practical experience hearing a word and separating it into sounds and syllables",
+          "The ability to recover from a mistake and refocus on the next prompt",
+          "Fresh motivation to review vocabulary regularly in small thematic groups"
+        ],
+        "practicalInfo": [
+          "This event has finished; its programme is presented as archive information.",
+          "Results, personal scores, and participant information are not published publicly.",
+          "If a future edition is confirmed, it will appear as a separate event in the catalogue.",
+          "The archive page does not provide registration or certificate access."
+        ],
+        "faq": [
+          {
+            "question": "Can I register for this event now?",
+            "answer": "No. The event has finished and this page only presents archive details."
+          },
+          {
+            "question": "Where is the winners list?",
+            "answer": "Names and personal scores are not published without confirmed consent and official results."
+          },
+          {
+            "question": "Will there be another Spelling Bee?",
+            "answer": "A new date has not been confirmed. If approved, it will appear under Upcoming Events."
+          }
+        ]
+      }
+    },
+    "graduation-ceremony": {
+      "uz": {
+        "overview": [
+          "Bahorgi bitiruv marosimi General English, IELTS Preparation va CEFR guruhlarining 36 nafar o‘quvchisi uchun tashkil etildi. Har bir guruh o‘zining o‘quv yo‘lidan bitta muhim burilish va keyingi maqsadini sahnada qisqa formatda taqdim etdi.",
+          "Dastur uchta guruh bloki, ustozlarning qisqa tabrigi va “Keyingi qadam” nomli refleksiya kartasini to‘ldirishdan iborat bo‘ldi. Individual ballar ommaga aytilmadi; e’tibor muntazam qatnashuv, murakkab bosqichdan o‘tish va mustaqil o‘qish odatiga qaratildi.",
+          "Rasmiy qismdan keyin bitiruvchilar va yaqinlar uchun uchta fotozona hamda 25 daqiqalik erkin suhbat vaqti ajratildi. Ishtirokchilar esdalik kartasiga kelgusi olti oy uchun bitta til maqsadini yozib, marosimni aniq keyingi qadam bilan yakunladi."
+        ],
+        "programme": [
+          {
+            "time": "16:00",
+            "title": "Mehmonlarni kutib olish",
+            "description": "Joylashish, bitiruvchilar bilan uchrashish va marosim tartibi bilan tanishish."
+          },
+          {
+            "time": "16:20",
+            "title": "Ochilish qismi",
+            "description": "BEST LC learning team’dan qisqa tabrik va o‘quv yo‘li haqida umumiy refleksiya."
+          },
+          {
+            "time": "16:40",
+            "title": "E’tirof va o‘quvchi hikoyalari",
+            "description": "Guruhlar bo‘yicha esdalik e’tirofi va o‘quv tajribalaridan qisqa xulosalar."
+          },
+          {
+            "time": "17:35",
+            "title": "Fotosessiya va suhbat",
+            "description": "Umumiy suratlar, yaqinlar bilan tabriklash va norasmiy yakun."
+          }
+        ],
+        "audience": [
+          "Bitiruv guruhlari va ularning yaqinlari",
+          "O‘quv jarayonida ularni qo‘llab-quvvatlagan pedagoglar va jamoa a’zolari",
+          "BEST LC hamjamiyatidagi keyingi bosqichga qiziqayotgan taklif etilgan mehmonlar"
+        ],
+        "takeaways": [
+          "Yakunlangan o‘quv bosqichini xotirjam baholash va yutuqlarni qadrlash",
+          "Keyingi ta’lim maqsadlarini belgilash uchun yangi motivatsiya",
+          "Guruh, pedagoglar va yaqinlar bilan umumiy esdalik lahzasi"
+        ],
+        "practicalInfo": [
+          "Bu tadbir yakunlangan va sahifa arxiv sifatida saqlanadi.",
+          "Shaxsiy suratlar, ism va individual natijalar roziliksiz ochiq joylashtirilmaydi.",
+          "Kiyim uslubi smart casual sifatida rejalashtirilgan edi.",
+          "Arxiv sahifasi taklifnoma, sertifikat yoki fotosurat yuklab olish funksiyasini bermaydi."
+        ],
+        "faq": [
+          {
+            "question": "Marosimga hozir ro‘yxatdan o‘tish mumkinmi?",
+            "answer": "Yo‘q. Marosim yakunlangan va sahifa faqat arxiv tafsilotlarini saqlaydi."
+          },
+          {
+            "question": "Fotosuratlar qayerdan olinadi?",
+            "answer": "Fotosurat galereyasi yoki yuklab olish xizmati ulanmagan. Roziliksiz shaxsiy suratlar e’lon qilinmaydi."
+          },
+          {
+            "question": "Sertifikatni shu sahifadan olsam bo‘ladimi?",
+            "answer": "Yo‘q. Bu frontend sahifada sertifikat yaratish, tekshirish yoki yuklab olish funksiyasi mavjud emas."
+          }
+        ]
+      },
+      "ru": {
+        "overview": [
+          "Весенняя выпускная церемония объединила 36 учащихся из групп General English, IELTS Preparation и CEFR. Каждая группа коротко представила один важный поворот в своём учебном пути и следующую языковую цель.",
+          "Программа состояла из трёх групповых блоков, короткого поздравления преподавателей и заполнения рефлексивной карточки «Следующий шаг». Индивидуальные баллы не объявлялись: внимание уделялось регулярности, преодолению сложного этапа и привычке учиться самостоятельно.",
+          "После официальной части для выпускников и близких открыли три фотозоны и оставили 25 минут для свободного общения. На памятной карточке каждый участник записал одну языковую цель на следующие шесть месяцев, завершив вечер конкретным планом."
+        ],
+        "programme": [
+          {
+            "time": "16:00",
+            "title": "Встреча гостей",
+            "description": "Рассадка, приветствие выпускников и знакомство с порядком церемонии."
+          },
+          {
+            "time": "16:20",
+            "title": "Открытие",
+            "description": "Короткое поздравление от learning team BEST LC и общая рефлексия об учебном пути."
+          },
+          {
+            "time": "16:40",
+            "title": "Признание и истории учащихся",
+            "description": "Памятное признание групп и короткие выводы из учебных историй."
+          },
+          {
+            "time": "17:35",
+            "title": "Фотосессия и общение",
+            "description": "Общие фотографии, поздравления с близкими и неформальное завершение."
+          }
+        ],
+        "audience": [
+          "Участники выпускных групп и их близкие",
+          "Преподаватели и члены команды, поддерживавшие учебный процесс",
+          "Приглашённые гости сообщества BEST LC, интересующиеся следующим этапом"
+        ],
+        "takeaways": [
+          "Спокойная оценка завершённого этапа и признание проделанной работы",
+          "Новая мотивация для определения следующих образовательных целей",
+          "Общий памятный момент с группой, преподавателями и близкими"
+        ],
+        "practicalInfo": [
+          "Событие завершено, а страница сохраняется как архив.",
+          "Личные фотографии, имена и индивидуальные результаты не публикуются без согласия.",
+          "В качестве ориентира для одежды использовался стиль smart casual.",
+          "Архивная страница не предоставляет приглашения, сертификаты или загрузку фотографий."
+        ],
+        "faq": [
+          {
+            "question": "Можно ли зарегистрироваться на церемонию сейчас?",
+            "answer": "Нет. Церемония завершена, и страница сохраняет только архивное описание."
+          },
+          {
+            "question": "Где получить фотографии?",
+            "answer": "Фотогалерея и загрузка не подключены. Личные фотографии не публикуются без согласия."
+          },
+          {
+            "question": "Можно ли получить сертификат на этой странице?",
+            "answer": "Нет. На frontend-странице нет создания, проверки или загрузки сертификатов."
+          }
+        ]
+      },
+      "en": {
+        "overview": [
+          "The Spring Graduation Ceremony brought together 36 learners from General English, IELTS Preparation, and CEFR groups. Each group briefly presented one turning point from its learning journey and one language goal that would come next.",
+          "The programme combined three group segments, a short educator message, and a “Next Step” reflection card. Individual scores were not announced; recognition focused on consistent attendance, moving through a difficult stage, and building an independent study habit.",
+          "After the formal programme, graduates and invited guests had access to three photo areas and 25 minutes of informal conversation. Each participant wrote one six-month language goal on the keepsake card, ending the event with a concrete next step."
+        ],
+        "programme": [
+          {
+            "time": "16:00",
+            "title": "Guest welcome",
+            "description": "Seating, greeting graduates, and an introduction to the ceremony order."
+          },
+          {
+            "time": "16:20",
+            "title": "Opening segment",
+            "description": "A short welcome from the BEST LC learning team and a shared reflection on the learning journey."
+          },
+          {
+            "time": "16:40",
+            "title": "Recognition and learner stories",
+            "description": "Commemorative group recognition and short reflections from learning experiences."
+          },
+          {
+            "time": "17:35",
+            "title": "Photo session and conversation",
+            "description": "Group photographs, congratulations with guests, and an informal close."
+          }
+        ],
+        "audience": [
+          "Members of the graduating groups and their invited guests",
+          "Educators and team members who supported the learning process",
+          "Invited BEST LC community guests interested in the next learning stage"
+        ],
+        "takeaways": [
+          "A calm reflection on a completed stage and appreciation of consistent effort",
+          "Fresh motivation for defining the next educational goal",
+          "A shared memory with the group, educators, and invited guests"
+        ],
+        "practicalInfo": [
+          "This event has finished and the page is retained as an archive.",
+          "Personal photographs, names, and individual outcomes are not published without consent.",
+          "Smart casual was used as the clothing guidance.",
+          "The archive page does not provide invitations, certificates, or photo downloads."
+        ],
+        "faq": [
+          {
+            "question": "Can I register for the ceremony now?",
+            "answer": "No. The ceremony has finished and this page retains archive information only."
+          },
+          {
+            "question": "Where can I access the photographs?",
+            "answer": "A gallery or download service is not connected. Personal images are not published without consent."
+          },
+          {
+            "question": "Can I receive a certificate from this page?",
+            "answer": "No. This frontend page does not create, verify, or provide certificate downloads."
+          }
+        ]
+      }
+    }
+  },
+  "events": [
+    {
+      "slug": "language-thinking-webinar",
+      "status": "upcoming",
+      "image": "/images/events-page/WebinarDrEdmund.webp",
+      "imageAlt": {
+        "uz": "Professor Edmund sahnada til va tafakkur mavzusida nutq so‘zlamoqda",
+        "ru": "Профессор Эдмунд выступает на сцене с лекцией о языке и мышлении",
+        "en": "Professor Edmund speaking on stage about language and thinking"
+      },
+      "title": {
+        "uz": "Webinar",
+        "ru": "Webinar",
+        "en": "Webinar"
+      },
+      "summary": {
+        "uz": "Dr. Edmund bilan tilning ishonchli fikrlash va g‘oyalarni ifodalashga ta’siri haqidagi amaliy vebinar.",
+        "ru": "Практический вебинар с доктором Эдмундом о влиянии языка на уверенное мышление и выражение идей.",
+        "en": "A practical webinar with Dr. Edmund on how language shapes confident thinking and clear expression."
+      },
+      "formatLabel": {
+        "uz": "Onlayn",
+        "ru": "Онлайн",
+        "en": "Online"
+      },
+      "dateLabel": {
+        "uz": "7-iyun",
+        "ru": "7 июня",
+        "en": "June 7"
+      },
+      "timeLabel": {
+        "uz": "18:30",
+        "ru": "18:30",
+        "en": "18:30"
+      },
+      "durationLabel": {
+        "uz": "1,5 soat",
+        "ru": "1,5 ч",
+        "en": "1.5h"
+      },
+      "locationLabel": {
+        "uz": "BEST onlayn studiyasi",
+        "ru": "Онлайн-студия BEST",
+        "en": "BEST Online Studio"
+      },
+      "topics": {
+        "uz": [
+          "Til va tafakkur",
+          "Ishonchli nutq",
+          "G‘oyalarni aniq ifodalash"
+        ],
+        "ru": [
+          "Язык и мышление",
+          "Уверенная речь",
+          "Ясное выражение идей"
+        ],
+        "en": [
+          "Language and thought",
+          "Confident speaking",
+          "Clear expression"
+        ]
+      },
+      "requiresConfirmation": true
+    },
+    {
+      "slug": "football-match",
+      "status": "upcoming",
+      "image": "/images/events-page/FootballMatchLocker.webp",
+      "imageAlt": {
+        "uz": "Ochiq maydonda futbol o‘ynayotgan yoshlar",
+        "ru": "Молодые люди играют в футбол на открытом поле",
+        "en": "Young adults playing football on an outdoor pitch"
+      },
+      "title": {
+        "uz": "Futbol uchrashuvi",
+        "ru": "Футбольный матч",
+        "en": "Football match"
+      },
+      "summary": {
+        "uz": "Jamoaviy ruh, faol harakat va do‘stona raqobat uchun ochiq futbol uchrashuvi.",
+        "ru": "Открытый футбольный матч для командного духа, движения и дружеского соперничества.",
+        "en": "An open football match built around teamwork, movement, and friendly competition."
+      },
+      "formatLabel": {
+        "uz": "Oflayn",
+        "ru": "Офлайн",
+        "en": "In person"
+      },
+      "dateLabel": {
+        "uz": "19-may",
+        "ru": "19 мая",
+        "en": "May 19"
+      },
+      "timeLabel": {
+        "uz": "19:00",
+        "ru": "19:00",
+        "en": "19:00"
+      },
+      "durationLabel": {
+        "uz": "2 soat",
+        "ru": "2 ч",
+        "en": "2h"
+      },
+      "locationLabel": {
+        "uz": "BEST Arena, Toshkent",
+        "ru": "BEST Arena, Ташкент",
+        "en": "BEST Arena, Tashkent"
+      },
+      "topics": {
+        "uz": [
+          "Jamoaviy o‘yin",
+          "Do‘stona bellashuv",
+          "Faol hordiq"
+        ],
+        "ru": [
+          "Командная игра",
+          "Дружеское соревнование",
+          "Активный отдых"
+        ],
+        "en": [
+          "Team play",
+          "Friendly competition",
+          "Active recreation"
+        ]
+      },
+      "requiresConfirmation": true
+    },
+    {
+      "slug": "movie-day",
+      "status": "upcoming",
+      "image": "/images/events-page/MovieDayCinema.webp",
+      "imageAlt": {
+        "uz": "Qizil kinoteatr o‘rindig‘idagi popkorn va 3D ko‘zoynak",
+        "ru": "Попкорн и 3D-очки на красном кресле кинотеатра",
+        "en": "Popcorn and 3D glasses on a red cinema chair"
+      },
+      "title": {
+        "uz": "Kino kuni",
+        "ru": "День кино",
+        "en": "Movie day"
+      },
+      "summary": {
+        "uz": "“Paddington” filmini inglizcha subtitrlar bilan tomosha qilish, popkorn va kichik guruh muhokamasidan iborat kino kuni.",
+        "ru": "Кинодень с показом «Приключений Паддингтона» с английскими субтитрами, попкорном и обсуждением в малых группах.",
+        "en": "A screening of “Paddington” with English subtitles, popcorn, and a guided small-group discussion."
+      },
+      "formatLabel": {
+        "uz": "Oflayn",
+        "ru": "Офлайн",
+        "en": "In person"
+      },
+      "dateLabel": {
+        "uz": "24-may",
+        "ru": "24 мая",
+        "en": "May 24"
+      },
+      "timeLabel": {
+        "uz": "16:00",
+        "ru": "16:00",
+        "en": "16:00"
+      },
+      "durationLabel": {
+        "uz": "2 soat",
+        "ru": "2 ч",
+        "en": "2h"
+      },
+      "locationLabel": {
+        "uz": "BEST Cinema Hall, Toshkent",
+        "ru": "BEST Cinema Hall, Ташкент",
+        "en": "BEST Cinema Hall, Tashkent"
+      },
+      "topics": {
+        "uz": [
+          "“Paddington” namoyishi",
+          "Britancha ingliz tili",
+          "Mehribonlik mavzusi"
+        ],
+        "ru": [
+          "Показ «Паддингтона»",
+          "Британский английский",
+          "Тема доброты"
+        ],
+        "en": [
+          "“Paddington” screening",
+          "British English",
+          "Kindness and belonging"
+        ]
+      },
+      "requiresConfirmation": true
+    },
+    {
+      "slug": "spelling-bee",
+      "status": "past",
+      "image": "/images/events-page/SpellingBeeDesk.webp",
+      "imageAlt": {
+        "uz": "Stol ortida imlo topshirig‘ini bajarayotgan 3D ari",
+        "ru": "Трёхмерная пчела выполняет задание по правописанию за столом",
+        "en": "A 3D bee completing a spelling task at a desk"
+      },
+      "title": {
+        "uz": "Spelling bee",
+        "ru": "Конкурс Spelling bee",
+        "en": "Spelling bee"
+      },
+      "summary": {
+        "uz": "Inglizcha so‘zlarni to‘g‘ri harflab aytish, tez fikrlash va ishonch bilan javob berish bellashuvi.",
+        "ru": "Соревнование на правильное произношение английских слов по буквам, быстроту мышления и уверенные ответы.",
+        "en": "A friendly challenge in spelling English words, thinking quickly, and answering with confidence."
+      },
+      "formatLabel": {
+        "uz": "Oflayn",
+        "ru": "Офлайн",
+        "en": "In person"
+      },
+      "dateLabel": {
+        "uz": "27-may",
+        "ru": "27 мая",
+        "en": "May 27"
+      },
+      "timeLabel": {
+        "uz": "15:00",
+        "ru": "15:00",
+        "en": "15:00"
+      },
+      "durationLabel": {
+        "uz": "1,5 soat",
+        "ru": "1,5 ч",
+        "en": "1.5h"
+      },
+      "locationLabel": {
+        "uz": "BEST Academic Hall, Toshkent",
+        "ru": "BEST Academic Hall, Ташкент",
+        "en": "BEST Academic Hall, Tashkent"
+      },
+      "topics": {
+        "uz": [
+          "So‘zlarni harflash",
+          "Tezkor bosqichlar",
+          "Final bellashuv"
+        ],
+        "ru": [
+          "Произнесение по буквам",
+          "Быстрые раунды",
+          "Финальное состязание"
+        ],
+        "en": [
+          "Word spelling",
+          "Quick rounds",
+          "Final challenge"
+        ]
+      },
+      "requiresConfirmation": true
+    },
+    {
+      "slug": "graduation-ceremony",
+      "status": "past",
+      "image": "/images/events-page/GraduationCeremony.webp",
+      "imageAlt": {
+        "uz": "Ko‘k akademik tasma va bitiruv qalpog‘idagi bitiruvchi",
+        "ru": "Выпускник в синей академической ленте и конфедератке",
+        "en": "A graduate wearing a blue academic stole and mortarboard"
+      },
+      "title": {
+        "uz": "Bitiruv marosimi",
+        "ru": "Выпускная церемония",
+        "en": "Graduation ceremony"
+      },
+      "summary": {
+        "uz": "O‘quvchilar yutuqlari, esdalik taqdirlashlari va umumiy fotosessiya bilan o‘tgan tantanali bitiruv kuni.",
+        "ru": "Торжественный выпускной день с признанием достижений учащихся, памятными наградами и общей фотосессией.",
+        "en": "A celebratory graduation day featuring learner achievements, commemorative awards, and a group photo session."
+      },
+      "formatLabel": {
+        "uz": "Oflayn",
+        "ru": "Офлайн",
+        "en": "In person"
+      },
+      "dateLabel": {
+        "uz": "10-may",
+        "ru": "10 мая",
+        "en": "May 10"
+      },
+      "timeLabel": {
+        "uz": "16:00",
+        "ru": "16:00",
+        "en": "16:00"
+      },
+      "durationLabel": {
+        "uz": "2 soat",
+        "ru": "2 ч",
+        "en": "2h"
+      },
+      "locationLabel": {
+        "uz": "BEST Celebration Hall, Toshkent",
+        "ru": "BEST Celebration Hall, Ташкент",
+        "en": "BEST Celebration Hall, Tashkent"
+      },
+      "topics": {
+        "uz": [
+          "Taqdirlash marosimi",
+          "O‘quvchilar hikoyalari",
+          "Fotosessiya"
+        ],
+        "ru": [
+          "Церемония награждения",
+          "Истории учащихся",
+          "Фотосессия"
+        ],
+        "en": [
+          "Awards ceremony",
+          "Learner stories",
+          "Photo session"
+        ]
+      },
+      "requiresConfirmation": true
+    }
+  ],
+  "mockExamDates": [
+    {
+      "value": "2026-09-05T09:00",
+      "dateLabel": {
+        "uz": "5-sentabr, shanba",
+        "ru": "5 сентября, суббота",
+        "en": "Saturday, September 5"
+      },
+      "timeLabel": {
+        "uz": "09:00",
+        "ru": "09:00",
+        "en": "09:00"
+      }
+    },
+    {
+      "value": "2026-09-12T14:00",
+      "dateLabel": {
+        "uz": "12-sentabr, shanba",
+        "ru": "12 сентября, суббота",
+        "en": "Saturday, September 12"
+      },
+      "timeLabel": {
+        "uz": "14:00",
+        "ru": "14:00",
+        "en": "14:00"
+      }
+    },
+    {
+      "value": "2026-09-19T09:00",
+      "dateLabel": {
+        "uz": "19-sentabr, shanba",
+        "ru": "19 сентября, суббота",
+        "en": "Saturday, September 19"
+      },
+      "timeLabel": {
+        "uz": "09:00",
+        "ru": "09:00",
+        "en": "09:00"
+      }
+    }
+  ],
+  "publicExamOptions": [
+    {
+      "key": "ielts",
+      "title": {
+        "uz": "IELTS",
+        "ru": "IELTS",
+        "en": "IELTS"
+      },
+      "description": {
+        "uz": "Academic yoki General Training imtihoniga ro‘yxatdan o‘tish bo‘yicha shaxsiy yordam.",
+        "ru": "Персональная помощь с регистрацией на IELTS Academic или General Training.",
+        "en": "Personal registration guidance for IELTS Academic or General Training."
+      },
+      "format": {
+        "uz": "Rasmiy imtihon so‘rovi",
+        "ru": "Заявка на официальный экзамен",
+        "en": "Official exam request"
+      },
+      "duration": {
+        "uz": "Taxminan 2 soat 45 daqiqa",
+        "ru": "Около 2 ч 45 мин",
+        "en": "About 2h 45m"
+      },
+      "level": {
+        "uz": "B1+ tavsiya etiladi",
+        "ru": "Рекомендуется B1+",
+        "en": "B1+ recommended"
+      },
+      "highlights": [
+        {
+          "uz": "Academic yoki General Training",
+          "ru": "Academic или General Training",
+          "en": "Academic or General Training"
+        },
+        {
+          "uz": "Administrator yordami",
+          "ru": "Помощь администратора",
+          "en": "Administrator guidance"
+        },
+        {
+          "uz": "Telegram orqali aloqa",
+          "ru": "Связь через Telegram",
+          "en": "Telegram follow-up"
+        }
+      ]
+    },
+    {
+      "key": "cefr",
+      "title": {
+        "uz": "CEFR",
+        "ru": "CEFR",
+        "en": "CEFR"
+      },
+      "description": {
+        "uz": "Til darajasini tasdiqlash uchun CEFR imtihoniga ariza va tashkiliy ko‘mak.",
+        "ru": "Заявка и организационная поддержка для подтверждения уровня CEFR.",
+        "en": "Application and practical support for a CEFR level assessment."
+      },
+      "format": {
+        "uz": "Daraja imtihoni",
+        "ru": "Экзамен на уровень",
+        "en": "Level assessment"
+      },
+      "duration": {
+        "uz": "Taxminan 2 soat",
+        "ru": "Около 2 часов",
+        "en": "About 2 hours"
+      },
+      "level": {
+        "uz": "A1–C1",
+        "ru": "A1–C1",
+        "en": "A1–C1"
+      },
+      "highlights": [
+        {
+          "uz": "Mos darajani tanlash",
+          "ru": "Выбор подходящего уровня",
+          "en": "Level selection"
+        },
+        {
+          "uz": "Hujjatlar bo‘yicha yo‘riq",
+          "ru": "Подсказки по документам",
+          "en": "Document guidance"
+        },
+        {
+          "uz": "Telegram orqali aloqa",
+          "ru": "Связь через Telegram",
+          "en": "Telegram follow-up"
+        }
+      ]
+    },
+    {
+      "key": "mock",
+      "title": {
+        "uz": "MOCK",
+        "ru": "MOCK",
+        "en": "MOCK"
+      },
+      "description": {
+        "uz": "Vaqt cheklovi va imtihon muhitiga yaqin sharoitdagi to‘liq sinov sessiyasi.",
+        "ru": "Полная пробная сессия с таймингом и условиями, близкими к экзамену.",
+        "en": "A full timed practice session in conditions close to the real exam."
+      },
+      "format": {
+        "uz": "To‘liq simulyatsiya",
+        "ru": "Полная симуляция",
+        "en": "Full simulation"
+      },
+      "duration": {
+        "uz": "3 soat",
+        "ru": "3 часа",
+        "en": "3 hours"
+      },
+      "level": {
+        "uz": "A2–C1",
+        "ru": "A2–C1",
+        "en": "A2–C1"
+      },
+      "highlights": [
+        {
+          "uz": "Sana va vaqt tanlash",
+          "ru": "Выбор даты и времени",
+          "en": "Date and time selection"
+        },
+        {
+          "uz": "Imtihon muhiti",
+          "ru": "Экзаменационная атмосфера",
+          "en": "Exam-style setting"
+        },
+        {
+          "uz": "Admin ro‘yxatiga qo‘shilish",
+          "ru": "Добавление в список администратора",
+          "en": "Admin registration queue"
+        }
+      ]
+    }
+  ],
+  "publicResultVideos": [
+    {
+      "duration": "00:05",
+      "key": "lesson-preparation",
+      "posterSrc": "/videos/result-preview-01.webp",
+      "source": {
+        "creator": "Thirdman",
+        "licenseUrl": "https://www.pexels.com/license/",
+        "provider": "Pexels",
+        "url": "https://www.pexels.com/video/woman-talking-through-her-laptop-6503020/"
+      },
+      "title": {
+        "uz": "Darsga tayyorgarlik",
+        "ru": "Подготовка к занятию",
+        "en": "Preparing for a lesson"
+      },
+      "videoSrc": "/videos/result-preview-01.mp4"
+    },
+    {
+      "duration": "00:05",
+      "key": "focused-home-study",
+      "posterSrc": "/videos/result-preview-02.webp",
+      "source": {
+        "creator": "Tima Miroshnichenko",
+        "licenseUrl": "https://www.pexels.com/license/",
+        "provider": "Pexels",
+        "url": "https://www.pexels.com/video/student-using-laptop-and-reading-book-at-home-6860421/"
+      },
+      "title": {
+        "uz": "Uyda diqqat bilan o‘qish",
+        "ru": "Сосредоточенная учёба дома",
+        "en": "Focused study at home"
+      },
+      "videoSrc": "/videos/result-preview-02.mp4"
+    },
+    {
+      "duration": "00:05",
+      "key": "independent-study",
+      "posterSrc": "/videos/result-preview-03.webp",
+      "source": {
+        "creator": "Ron Lach",
+        "licenseUrl": "https://www.pexels.com/license/",
+        "provider": "Pexels",
+        "url": "https://www.pexels.com/video/woman-studying-while-using-laptop-7983124/"
+      },
+      "title": {
+        "uz": "Mustaqil o‘quv jarayoni",
+        "ru": "Самостоятельная учебная работа",
+        "en": "Independent study session"
+      },
+      "videoSrc": "/videos/result-preview-03.mp4"
+    },
+    {
+      "duration": "00:05",
+      "key": "listening-practice",
+      "posterSrc": "/videos/result-preview-04.webp",
+      "source": {
+        "creator": "olia danilevich",
+        "licenseUrl": "https://www.pexels.com/license/",
+        "provider": "Pexels",
+        "url": "https://www.pexels.com/video/a-woman-studying-while-listening-to-music-6868323/"
+      },
+      "title": {
+        "uz": "Tinglab o‘rganish mashqi",
+        "ru": "Учебная практика аудирования",
+        "en": "Listening practice"
+      },
+      "videoSrc": "/videos/result-preview-04.mp4"
+    },
+    {
+      "duration": "00:05",
+      "key": "collaborative-learning",
+      "posterSrc": "/videos/result-preview-05.webp",
+      "source": {
+        "creator": "Keira Burton",
+        "licenseUrl": "https://www.pexels.com/license/",
+        "provider": "Pexels",
+        "url": "https://www.pexels.com/video/smiling-young-people-chatting-and-studying-6145398/"
+      },
+      "title": {
+        "uz": "Birgalikda o‘rganish",
+        "ru": "Совместное обучение",
+        "en": "Collaborative learning"
+      },
+      "videoSrc": "/videos/result-preview-05.mp4"
+    },
+    {
+      "duration": "00:05",
+      "key": "reading-and-notes",
+      "posterSrc": "/videos/result-preview-06.webp",
+      "source": {
+        "creator": "SHVETS production",
+        "licenseUrl": "https://www.pexels.com/license/",
+        "provider": "Pexels",
+        "url": "https://www.pexels.com/video/woman-reading-a-book-7560166/"
+      },
+      "title": {
+        "uz": "O‘qish va qayd yozish",
+        "ru": "Чтение и ведение заметок",
+        "en": "Reading and note-taking"
+      },
+      "videoSrc": "/videos/result-preview-06.mp4"
+    },
+    {
+      "duration": "00:05",
+      "key": "learning-confidence",
+      "posterSrc": "/videos/result-preview-07.webp",
+      "source": {
+        "creator": "Monstera Production",
+        "licenseUrl": "https://www.pexels.com/license/",
+        "provider": "Pexels",
+        "url": "https://www.pexels.com/video/a-student-smiling-on-the-camera-6219760/"
+      },
+      "title": {
+        "uz": "O‘qishga ishonch bilan",
+        "ru": "Уверенность в обучении",
+        "en": "Learning with confidence"
+      },
+      "videoSrc": "/videos/result-preview-07.mp4"
+    },
+    {
+      "duration": "00:05",
+      "key": "peer-learning",
+      "posterSrc": "/videos/result-preview-08.webp",
+      "source": {
+        "creator": "George Pak",
+        "licenseUrl": "https://www.pexels.com/license/",
+        "provider": "Pexels",
+        "url": "https://www.pexels.com/video/students-studying-while-sitting-on-stairs-7969425/"
+      },
+      "title": {
+        "uz": "Tengdoshlar bilan o‘rganish",
+        "ru": "Обучение вместе со сверстниками",
+        "en": "Learning with peers"
+      },
+      "videoSrc": "/videos/result-preview-08.mp4"
+    }
+  ]
+}

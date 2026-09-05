@@ -2,8 +2,9 @@
 
 Status: approved on 2026-09-01 and implemented through the domain and auth
 identity migrations. PostgreSQL integration tests validate the reviewed
-physical constraints and immutability rules. Telegram import is retired; its
-two already-deployed relations shown below are legacy and unused.
+physical constraints and immutability rules. The old direct-to-Library
+Telegram import remains unused; the revised review-first vocabulary pilot is
+modeled separately.
 
 ```mermaid
 erDiagram
@@ -42,6 +43,9 @@ erDiagram
 
   TelegramImportRun ||--o{ TelegramImportRecord : imports
   LibraryItem ||--o| TelegramImportRecord : originates_from
+  MediaObject ||--o| ImportSourceDocument : stores_original
+  ImportSourceDocument ||--o{ VocabularyDraft : extracts
+  VocabularyDraft ||--o{ VocabularyDraftEntry : contains
 
   Group ||--o{ GroupTuitionRate : prices
   User ||--o{ StudentTuitionOverride : receives
@@ -83,7 +87,7 @@ erDiagram
 - `AttemptAnswer`: autosaved selection; frozen after submission.
 - `AttemptGrant`: Teacher-issued extra attempt for one Student and test.
 
-### Library and legacy import metadata
+### Library and import metadata
 
 - `LibraryItem`: one category, one primary language, active/archive state, and
   `ALL_GROUPS` or `SELECTED_GROUPS` visibility.
@@ -98,6 +102,11 @@ erDiagram
 - `LibraryAttachment`: ordered PDF, image, audio, or video attachments.
 - `TelegramImportRun` and `TelegramImportRecord`: unused legacy provenance
   tables retained only to avoid an unreviewed destructive migration.
+- `ImportSourceDocument`: immutable Telegram source identity linked to one
+  private MediaObject, extraction state, checksum, detected brands, and rights
+  review state.
+- `VocabularyDraft` and `VocabularyDraftEntry`: parser-versioned, ordered
+  review data. They do not publish or silently merge third-party content.
 
 ### Finance
 
@@ -129,6 +138,8 @@ erDiagram
 - Exactly one correct option per published single-choice Question.
 - One active attempt per Student and test version at a time.
 - Unique channel/message source identity remains enforced on legacy rows.
+- Unique revised source identity and media object, with immutable source
+  provenance and positive ordered draft positions.
 - Unique monthly charge per Student, group context, and billing month.
 - Positive UZS amounts and valid percentage/day-of-month ranges.
 - Immutable published versions, submitted attempts, charges, and payments.
@@ -142,3 +153,18 @@ erDiagram
   multiple-choice/free-text questions.
 - Provider-specific object-storage configuration until a maintained provider is
   selected.
+- Bulk Telegram synchronization, scanned-image OCR provider, automated rights
+  approval, and automatic vocabulary publication.
+
+## Section 8 additions
+
+- Identity: User profile fields and an optional owned avatar MediaObject.
+- Groups: schedule metadata and durable GroupTransferRequest review history.
+- Learning: Lesson -> LessonTranslation/LessonAttendance, LessonMaterial ->
+  LibraryItem, and Assignment -> AssignmentTranslation/AssignmentSubmission.
+- Public content: PublicCourse/PublicEvent translation tables plus ContactRequest,
+  ExamRegistration, and EventRegistration intake rows.
+- Operations: durable TeacherTask and idempotent per-recipient Notification rows.
+
+See `SECTION_8_DATA_DESIGN.md` for ownership, lifecycle, and authorization
+decisions. Finance and revised import behavior remain outside Section 8.
