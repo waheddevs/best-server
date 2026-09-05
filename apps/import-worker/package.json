@@ -7,14 +7,19 @@
     "dev": "nest start --watch",
     "generate": "nest generate",
     "lint": "eslint \"src/**/*.ts\"",
+    "pilot:vocabulary": "nest build && node dist/pilot-vocabulary.js",
     "start": "node dist/main.js",
+    "test": "tsc -p tsconfig.test.json && node --test ../../.tmp/import-worker-test/test/pilot.spec.js",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
     "@best/config": "workspace:*",
+    "@best/database": "workspace:*",
     "@best/logger": "workspace:*",
+    "@best/storage": "workspace:*",
     "@nestjs/common": "^11.0.1",
     "@nestjs/core": "^11.0.1",
+    "pdfjs-dist": "6.3.289",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
   },
