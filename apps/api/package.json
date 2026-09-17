@@ -4,11 +4,12 @@
   "private": true,
   "scripts": {
     "build": "nest build",
+    "bootstrap:admin": "node --experimental-strip-types src/operations/bootstrap-admin.ts",
     "dev": "nest start --watch",
     "generate": "nest generate",
     "lint": "eslint \"{src,test}/**/*.ts\"",
     "start": "node dist/main.js",
-    "test": "tsc -p tsconfig.test.json && node --test ../../.tmp/api-test/test/auth-exchange.service.spec.js ../../.tmp/api-test/test/auth-guards.spec.js ../../.tmp/api-test/test/auth.service.spec.js ../../.tmp/api-test/test/finance-ledger.spec.js ../../.tmp/api-test/test/global-exception.filter.spec.js ../../.tmp/api-test/test/media-upload-policy.spec.js",
+    "test": "tsc -p tsconfig.test.json && node --test ../../.tmp/api-test/test/auth-guards.spec.js ../../.tmp/api-test/test/auth.service.spec.js ../../.tmp/api-test/test/credential-password.service.spec.js ../../.tmp/api-test/test/cursor-pagination.spec.js ../../.tmp/api-test/test/finance-ledger.spec.js ../../.tmp/api-test/test/global-exception.filter.spec.js ../../.tmp/api-test/test/media-upload-policy.spec.js",
     "test:integration": "tsc -p tsconfig.integration.json && node --test --test-concurrency=1 ../../.tmp/api-integration/test/graphql-student.integration.spec.js",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
@@ -25,13 +26,17 @@
     "@nestjs/graphql": "13.4.5",
     "@nestjs/jwt": "12.0.1",
     "@nestjs/platform-express": "^11.0.1",
+    "argon2": "^0.45.1",
     "express": "5.2.1",
     "graphql": "16.11.0",
+    "nodemailer": "^10.0.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.0",
-    "@types/express": "^5"
+    "@nestjs/testing": "^11.2.3",
+    "@types/express": "^5",
+    "@types/nodemailer": "^8.0.1"
   }
 }

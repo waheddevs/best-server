@@ -16,6 +16,7 @@
     "lint": "eslint \"{src,test}/**/*.ts\" \"prisma.config.ts\"",
     "migrate:deploy": "prisma migrate deploy",
     "migrate:status": "prisma migrate status",
+    "import:teacher-roster": "node --experimental-strip-types prisma/import-teacher-group-roster.ts",
     "seed:public": "node --experimental-strip-types prisma/seed-public-content.ts",
     "test:integration": "tsc -p tsconfig.integration.json && node --test --test-concurrency=1 ../../.tmp/database-integration/test/database.integration.spec.js",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p test/tsconfig.json",

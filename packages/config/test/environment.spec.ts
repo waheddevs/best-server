@@ -21,9 +21,7 @@ void test('API environment uses safe development defaults', () => {
 void test('auth environment parses the bearer access-token contract', () => {
   assert.deepEqual(
     parseAuthEnvironment({
-      AUTH_EXCHANGE_AUDIENCE: 'best-api',
-      AUTH_EXCHANGE_ISSUER: 'best-web',
-      AUTH_EXCHANGE_SECRET: 'a-different-exchange-secret-with-32-characters',
+      AUTH_OTP_HASH_SECRET: 'a-different-otp-secret-with-32-characters',
       JWT_ACCESS_AUDIENCE: 'best-clients',
       JWT_ACCESS_ISSUER: 'best-api',
       JWT_ACCESS_SECRET: 'a-development-secret-with-32-characters',
@@ -32,19 +30,16 @@ void test('auth environment parses the bearer access-token contract', () => {
       accessTokenAudience: 'best-clients',
       accessTokenIssuer: 'best-api',
       accessTokenSecret: 'a-development-secret-with-32-characters',
-      accessTokenTtlSeconds: 900,
-      identityExchangeAudience: 'best-api',
-      identityExchangeIssuer: 'best-web',
-      identityExchangeSecret: 'a-different-exchange-secret-with-32-characters',
+      accessTokenTtlSeconds: 3600,
+      credentialEmail: undefined,
+      otpHashSecret: 'a-different-otp-secret-with-32-characters',
     },
   );
 });
 
 void test('auth environment rejects weak secrets and invalid token TTLs', () => {
   const validSource = {
-    AUTH_EXCHANGE_AUDIENCE: 'best-api',
-    AUTH_EXCHANGE_ISSUER: 'best-web',
-    AUTH_EXCHANGE_SECRET: 'a-different-exchange-secret-with-32-characters',
+    AUTH_OTP_HASH_SECRET: 'a-different-otp-secret-with-32-characters',
     JWT_ACCESS_AUDIENCE: 'best-clients',
     JWT_ACCESS_ISSUER: 'best-api',
     JWT_ACCESS_SECRET: 'a-development-secret-with-32-characters',
@@ -74,8 +69,40 @@ void test('auth environment rejects weak secrets and invalid token TTLs', () => 
     () =>
       parseAuthEnvironment({
         ...validSource,
-        AUTH_EXCHANGE_SECRET: validSource.JWT_ACCESS_SECRET,
+        AUTH_OTP_HASH_SECRET: validSource.JWT_ACCESS_SECRET,
       }),
+    EnvironmentValidationError,
+  );
+});
+
+void test('auth environment parses SMTP delivery and requires it in production', () => {
+  const shared = {
+    AUTH_OTP_HASH_SECRET: 'a-different-otp-secret-with-32-characters',
+    JWT_ACCESS_AUDIENCE: 'best-clients',
+    JWT_ACCESS_ISSUER: 'best-api',
+    JWT_ACCESS_SECRET: 'a-development-secret-with-32-characters',
+  };
+  const environment = parseAuthEnvironment({
+    ...shared,
+    AUTH_EMAIL_DELIVERY_MODE: 'smtp',
+    AUTH_EMAIL_FROM: 'BEST LC <no-reply@best-lc.example>',
+    AUTH_SMTP_HOST: 'smtp.example.test',
+    AUTH_SMTP_PASSWORD: 'secret',
+    AUTH_SMTP_PORT: '587',
+    AUTH_SMTP_SECURE: 'false',
+    AUTH_SMTP_USER: 'mailer',
+  });
+
+  assert.deepEqual(environment.credentialEmail, {
+    from: 'BEST LC <no-reply@best-lc.example>',
+    host: 'smtp.example.test',
+    password: 'secret',
+    port: 587,
+    secure: false,
+    user: 'mailer',
+  });
+  assert.throws(
+    () => parseAuthEnvironment({ ...shared, NODE_ENV: 'production' }),
     EnvironmentValidationError,
   );
 });

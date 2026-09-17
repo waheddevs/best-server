@@ -1,6 +1,6 @@
 # Local infrastructure
 
-The reviewed Compose stack provides PostgreSQL, Redis, SeaweedFS, and ClamAV
+The reviewed Compose stack provides PostgreSQL, Redis, SeaweedFS, ClamAV, and Mailpit
 for local development. These services:
 
 - use explicit supported image versions;
@@ -50,3 +50,11 @@ Port 3310 is bound only to `127.0.0.1`. The clamd TCP protocol is not
 authenticated or encrypted, so never expose this port publicly. Allow roughly
 4 GB of available memory for the scanner during local startup and wait for its
 built-in health check/signature initialization before running the API.
+
+## Development email inbox
+
+Mailpit `v1.31.1` is the pinned local-only SMTP capture service. The API sends
+login codes to `127.0.0.1:1025`, and its inbox is available at
+`http://localhost:8025`. Both ports bind to host loopback only. Mailpit does not
+deliver messages to the internet and must not be used as production email
+infrastructure; production SMTP values must point to the selected real provider.

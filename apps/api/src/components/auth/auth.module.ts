@@ -5,14 +5,15 @@ import { JwtModule, type JwtModuleOptions } from '@nestjs/jwt';
 import {
   ACCESS_TOKEN_VERIFIER,
   AUTH_ENVIRONMENT,
-  AUTH_IDENTITY_PROVISIONER,
   AUTH_IDENTITY_READER,
+  CREDENTIAL_EMAIL_SENDER,
 } from './auth.constants';
-import { AuthExchangeController } from './auth-exchange.controller';
-import { AuthExchangeService } from './auth-exchange.service';
 import { AuthIdentityService } from './auth-identity.service';
 import { AuthResolver } from './auth.resolver';
 import { AuthService } from './auth.service';
+import { CredentialAuthService } from './credential-auth.service';
+import { CredentialEmailService } from './credential-email.service';
+import { CredentialPasswordService } from './credential-password.service';
 import { AuthGuard } from './guards/auth.guard';
 import { OptionalAuthGuard } from './guards/optional-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
@@ -43,7 +44,9 @@ import { RolesGuard } from './guards/roles.guard';
   providers: [
     AuthResolver,
     AuthService,
-    AuthExchangeService,
+    CredentialAuthService,
+    CredentialEmailService,
+    CredentialPasswordService,
     AuthIdentityService,
     {
       provide: AUTH_ENVIRONMENT,
@@ -54,8 +57,8 @@ import { RolesGuard } from './guards/roles.guard';
       useExisting: AuthIdentityService,
     },
     {
-      provide: AUTH_IDENTITY_PROVISIONER,
-      useExisting: AuthIdentityService,
+      provide: CREDENTIAL_EMAIL_SENDER,
+      useExisting: CredentialEmailService,
     },
     {
       provide: ACCESS_TOKEN_VERIFIER,
@@ -68,10 +71,10 @@ import { RolesGuard } from './guards/roles.guard';
   exports: [
     ACCESS_TOKEN_VERIFIER,
     AuthService,
+    CredentialPasswordService,
     AuthGuard,
     RolesGuard,
     OptionalAuthGuard,
   ],
-  controllers: [AuthExchangeController],
 })
 export class AuthModule {}

@@ -13,9 +13,17 @@ export interface AuthEnvironment {
   accessTokenIssuer: string;
   accessTokenSecret: string;
   accessTokenTtlSeconds: number;
-  identityExchangeAudience: string;
-  identityExchangeIssuer: string;
-  identityExchangeSecret: string;
+  credentialEmail: CredentialEmailEnvironment | undefined;
+  otpHashSecret: string;
+}
+
+export interface CredentialEmailEnvironment {
+  from: string;
+  host: string;
+  password: string | undefined;
+  port: number;
+  secure: boolean;
+  user: string | undefined;
 }
 
 export interface WorkerEnvironment {
@@ -63,7 +71,7 @@ type PostgresConnectionParts = Omit<
 >;
 
 const DEFAULT_API_PORT = 4000;
-const DEFAULT_ACCESS_TOKEN_TTL_SECONDS = 900;
+const DEFAULT_ACCESS_TOKEN_TTL_SECONDS = 3600;
 const DEFAULT_DOWNLOAD_URL_TTL_SECONDS = 300;
 const DEFAULT_MAX_UPLOAD_BYTES = 52_428_800;
 const DEFAULT_MALWARE_SCANNER_CONNECT_TIMEOUT_MILLISECONDS = 5_000;
@@ -91,6 +99,7 @@ export function parseApiEnvironment(source: EnvironmentSource): ApiEnvironment {
 export function parseAuthEnvironment(
   source: EnvironmentSource,
 ): AuthEnvironment {
+  const nodeEnvironment = parseNodeEnvironment(source.NODE_ENV);
   const accessTokenSecret = parseRequiredString(
     source.JWT_ACCESS_SECRET,
     'JWT_ACCESS_SECRET',
@@ -103,21 +112,21 @@ export function parseAuthEnvironment(
     );
   }
 
-  const identityExchangeSecret = parseRequiredString(
-    source.AUTH_EXCHANGE_SECRET,
-    'AUTH_EXCHANGE_SECRET',
+  const otpHashSecret = parseRequiredString(
+    source.AUTH_OTP_HASH_SECRET,
+    'AUTH_OTP_HASH_SECRET',
   );
 
-  if (identityExchangeSecret.length < MINIMUM_ACCESS_TOKEN_SECRET_LENGTH) {
+  if (otpHashSecret.length < MINIMUM_ACCESS_TOKEN_SECRET_LENGTH) {
     throw new EnvironmentValidationError(
-      'AUTH_EXCHANGE_SECRET',
+      'AUTH_OTP_HASH_SECRET',
       `expected at least ${String(MINIMUM_ACCESS_TOKEN_SECRET_LENGTH)} characters`,
     );
   }
 
-  if (identityExchangeSecret === accessTokenSecret) {
+  if (otpHashSecret === accessTokenSecret) {
     throw new EnvironmentValidationError(
-      'AUTH_EXCHANGE_SECRET',
+      'AUTH_OTP_HASH_SECRET',
       'expected a value different from JWT_ACCESS_SECRET',
     );
   }
@@ -139,15 +148,56 @@ export function parseAuthEnvironment(
       3_600,
       DEFAULT_ACCESS_TOKEN_TTL_SECONDS,
     ),
-    identityExchangeAudience: parseRequiredString(
-      source.AUTH_EXCHANGE_AUDIENCE,
-      'AUTH_EXCHANGE_AUDIENCE',
-    ),
-    identityExchangeIssuer: parseRequiredString(
-      source.AUTH_EXCHANGE_ISSUER,
-      'AUTH_EXCHANGE_ISSUER',
-    ),
-    identityExchangeSecret,
+    credentialEmail: parseCredentialEmailEnvironment(source, nodeEnvironment),
+    otpHashSecret,
+  };
+}
+
+function parseCredentialEmailEnvironment(
+  source: EnvironmentSource,
+  nodeEnvironment: NodeEnvironment,
+): CredentialEmailEnvironment | undefined {
+  const mode = parseOptionalString(
+    source.AUTH_EMAIL_DELIVERY_MODE,
+  )?.toLowerCase();
+  const normalizedMode =
+    mode ?? (nodeEnvironment === 'production' ? 'smtp' : 'disabled');
+
+  if (normalizedMode === 'disabled') {
+    if (nodeEnvironment === 'production') {
+      throw new EnvironmentValidationError(
+        'AUTH_EMAIL_DELIVERY_MODE',
+        'SMTP delivery is required in production',
+      );
+    }
+
+    return undefined;
+  }
+
+  if (normalizedMode !== 'smtp') {
+    throw new EnvironmentValidationError(
+      'AUTH_EMAIL_DELIVERY_MODE',
+      'expected smtp or disabled',
+    );
+  }
+
+  const user = parseOptionalString(source.AUTH_SMTP_USER);
+  const password = parseOptionalString(source.AUTH_SMTP_PASSWORD);
+
+  if ((user === undefined) !== (password === undefined)) {
+    throw new EnvironmentValidationError(
+      user === undefined ? 'AUTH_SMTP_USER' : 'AUTH_SMTP_PASSWORD',
+      'SMTP username and password must be configured together',
+    );
+  }
+
+  return {
+    from: parseRequiredString(source.AUTH_EMAIL_FROM, 'AUTH_EMAIL_FROM'),
+    host: parseNetworkHost(source.AUTH_SMTP_HOST, 'AUTH_SMTP_HOST'),
+    password,
+    port: parsePort(source.AUTH_SMTP_PORT, 'AUTH_SMTP_PORT'),
+    secure: parseBoolean(source.AUTH_SMTP_SECURE, 'AUTH_SMTP_SECURE', false),
+    user,
   };
 }
 

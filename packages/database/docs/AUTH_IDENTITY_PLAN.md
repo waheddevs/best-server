@@ -1,9 +1,54 @@
 # Auth identity and account plan
 
-Status: approved on 2026-09-01 and implemented in the additive auth identity
-migration and NestJS internal exchange boundary.
+Status: original provider identity design approved on 2026-09-01; superseded by
+the approved credentials and email-code login decision on 2026-09-07. Rotating
+credential refresh sessions were approved on 2026-09-16 and are specified in
+`CREDENTIAL_REFRESH_SESSION_DATA_DESIGN.md`.
 
-## Ownership boundary
+## Approved credentials and email-code login (2026-09-07)
+
+The previous social-provider provisioning flow is superseded. BEST accounts are
+provisioned operationally: an authenticated `ADMIN` may create only `STUDENT`
+or `TEACHER` users with a unique normalized email, profile display name, and an
+Argon2id password digest. There is no public signup, social provisioning,
+password reset, or client-selected role authority. Operational Admin bootstrap
+remains an out-of-band deployment responsibility; an existing Admin with a
+credential digest may use the same login challenge.
+
+Credential login is a two-step GraphQL flow:
+
+1. `beginCredentialLogin` accepts name, email, password, and the role expected by
+   the selected UI flow. Email is the unique credential identifier. Name is
+   compared only with normalized profile data; expected role must match the
+   database-owned role. Neither is authorization evidence. A generic
+   unauthenticated error covers unknown, inactive, mismatched-name/role, locked,
+   and invalid-password cases.
+2. After a valid credential check, the API creates one expiring challenge,
+   stores only a digest of its random six-digit code, and delivers the raw code
+   through the configured SMTP adapter. The code expires after five minutes.
+3. `verifyCredentialLogin` consumes the challenge. Five invalid attempts revoke
+   it; successful verification marks it used before issuing the existing
+   short-lived bearer access token. The active user and database-owned role are
+   reloaded at verification and on every authenticated request.
+4. `resendCredentialLoginCode` is available no earlier than sixty seconds after
+   the last delivery. It rotates the digest, expiry, and delivery timestamp;
+   the previous code becomes invalid.
+
+Challenges are PostgreSQL-owned so multiple stateless API replicas enforce the
+same expiry, cooldown, attempt, and single-use state. Raw passwords and raw
+codes are never persisted or logged. Credential failures are counted on the
+User record; five failures impose a short lock. SMTP is mandatory in production
+and may be explicitly disabled in local/test environments, where beginning a
+login fails honestly with `SERVICE_UNAVAILABLE` unless tests inject a fake
+delivery adapter.
+
+## Historical provider-exchange design (inactive)
+
+The remainder of the original 2026-09-01 provider design is retained only as a
+migration-history record. It does not authorize runtime OAuth, social
+provisioning, or the deleted internal exchange endpoint.
+
+### Ownership boundary
 
 - Auth.js remains in the independently deployed Next.js web application and
   owns Google, Facebook, and Apple OAuth callbacks.
@@ -37,9 +82,9 @@ Next.js server -> Bearer BEST access token -> NestJS GraphQL
   token to client JavaScript.
 - The web server may obtain a new short-lived BEST access token while its
   Auth.js session remains valid by performing a fresh signed internal exchange.
-- This milestone does not add a backend refresh token, browser token storage,
-  provider-token persistence, a session-revocation table, or a refresh GraphQL
-  operation.
+- The later approved credential refresh extension adds hashed, rotating,
+  revocable backend sessions. It does not add provider-token persistence or
+  browser local-storage ownership.
 
 ## Internal identity exchange
 
@@ -121,10 +166,13 @@ No provider credential or token column is permitted.
   `best-react`; this violates the backend data boundary.
 - Rejected: trusting the frontend role selector, Teacher ID, Admin ID, email
   alone, or an unsigned provider profile.
-- Deferred: email/password credentials, password reset, magic links, automatic
-  email account linking, account unlinking, Teacher/Admin login, rotating
-  refresh tokens, per-device sessions, and session revocation.
-- Deferred: product GraphQL auth mutations and protected product operations.
+- Superseded: email/password credentials and Teacher login are implemented only
+  through the Admin-provisioned email-code flow above. Password reset, magic
+  links, and account linking/unlinking remain deferred. Rotating refresh tokens,
+  per-device credential sessions, and revocation are owned by the separately
+  approved 2026-09-16 extension.
+- Superseded: the approved credential GraphQL mutations and existing protected
+  product operations are active contracts.
 
 ## Approved implementation boundary
 
