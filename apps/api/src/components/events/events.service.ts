@@ -44,6 +44,7 @@ type Event = Prisma.PublicEventGetPayload<{ include: typeof include }>;
 @Injectable()
 export class EventsService {
   constructor(private readonly db: DatabaseService) {}
+ 
   async list(
     language: Language,
     first?: number,
@@ -73,6 +74,7 @@ export class EventsService {
       pageInfo: { endCursor: edges.at(-1)?.cursor ?? null, hasNextPage },
     };
   }
+  
   async one(
     slug: string,
     language: Language,
@@ -240,8 +242,15 @@ export class EventsService {
         },
       });
       if (session === null) throw examNotFound();
-      if (session.capacity !== null && session._count.registrations >= session.capacity)
-        throw new ApplicationError(ErrorCode.CONFLICT, 'The exam session is full', 409);
+      if (
+        session.capacity !== null &&
+        session._count.registrations >= session.capacity
+      )
+        throw new ApplicationError(
+          ErrorCode.CONFLICT,
+          'The exam session is full',
+          409,
+        );
     }
     try {
       const row = await this.db.examRegistration.create({
@@ -283,7 +292,10 @@ export class EventsService {
       throw bad('participantCount is invalid');
     const event = await this.db.publicEvent.findFirst({
       where: { id: eventId, status: PublicContentStatus.PUBLISHED },
-      select: { capacity: true, registrations: { select: { participantCount: true } } },
+      select: {
+        capacity: true,
+        registrations: { select: { participantCount: true } },
+      },
     });
     if (event === null) throw notFound();
     const registeredCount = event.registrations.reduce(
@@ -476,7 +488,9 @@ function mapEvent(row: Event, language: Language): PublicEventObject {
     durationLabel: t.durationLabel,
     endsAt: row.endsAt,
     faq: row.faqItems.map((item) => {
-      const translation = item.translations.find((x) => x.language === language);
+      const translation = item.translations.find(
+        (x) => x.language === language,
+      );
       if (translation === undefined) throw notFound();
       return {
         answer: translation.answer,
@@ -495,7 +509,9 @@ function mapEvent(row: Event, language: Language): PublicEventObject {
     position: row.position,
     practicalInfo: t.practicalInfo,
     programme: row.programmeItems.map((item) => {
-      const translation = item.translations.find((x) => x.language === language);
+      const translation = item.translations.find(
+        (x) => x.language === language,
+      );
       if (translation === undefined) throw notFound();
       return {
         description: translation.description,

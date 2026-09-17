@@ -1,5 +1,11 @@
 import { Language } from '@best/database';
-import { Field, GraphQLISODateTime, ID, Int, ObjectType } from '@nestjs/graphql';
+import {
+  Field,
+  GraphQLISODateTime,
+  ID,
+  Int,
+  ObjectType,
+} from '@nestjs/graphql';
 
 @ObjectType('PublicFaqItem')
 export class PublicFaqItemObject {

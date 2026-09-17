@@ -2115,16 +2115,8 @@
           "Ishonchli nutq",
           "G‘oyalarni aniq ifodalash"
         ],
-        "ru": [
-          "Язык и мышление",
-          "Уверенная речь",
-          "Ясное выражение идей"
-        ],
-        "en": [
-          "Language and thought",
-          "Confident speaking",
-          "Clear expression"
-        ]
+        "ru": ["Язык и мышление", "Уверенная речь", "Ясное выражение идей"],
+        "en": ["Language and thought", "Confident speaking", "Clear expression"]
       },
       "requiresConfirmation": true
     },
@@ -2173,21 +2165,9 @@
         "en": "BEST Arena, Tashkent"
       },
       "topics": {
-        "uz": [
-          "Jamoaviy o‘yin",
-          "Do‘stona bellashuv",
-          "Faol hordiq"
-        ],
-        "ru": [
-          "Командная игра",
-          "Дружеское соревнование",
-          "Активный отдых"
-        ],
-        "en": [
-          "Team play",
-          "Friendly competition",
-          "Active recreation"
-        ]
+        "uz": ["Jamoaviy o‘yin", "Do‘stona bellashuv", "Faol hordiq"],
+        "ru": ["Командная игра", "Дружеское соревнование", "Активный отдых"],
+        "en": ["Team play", "Friendly competition", "Active recreation"]
       },
       "requiresConfirmation": true
     },
@@ -2241,11 +2221,7 @@
           "Britancha ingliz tili",
           "Mehribonlik mavzusi"
         ],
-        "ru": [
-          "Показ «Паддингтона»",
-          "Британский английский",
-          "Тема доброты"
-        ],
+        "ru": ["Показ «Паддингтона»", "Британский английский", "Тема доброты"],
         "en": [
           "“Paddington” screening",
           "British English",
@@ -2299,21 +2275,13 @@
         "en": "BEST Academic Hall, Tashkent"
       },
       "topics": {
-        "uz": [
-          "So‘zlarni harflash",
-          "Tezkor bosqichlar",
-          "Final bellashuv"
-        ],
+        "uz": ["So‘zlarni harflash", "Tezkor bosqichlar", "Final bellashuv"],
         "ru": [
           "Произнесение по буквам",
           "Быстрые раунды",
           "Финальное состязание"
         ],
-        "en": [
-          "Word spelling",
-          "Quick rounds",
-          "Final challenge"
-        ]
+        "en": ["Word spelling", "Quick rounds", "Final challenge"]
       },
       "requiresConfirmation": true
     },
@@ -2362,21 +2330,9 @@
         "en": "BEST Celebration Hall, Tashkent"
       },
       "topics": {
-        "uz": [
-          "Taqdirlash marosimi",
-          "O‘quvchilar hikoyalari",
-          "Fotosessiya"
-        ],
-        "ru": [
-          "Церемония награждения",
-          "Истории учащихся",
-          "Фотосессия"
-        ],
-        "en": [
-          "Awards ceremony",
-          "Learner stories",
-          "Photo session"
-        ]
+        "uz": ["Taqdirlash marosimi", "O‘quvchilar hikoyalari", "Fotosessiya"],
+        "ru": ["Церемония награждения", "Истории учащихся", "Фотосессия"],
+        "en": ["Awards ceremony", "Learner stories", "Photo session"]
       },
       "requiresConfirmation": true
     }

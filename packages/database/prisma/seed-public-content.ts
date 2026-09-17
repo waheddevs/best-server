@@ -52,14 +52,17 @@ type CourseSeed = {
 };
 type EventDetailsSeed = Record<
   string,
-  Record<LocaleKey, {
-    audience: string[];
-    faq: Array<{ answer: string; question: string }>;
-    overview: string[];
-    practicalInfo: string[];
-    programme: Array<{ description: string; time: string; title: string }>;
-    takeaways: string[];
-  }>
+  Record<
+    LocaleKey,
+    {
+      audience: string[];
+      faq: Array<{ answer: string; question: string }>;
+      overview: string[];
+      practicalInfo: string[];
+      programme: Array<{ description: string; time: string; title: string }>;
+      takeaways: string[];
+    }
+  >
 >;
 type EventSeed = {
   dateLabel: LocalizedText;
@@ -75,7 +78,12 @@ type EventSeed = {
   title: LocalizedText;
   topics: Record<LocaleKey, string[]>;
 };
-type FaqSeed = { id: string; category: string; question: LocalizedText; answer: LocalizedText };
+type FaqSeed = {
+  id: string;
+  category: string;
+  question: LocalizedText;
+  answer: LocalizedText;
+};
 type ExamSeed = {
   key: string;
   title: LocalizedText;
@@ -89,7 +97,12 @@ type ResultSeed = {
   duration: string;
   key: string;
   posterSrc: string;
-  source: { creator: string; licenseUrl: string; provider: string; url: string };
+  source: {
+    creator: string;
+    licenseUrl: string;
+    provider: string;
+    url: string;
+  };
   title: LocalizedText;
   videoSrc: string;
 };
@@ -109,7 +122,10 @@ const localeEntries = [
   ['en', Language.EN],
 ] as const;
 const snapshot = JSON.parse(
-  readFileSync(resolve(import.meta.dirname, 'public-content.seed.json'), 'utf8'),
+  readFileSync(
+    resolve(import.meta.dirname, 'public-content.seed.json'),
+    'utf8',
+  ),
 ) as Snapshot;
 const db = createDatabaseClient();
 
@@ -142,8 +158,12 @@ await db.$transaction(async (tx) => {
         symbol: course.symbol,
       },
     });
-    await tx.publicCourseTranslation.deleteMany({ where: { courseId: row.id } });
-    await tx.publicCourseContentItem.deleteMany({ where: { courseId: row.id } });
+    await tx.publicCourseTranslation.deleteMany({
+      where: { courseId: row.id },
+    });
+    await tx.publicCourseContentItem.deleteMany({
+      where: { courseId: row.id },
+    });
     await tx.publicCourseTrack.deleteMany({ where: { courseId: row.id } });
     await tx.publicCourseTranslation.createMany({
       data: localeEntries.map(([locale, language]) => ({
@@ -170,7 +190,9 @@ await db.$transaction(async (tx) => {
       [PublicCourseContentKind.OUTCOME, course.outcomes],
       [PublicCourseContentKind.CURRICULUM, course.curriculum],
     ] as const) {
-      const length = Math.max(...localeEntries.map(([locale]) => values[locale].length));
+      const length = Math.max(
+        ...localeEntries.map(([locale]) => values[locale].length),
+      );
       for (let position = 0; position < length; position += 1) {
         await tx.publicCourseContentItem.create({
           data: {
@@ -220,18 +242,26 @@ await db.$transaction(async (tx) => {
         slug: event.slug,
         startsAt,
         status: PublicContentStatus.PUBLISHED,
-        timelineStatus: event.status === 'upcoming' ? PublicEventTimelineStatus.UPCOMING : PublicEventTimelineStatus.PAST,
+        timelineStatus:
+          event.status === 'upcoming'
+            ? PublicEventTimelineStatus.UPCOMING
+            : PublicEventTimelineStatus.PAST,
       },
       update: {
         imagePath: event.image,
         position: eventPosition,
         startsAt,
         status: PublicContentStatus.PUBLISHED,
-        timelineStatus: event.status === 'upcoming' ? PublicEventTimelineStatus.UPCOMING : PublicEventTimelineStatus.PAST,
+        timelineStatus:
+          event.status === 'upcoming'
+            ? PublicEventTimelineStatus.UPCOMING
+            : PublicEventTimelineStatus.PAST,
       },
     });
     await tx.publicEventTranslation.deleteMany({ where: { eventId: row.id } });
-    await tx.publicEventProgrammeItem.deleteMany({ where: { eventId: row.id } });
+    await tx.publicEventProgrammeItem.deleteMany({
+      where: { eventId: row.id },
+    });
     await tx.publicEventFaqItem.deleteMany({ where: { eventId: row.id } });
     await tx.publicEventTranslation.createMany({
       data: localeEntries.map(([locale, language]) => ({
@@ -258,11 +288,14 @@ await db.$transaction(async (tx) => {
           eventId: row.id,
           position,
           timeLabel: item.time,
-          translations: { create: localeEntries.map(([locale, language]) => ({
-            description: details[locale].programme[position]?.description ?? '',
-            language,
-            title: details[locale].programme[position]?.title ?? '',
-          })) },
+          translations: {
+            create: localeEntries.map(([locale, language]) => ({
+              description:
+                details[locale].programme[position]?.description ?? '',
+              language,
+              title: details[locale].programme[position]?.title ?? '',
+            })),
+          },
         },
       });
     }
@@ -271,11 +304,13 @@ await db.$transaction(async (tx) => {
         data: {
           eventId: row.id,
           position,
-          translations: { create: localeEntries.map(([locale, language]) => ({
-            answer: details[locale].faq[position]?.answer ?? '',
-            language,
-            question: details[locale].faq[position]?.question ?? '',
-          })) },
+          translations: {
+            create: localeEntries.map(([locale, language]) => ({
+              answer: details[locale].faq[position]?.answer ?? '',
+              language,
+              question: details[locale].faq[position]?.question ?? '',
+            })),
+          },
         },
       });
     }
@@ -284,22 +319,78 @@ await db.$transaction(async (tx) => {
   for (const [position, faq] of snapshot.aboutFaqItems.entries()) {
     await tx.publicFaq.upsert({
       where: { key: faq.id },
-      create: { category: faq.category, key: faq.id, position, publishedAt: new Date(), status: PublicContentStatus.PUBLISHED, translations: { create: localeEntries.map(([locale, language]) => ({ answer: faq.answer[locale], language, question: faq.question[locale] })) } },
-      update: { category: faq.category, position, status: PublicContentStatus.PUBLISHED, translations: { deleteMany: {}, create: localeEntries.map(([locale, language]) => ({ answer: faq.answer[locale], language, question: faq.question[locale] })) } },
+      create: {
+        category: faq.category,
+        key: faq.id,
+        position,
+        publishedAt: new Date(),
+        status: PublicContentStatus.PUBLISHED,
+        translations: {
+          create: localeEntries.map(([locale, language]) => ({
+            answer: faq.answer[locale],
+            language,
+            question: faq.question[locale],
+          })),
+        },
+      },
+      update: {
+        category: faq.category,
+        position,
+        status: PublicContentStatus.PUBLISHED,
+        translations: {
+          deleteMany: {},
+          create: localeEntries.map(([locale, language]) => ({
+            answer: faq.answer[locale],
+            language,
+            question: faq.question[locale],
+          })),
+        },
+      },
     });
   }
 
   for (const [position, exam] of snapshot.publicExamOptions.entries()) {
     const offering = await tx.publicExamOffering.upsert({
       where: { key: exam.key },
-      create: { key: exam.key, position, publishedAt: new Date(), status: PublicContentStatus.PUBLISHED },
+      create: {
+        key: exam.key,
+        position,
+        publishedAt: new Date(),
+        status: PublicContentStatus.PUBLISHED,
+      },
       update: { position, status: PublicContentStatus.PUBLISHED },
     });
-    await tx.publicExamOfferingTranslation.deleteMany({ where: { offeringId: offering.id } });
-    await tx.publicExamOfferingTranslation.createMany({ data: localeEntries.map(([locale, language]) => ({ description: exam.description[locale], duration: exam.duration[locale], formatLabel: exam.format[locale], highlights: exam.highlights.map((item) => item[locale]), language, level: exam.level[locale], offeringId: offering.id, title: exam.title[locale] })) });
+    await tx.publicExamOfferingTranslation.deleteMany({
+      where: { offeringId: offering.id },
+    });
+    await tx.publicExamOfferingTranslation.createMany({
+      data: localeEntries.map(([locale, language]) => ({
+        description: exam.description[locale],
+        duration: exam.duration[locale],
+        formatLabel: exam.format[locale],
+        highlights: exam.highlights.map((item) => item[locale]),
+        language,
+        level: exam.level[locale],
+        offeringId: offering.id,
+        title: exam.title[locale],
+      })),
+    });
     if (exam.key === 'mock') {
       for (const slot of snapshot.mockExamDates) {
-        await tx.publicExamSession.upsert({ where: { offeringId_startsAt: { offeringId: offering.id, startsAt: new Date(slot.value) } }, create: { capacity: 40, offeringId: offering.id, startsAt: new Date(slot.value) }, update: { active: true, capacity: 40 } });
+        await tx.publicExamSession.upsert({
+          where: {
+            offeringId_startsAt: {
+              offeringId: offering.id,
+              startsAt: new Date(slot.value),
+            },
+          },
+          create: {
+            capacity: 40,
+            offeringId: offering.id,
+            startsAt: new Date(slot.value),
+          },
+          update: { active: true, capacity: 40 },
+        });
       }
     }
   }
@@ -307,8 +398,43 @@ await db.$transaction(async (tx) => {
   for (const [position, video] of snapshot.publicResultVideos.entries()) {
     await tx.publicResultVideo.upsert({
       where: { key: video.key },
-      create: { duration: video.duration, key: video.key, licenseUrl: video.source.licenseUrl, position, posterPath: video.posterSrc, publishedAt: new Date(), sourceCreator: video.source.creator, sourceProvider: video.source.provider, sourceUrl: video.source.url, status: PublicContentStatus.PUBLISHED, translations: { create: localeEntries.map(([locale, language]) => ({ language, title: video.title[locale] })) }, videoPath: video.videoSrc },
-      update: { duration: video.duration, licenseUrl: video.source.licenseUrl, position, posterPath: video.posterSrc, sourceCreator: video.source.creator, sourceProvider: video.source.provider, sourceUrl: video.source.url, status: PublicContentStatus.PUBLISHED, translations: { deleteMany: {}, create: localeEntries.map(([locale, language]) => ({ language, title: video.title[locale] })) }, videoPath: video.videoSrc },
+      create: {
+        duration: video.duration,
+        key: video.key,
+        licenseUrl: video.source.licenseUrl,
+        position,
+        posterPath: video.posterSrc,
+        publishedAt: new Date(),
+        sourceCreator: video.source.creator,
+        sourceProvider: video.source.provider,
+        sourceUrl: video.source.url,
+        status: PublicContentStatus.PUBLISHED,
+        translations: {
+          create: localeEntries.map(([locale, language]) => ({
+            language,
+            title: video.title[locale],
+          })),
+        },
+        videoPath: video.videoSrc,
+      },
+      update: {
+        duration: video.duration,
+        licenseUrl: video.source.licenseUrl,
+        position,
+        posterPath: video.posterSrc,
+        sourceCreator: video.source.creator,
+        sourceProvider: video.source.provider,
+        sourceUrl: video.source.url,
+        status: PublicContentStatus.PUBLISHED,
+        translations: {
+          deleteMany: {},
+          create: localeEntries.map(([locale, language]) => ({
+            language,
+            title: video.title[locale],
+          })),
+        },
+        videoPath: video.videoSrc,
+      },
     });
   }
 });
@@ -316,10 +442,18 @@ await db.$transaction(async (tx) => {
 await db.$disconnect();
 
 function accent(value: CourseSeed['accent']): PublicCourseAccent {
-  return { blue: PublicCourseAccent.BLUE, turquoise: PublicCourseAccent.TURQUOISE, yellow: PublicCourseAccent.YELLOW }[value];
+  return {
+    blue: PublicCourseAccent.BLUE,
+    turquoise: PublicCourseAccent.TURQUOISE,
+    yellow: PublicCourseAccent.YELLOW,
+  }[value];
 }
 function category(value: CourseSeed['category']): PublicCourseCategory {
-  return { english: PublicCourseCategory.ENGLISH, exam: PublicCourseCategory.EXAM, language: PublicCourseCategory.LANGUAGE }[value];
+  return {
+    english: PublicCourseCategory.ENGLISH,
+    exam: PublicCourseCategory.EXAM,
+    language: PublicCourseCategory.LANGUAGE,
+  }[value];
 }
 function eventDate(status: EventSeed['status'], position: number): Date {
   const month = status === 'upcoming' ? 10 : 2;

@@ -27,6 +27,7 @@ import { EventsService } from './events.service';
 @Resolver()
 export class EventsResolver {
   constructor(private readonly service: EventsService) {}
+
   @Query(() => PublicEventConnectionObject, { name: 'publicEvents' }) list(
     @Args('language', { type: () => Language }) language: Language,
     @Args('first', { nullable: true, type: () => Int }) first?: number,
@@ -34,6 +35,7 @@ export class EventsResolver {
   ) {
     return this.service.list(language, first, after);
   }
+  
   @Query(() => PublicEventObject, { name: 'publicEvent' }) one(
     @Args('slug') slug: string,
     @Args('language', { type: () => Language }) language: Language,

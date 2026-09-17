@@ -24,7 +24,9 @@ export class PublicContentService {
       orderBy: [{ position: 'asc' }, { key: 'asc' }],
     });
     return rows.map((row) => {
-      const translation = row.translations.find((item) => item.language === language);
+      const translation = row.translations.find(
+        (item) => item.language === language,
+      );
       if (translation === undefined) throw missingTranslation();
       return {
         answer: translation.answer,
@@ -55,7 +57,9 @@ export class PublicContentService {
       orderBy: [{ position: 'asc' }, { key: 'asc' }],
     });
     return rows.map((row) => {
-      const translation = row.translations.find((item) => item.language === language);
+      const translation = row.translations.find(
+        (item) => item.language === language,
+      );
       if (translation === undefined) throw missingTranslation();
       return {
         description: translation.description,
@@ -91,7 +95,9 @@ export class PublicContentService {
       orderBy: [{ position: 'asc' }, { key: 'asc' }],
     });
     return rows.map((row) => {
-      const translation = row.translations.find((item) => item.language === language);
+      const translation = row.translations.find(
+        (item) => item.language === language,
+      );
       if (translation === undefined) throw missingTranslation();
       return {
         duration: row.duration,

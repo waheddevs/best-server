@@ -297,7 +297,9 @@ function content(
 ) {
   return row.contentItems
     .filter((item) => item.kind === kind)
-    .map((item) => item.translations.find((x) => x.language === language)?.value)
+    .map(
+      (item) => item.translations.find((x) => x.language === language)?.value,
+    )
     .filter((value): value is string => value !== undefined);
 }
 function consent(value: boolean) {
