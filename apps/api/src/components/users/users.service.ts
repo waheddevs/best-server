@@ -18,11 +18,13 @@ import {
   parseUuid,
 } from '../../libs/pagination/cursor-pagination';
 import type { AdminSetUserRoleInput } from '../../schemas/users/admin-user.input';
+import type { AdminProvisionUserInput } from '../../schemas/users/admin-user.input';
 import type { AdminUserObject } from '../../schemas/users/admin-user.object';
 import type { AdminUserConnectionObject } from '../../schemas/users/user-connection.object';
 import type { UpdateMyProfileInput } from '../../schemas/users/user-profile.input';
 import type { UserProfileObject } from '../../schemas/users/user-profile.object';
 import type { ViewerObject } from '../../schemas/users/viewer.object';
+import { CredentialPasswordService } from '../auth/credential-password.service';
 
 const PROFILE_SELECT = {
   avatarMediaObjectId: true,
@@ -45,7 +47,72 @@ const ADMIN_USER_SELECT = {
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly database: DatabaseService) {}
+  constructor(
+    private readonly database: DatabaseService,
+    private readonly passwordService: CredentialPasswordService,
+  ) {}
+
+  async provisionUser(
+    adminId: string,
+    input: AdminProvisionUserInput,
+    correlationId?: string,
+  ): Promise<AdminUserObject> {
+    if (input.role !== UserRole.STUDENT && input.role !== UserRole.TEACHER) {
+      throw new ApplicationError(
+        ErrorCode.BAD_USER_INPUT,
+        'Only Student and Teacher accounts can be provisioned here',
+        400,
+      );
+    }
+
+    const displayName = parseRequiredText(
+      input.displayName,
+      'displayName',
+      160,
+    );
+    const email = parseProvisioningEmail(input.email);
+    const password = parseProvisioningPassword(input.password);
+    const credentialPasswordHash =
+      await this.passwordService.hashPassword(password);
+
+    return this.database.$transaction(async (transaction) => {
+      const existing = await transaction.user.findUnique({
+        where: { email },
+        select: { id: true },
+      });
+
+      if (existing !== null) {
+        throw new ApplicationError(
+          ErrorCode.CONFLICT,
+          'A user with this email already exists',
+          409,
+        );
+      }
+
+      const user = await transaction.user.create({
+        data: {
+          credentialPasswordHash,
+          displayName,
+          email,
+          role: input.role,
+        },
+        select: ADMIN_USER_SELECT,
+      });
+
+      await transaction.auditLog.create({
+        data: {
+          action: 'ADMIN_USER_PROVISIONED',
+          actorId: adminId,
+          correlationId: correlationId ?? null,
+          newValues: { email, role: input.role },
+          targetId: user.id,
+          targetType: 'USER',
+        },
+      });
+
+      return user;
+    });
+  }
 
   async getViewer(userId: string): Promise<ViewerObject> {
     const user = await this.database.user.findFirst({
@@ -426,6 +493,36 @@ function parseOptionalSearch(search: string | undefined): string | undefined {
     );
   }
   return normalized;
+}
+
+function parseProvisioningEmail(value: string): string {
+  const email = value.trim().toLowerCase();
+
+  if (
+    email.length < 3 ||
+    email.length > 320 ||
+    !/^[^\s@]+@[^\s@]+$/.test(email)
+  ) {
+    throw new ApplicationError(
+      ErrorCode.BAD_USER_INPUT,
+      'email must be a valid email address',
+      400,
+    );
+  }
+
+  return email;
+}
+
+function parseProvisioningPassword(value: string): string {
+  if (value.length < 12 || value.length > 128) {
+    throw new ApplicationError(
+      ErrorCode.BAD_USER_INPUT,
+      'password must contain between 12 and 128 characters',
+      400,
+    );
+  }
+
+  return value;
 }
 
 function parseReason(reason: string): string {

@@ -1,6 +1,21 @@
 import { UserRole, UserStatus } from '@best/database';
 import { Field, ID, InputType } from '@nestjs/graphql';
 
+@InputType('AdminProvisionUserInput')
+export class AdminProvisionUserInput {
+  @Field()
+  displayName!: string;
+
+  @Field()
+  email!: string;
+
+  @Field()
+  password!: string;
+
+  @Field(() => UserRole)
+  role!: UserRole;
+}
+
 @InputType('AdminSetUserStatusInput')
 export class AdminSetUserStatusInput {
   @Field(() => ID)

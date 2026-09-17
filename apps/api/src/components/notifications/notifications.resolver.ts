@@ -3,6 +3,7 @@ import { UseGuards } from '@nestjs/common';
 import { Args, Context, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
 import type { ApiGraphqlContext } from '../../libs/types/authenticated-request.type';
 import {
+  AdminAssignTeacherTaskInput,
   CompleteTeacherTaskInput,
   MarkNotificationReadInput,
 } from '../../schemas/notifications/notification.input';
@@ -41,6 +42,18 @@ export class NotificationsResolver {
     kind?: TeacherTaskKind,
   ) {
     return this.service.tasks(id, first, after, status, kind);
+  }
+  @Mutation(() => TeacherTaskPayloadObject, { name: 'adminAssignTeacherTask' })
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async assign(
+    @AuthMember('id') adminId: string,
+    @Args('input') input: AdminAssignTeacherTaskInput,
+    @Context() ctx: ApiGraphqlContext,
+  ) {
+    return {
+      task: await this.service.assignTask(adminId, input, ctx.req.requestId),
+    };
   }
   @Mutation(() => TeacherTaskPayloadObject, { name: 'completeTeacherTask' })
   @UseGuards(AuthGuard, RolesGuard)

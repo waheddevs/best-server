@@ -12,6 +12,7 @@ import {
 
 import type { ApiGraphqlContext } from '../../libs/types/authenticated-request.type';
 import {
+  AdminProvisionUserInput,
   AdminSetUserRoleInput,
   AdminSetUserStatusInput,
 } from '../../schemas/users/admin-user.input';
@@ -34,6 +35,25 @@ import { UsersService } from './users.service';
 @Resolver()
 export class UsersResolver {
   constructor(private readonly usersService: UsersService) {}
+
+  @Mutation(() => AdminUserMutationPayloadObject, {
+    name: 'adminProvisionUser',
+  })
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async provisionUser(
+    @AuthMember('id') adminId: string,
+    @Args('input') input: AdminProvisionUserInput,
+    @Context() context: ApiGraphqlContext,
+  ): Promise<AdminUserMutationPayloadObject> {
+    return {
+      user: await this.usersService.provisionUser(
+        adminId,
+        input,
+        context.req.requestId,
+      ),
+    };
+  }
 
   @Query(() => ViewerObject, { name: 'viewer' })
   @UseGuards(AuthGuard)

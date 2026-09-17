@@ -46,6 +46,7 @@ export class TeacherTaskPayloadObject {
 export class NotificationObject {
   @Field(() => ID) id!: string;
   @Field(() => String) kind!: string;
+  @Field(() => ID, { nullable: true }) taskId!: string | null;
   @Field(() => String) title!: string;
   @Field(() => String, { nullable: true }) body!: string | null;
   @Field(() => GraphQLISODateTime, { nullable: true }) readAt!: Date | null;

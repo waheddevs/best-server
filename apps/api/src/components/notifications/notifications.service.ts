@@ -4,9 +4,12 @@ import {
   SubmissionStatus,
   TeacherTaskKind,
   TeacherTaskStatus,
+  UserRole,
+  UserStatus,
 } from '@best/database';
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
+import type { AdminAssignTeacherTaskInput } from '../../schemas/notifications/notification.input';
 import { ErrorCode } from '../../libs/enums/error-code.enum';
 import { ApplicationError } from '../../libs/errors/application.error';
 import {
@@ -100,6 +103,69 @@ export class NotificationsService {
     });
     return connection(rows, size);
   }
+  async assignTask(
+    adminId: string,
+    input: AdminAssignTeacherTaskInput,
+    correlationId?: string,
+  ): Promise<TeacherTaskObject> {
+    const teacherId = parseUuid(input.teacherId, 'teacherId');
+    const taskId = parseUuid(input.requestId, 'requestId');
+    const title = input.title.trim();
+    if (title.length === 0 || title.length > 240) {
+      throw new ApplicationError(ErrorCode.BAD_USER_INPUT, 'Invalid task title', 400);
+    }
+    const existing = await this.db.teacherTask.findUnique({ where: { id: taskId } });
+    if (existing !== null) {
+      if (existing.teacherId !== teacherId || existing.title !== title) {
+        throw notFound('task');
+      }
+      return existing;
+    }
+    const teacher = await this.db.user.findFirst({
+      where: { id: teacherId, role: UserRole.TEACHER, status: UserStatus.ACTIVE },
+      select: { id: true },
+    });
+    if (teacher === null) throw notFound('teacher');
+    const groupId = input.groupId ? parseUuid(input.groupId, 'groupId') : null;
+    if (groupId !== null) {
+      const group = await this.db.group.findFirst({
+        where: { id: groupId, teacherId },
+        select: { id: true },
+      });
+      if (group === null) throw notFound('group');
+    }
+    return this.db.$transaction(async (tx) => {
+      const task = await tx.teacherTask.create({
+        data: {
+          id: taskId,
+          teacherId,
+          groupId,
+          title,
+          kind: input.kind,
+          dueAt: input.dueAt ?? null,
+        },
+      });
+      await tx.notification.create({
+        data: {
+          recipientId: teacherId,
+          eventKey: `teacher-task:${task.id}`,
+          kind: 'TEACHER_TASK',
+          title,
+          payload: { taskId: task.id },
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          action: 'TEACHER_TASK_ASSIGNED',
+          actorId: adminId,
+          correlationId: correlationId ?? null,
+          targetId: task.id,
+          targetType: 'TEACHER_TASK',
+        },
+      });
+      return task;
+    });
+  }
   async completeTask(
     teacherId: string,
     taskIdInput: string,
@@ -140,22 +206,26 @@ export class NotificationsService {
       where: {
         recipientId: userId,
         ...(unreadOnly ? { readAt: null } : {}),
-        ...(afterId === undefined ? {} : { id: { gt: afterId } }),
       },
+      ...(afterId === undefined ? {} : { cursor: { id: afterId }, skip: 1 }),
       select: {
         body: true,
         createdAt: true,
         id: true,
         kind: true,
+        payload: true,
         readAt: true,
         title: true,
       },
-      orderBy: { id: 'asc' },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: size + 1,
     });
     const hasNextPage = rows.length > size;
     const page = hasNextPage ? rows.slice(0, size) : rows;
-    const edges = page.map((node) => ({ cursor: encodeCursor(node.id), node }));
+    const edges = page.map((row) => ({
+      cursor: encodeCursor(row.id),
+      node: notificationObject(row),
+    }));
     return {
       edges,
       pageInfo: { endCursor: edges.at(-1)?.cursor ?? null, hasNextPage },
@@ -175,13 +245,14 @@ export class NotificationsService {
         createdAt: true,
         id: true,
         kind: true,
+        payload: true,
         readAt: true,
         title: true,
       },
     });
     if (existing === null) throw notFound('notification');
-    if (existing.readAt !== null) return existing;
-    return this.db.notification.update({
+    if (existing.readAt !== null) return notificationObject(existing);
+    const updated = await this.db.notification.update({
       where: { id },
       data: { readAt: new Date() },
       select: {
@@ -189,10 +260,12 @@ export class NotificationsService {
         createdAt: true,
         id: true,
         kind: true,
+        payload: true,
         readAt: true,
         title: true,
       },
     });
+    return notificationObject(updated);
   }
   async markAllRead(userId: string): Promise<number> {
     return (
@@ -202,6 +275,34 @@ export class NotificationsService {
       })
     ).count;
   }
+}
+function notificationObject(row: {
+  id: string;
+  kind: string;
+  title: string;
+  body: string | null;
+  payload: unknown;
+  readAt: Date | null;
+  createdAt: Date;
+}): NotificationObject {
+  const payload = row.payload;
+  const taskId =
+    payload !== null &&
+    typeof payload === 'object' &&
+    !Array.isArray(payload) &&
+    'taskId' in payload &&
+    typeof payload.taskId === 'string'
+      ? payload.taskId
+      : null;
+  return {
+    id: row.id,
+    kind: row.kind,
+    title: row.title,
+    body: row.body,
+    taskId,
+    readAt: row.readAt,
+    createdAt: row.createdAt,
+  };
 }
 function connection(
   rows: TeacherTaskObject[],
