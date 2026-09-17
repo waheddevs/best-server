@@ -70,8 +70,10 @@ erDiagram
 - `AuthAccount`: token-free Google, Facebook, or Apple identity mapped by the
   unique provider/account tuple. Automatic email linking is forbidden.
 - `Group`: one owning Teacher, active/archive state, and payment deadline.
-- `GroupMembership`: Student group history with start/end timestamps. A database
-  constraint permits only one active membership per Student.
+- `GroupMembership`: Student group history with start/end timestamps and an
+  `ACTIVE`/`PAUSED` participation status. A database constraint permits only one
+  current membership per Student. Ended rows are departed history and do not
+  consume group capacity.
 
 ### Tests and attempts
 

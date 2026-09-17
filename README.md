@@ -46,12 +46,12 @@ the shared Prisma client through the Nest application lifecycle.
 `DatabaseHealthService` owns the PostgreSQL readiness probe so future health
 transports remain thin.
 
-The API has a bearer access-token foundation with typed issuer, audience,
-secret, and TTL configuration. Guards validate bearer credentials through
-`AuthService`, which reloads the active user role from PostgreSQL. The trusted
-Next.js server can exchange a short-lived signed Auth.js identity assertion at
-`POST /internal/auth/exchange`; the browser does not receive the BEST access
-token. No login or refresh-token GraphQL operation is exposed.
+The API has Admin-provisioned Argon2id credentials and a two-step GraphQL login.
+`beginCredentialLogin` sends a six-digit code through SMTP;
+`verifyCredentialLogin` consumes the single-use five-minute challenge before
+returning a short-lived bearer token. Guards validate that token through
+`AuthService`, which reloads active status and role from PostgreSQL. Public
+signup, social identity exchange, and refresh tokens are not exposed.
 
 Server-generated request IDs and a global exception filter provide stable error
 codes for GraphQL and operational HTTP responses while masking unknown and
@@ -97,6 +97,7 @@ yarn database:validate
 yarn database:test:integration
 yarn api:test:integration
 yarn scoring:test:integration
+yarn workspace @best/api bootstrap:admin
 ```
 
 For a single runtime during architecture work:
@@ -116,8 +117,28 @@ yarn infra:config
 yarn infra:up
 ```
 
-The current local stack contains PostgreSQL, Redis, and SeaweedFS. See
+The current local stack contains PostgreSQL, Redis, SeaweedFS, ClamAV, and a
+loopback-only Mailpit development inbox. See
 `infrastructure/docker/README.md` for operational details.
+
+## First local Admin and email-code testing
+
+After migrations are deployed, temporarily set `BOOTSTRAP_ADMIN_NAME`,
+`BOOTSTRAP_ADMIN_EMAIL`, and a 16–128 character `BOOTSTRAP_ADMIN_PASSWORD` in
+the ignored root `.env`, then run:
+
+```bash
+yarn workspace @best/api bootstrap:admin
+```
+
+Remove `BOOTSTRAP_ADMIN_PASSWORD` from `.env` immediately after the successful
+command. The script creates the first Admin or rotates the credential only when
+the exact existing Admin email is supplied; it never exposes a public endpoint.
+
+Start the local stack and API, submit the login form, then open
+`http://localhost:8025` to read the Mailpit message and enter its six-digit
+code. Mailpit captures local mail only. Production must replace the SMTP values
+with a real provider.
 
 See `AGENTS.md` for repository boundaries and the approved implementation
 sequence.

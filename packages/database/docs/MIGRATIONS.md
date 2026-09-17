@@ -68,6 +68,24 @@ the attachment trigger's PL/pgSQL variable/column name collision. It changes no
 data or schema surface and keeps the `READY + CLEAN` policy intact. The already
 applied preceding migration is intentionally not edited.
 
+## Teacher roster participation migration
+
+`20260916010000_group_membership_participation_status` is the additive Teacher
+group roster migration. It adds the `GroupMembershipStatus` enum and the
+`group_memberships.participation_status` column, backfilling existing rows as
+`ACTIVE`. Current totals and capacity continue to use `ended_at IS NULL`; an
+ended membership is departed history and never consumes capacity. See
+`TEACHER_GROUP_ROSTER_DATA_DESIGN.md` for status precedence and rollback.
+
+## Credential refresh session migration
+
+`20260916020000_credential_refresh_sessions` adds revocable credential sessions
+and single-use refresh-token digests. Access tokens remain short-lived; raw
+refresh tokens are never persisted. A partial unique index permits one active
+refresh token per session, while consumed token rows retain reuse-detection
+history. See `CREDENTIAL_REFRESH_SESSION_DATA_DESIGN.md` for rotation,
+concurrency, expiry, audit, and rollback decisions.
+
 ## Apply and inspect
 
 With PostgreSQL running and `DATABASE_URL` set in the untracked root `.env`:

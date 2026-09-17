@@ -30,6 +30,19 @@ production hardening are outside this section.
 - Operational Admin lists are bounded and cursor-paginated. Audit output omits
   raw JSON values. Audit rows remain append-only.
 
+## Teacher group category extension (2026-09-15)
+
+Teacher-created groups have one of `IELTS`, `CEFR`, or `GENERAL_ENGLISH` as a
+persisted category. The teacher may create and update only groups they own;
+existing role and ownership guards remain authoritative. Existing groups are
+left with a null category rather than assigned a potentially incorrect one.
+New group creation requires a category, while an older group's category can be
+set when it is edited. The category is included in read results and audit
+values. This is an additive nullable enum column; rollback can drop the column
+and enum after first exporting its values. No existing rows are removed.
+The migration is `20260915010000_teacher_group_category` and has no data
+backfill. Apply it before deploying API code that selects the category column.
+
 ## Database enforcement
 
 `20260904010000_user_profiles` adds profile metadata and avatar ownership.

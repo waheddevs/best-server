@@ -2,6 +2,27 @@
 
 ## Current milestone
 
+The user has approved connected Teacher group creation. An authenticated
+Teacher may create a group they own with a required IELTS, CEFR, or General
+English category, name, room, ISO lesson days, and daily time range. Preserve
+the existing database-resolved Teacher role guard, ownership scoping, audit
+transaction, GraphQL contract generation, and PostgreSQL integration test.
+Existing groups without a verified category remain uncategorized until edited.
+This authorization is limited to the group domain and does not grant unrelated
+Teacher writes.
+
+Each group has a fixed maximum of 15 active learners. Teacher roster additions
+and approved transfers must reject a full destination group inside a transaction;
+all membership writers must enforce the same cap under concurrent requests.
+Seed fictional Teacher groups through the authenticated create-group GraphQL
+mutation, without adding learners or altering existing groups.
+An authenticated Teacher may soft-delete an owned group through GraphQL. The
+database row remains with `ContentStatus.DELETED` and a `GROUP_DELETED` audit
+event; Teacher lists and detail reads hide it. Reject deletion while active
+memberships exist, and never turn a deleted group active via the archive API.
+The additive enum migration and rollback decision are documented in
+`packages/database/docs/TEACHER_GROUP_SOFT_DELETE_DATA_DESIGN.md`.
+
 The public BEST LC website is now an approved active backend milestone. The
 sibling `best-react` application reads localized public courses, events and
 event details, About FAQ, exam offerings/MOCK sessions, and result-video
@@ -39,7 +60,8 @@ publication yet. Permanent media deletion and subscriptions remain outside the
 current scope. Student/Admin frontend integration, protected role routes, and
 the contracts required by sections 20B-20D of the frontend `AGENTS.md` are now
 active scope.
-Auth.js OAuth callbacks remain owned by the Next.js web app.
+The former Auth.js social-provider exchange is superseded. Authentication now
+uses Admin-provisioned credentials followed by a single-use email code.
 
 Step 8 is complete. It includes profiles/Admin users, groups/memberships/
 transfers, Teacher test authoring, lessons/attendance, materials/assignments,
@@ -55,8 +77,8 @@ been documented and approved. Do not replace the selected SeaweedFS local
 provider, add an archived MinIO Community image, or accept a new provider
 license on the user's behalf without a new review.
 
-Do not extend the vocabulary pilot, implement subscriptions, or move Auth.js
-OAuth provider callbacks into this repository. Student/Admin education and
+Do not extend the vocabulary pilot, implement subscriptions, or reintroduce
+social-provider callbacks or public account creation. Student/Admin education and
 operations APIs are approved only within the route/feature inventory in the
 frontend sections 20B-20D. Payments are limited to authorized invoice/ledger
 status and administrative reconciliation records; do not implement checkout,
@@ -77,7 +99,7 @@ card/bank collection, provider capture, refunds, payouts, or payroll execution.
   frontend operation compatibility, and proportional tests.
 - Seed and test only fictional/reserved data. Never import identities or values
   from reference media or expose production records during development.
-- Keep Parent/Guardian, Super Admin, chat, credentials/password services,
+- Keep Parent/Guardian, Super Admin, chat, public signup/password reset,
   certificates, AI grading, payment-provider execution, and unrestricted CMS or
   infrastructure controls out of scope.
 - Preserve `best-react` and `best-server` as sibling repositories. Do not create
@@ -404,7 +426,7 @@ Do not weaken or disable a check to make the repository pass.
 1. Architecture-only repository foundation.
 2. Local infrastructure and typed configuration.
 3. PostgreSQL/Prisma database design and ERD.
-4. Auth.js/NestJS identity and authorization contract.
+4. NestJS identity, credentials, email challenge, and authorization contract.
 5. Approved GraphQL domain plan.
 6. First vertical Student test slice.
 7. Object storage and Library.
@@ -559,16 +581,38 @@ AuditModule
 
 ### Authentication and authorization
 
-The backend milestone expands the current narrow Auth.js preview only after
-explicit approval.
+The approved credential flow supersedes the earlier social-auth preview.
 
-- Retain Auth.js for approved Google, Facebook, and Apple provider interaction,
-  but replace presentation-only role state with database-backed identity,
-  bearer token issuance, roles, and permissions.
+- Only an authenticated operational Admin may provision Student or Teacher
+  credentials. Public signup, Google, Facebook, Apple, and password-reset flows
+  are not product contracts and must not be reintroduced.
+- Login accepts name, email, and password. Email is the unique credential
+  identifier; name is profile matching only and never role or authorization
+  evidence. Passwords use Argon2id and are never stored or logged in plaintext.
+- On login failure, return distinct error codes for incorrect email, first name,
+  surname, and password so the frontend can show localized errors at those fields.
+  The combined `name` input remains for existing clients; the split login form
+  also sends `firstName` and `lastName` for precise profile-name validation.
+  Return a code-specific error for failed email-code verification. Keep role,
+  account-status, and unexpected failures generic, and retain login throttling.
+- A valid password creates a PostgreSQL-backed six-digit email-code challenge.
+  Store only an HMAC digest; enforce five-minute expiry, single use, five code
+  attempts, sixty-second resend cooldown, and bounded credential failures.
+- Issue the existing short-lived bearer token only after the email code is
+  verified. Student, Teacher, and existing operational Admin credentials use
+  the same verification path; product provisioning cannot create Admins.
+- Email delivery uses configured SMTP. Production must fail startup without a
+  real SMTP configuration. Development/test may disable delivery, but login
+  must then fail honestly instead of reporting a fake send.
+- Local manual testing uses the pinned loopback-only Mailpit Compose service on
+  SMTP port 1025 and UI port 8025. Production must never use Mailpit.
+- Bootstrap the first operational Admin only through the explicit
+  `bootstrap:admin` CLI with temporary environment credentials. It may create
+  the first Admin or rotate the exact existing Admin account; never add a
+  public bootstrap mutation or leave the bootstrap password configured.
 - Use short-lived bearer access tokens for the shared web/API and future
-  application contract. Store real users and provider accounts in PostgreSQL;
-  add hashed rotating refresh-token records only after their data design is
-  reviewed.
+  application contract. Add hashed rotating refresh-token records only after
+  their data design is reviewed.
 - Resolve the bearer token in the NestJS GraphQL context/guards and load status,
   roles, and permissions from the server. Never trust a token-embedded role,
   client role, role query parameter, Teacher ID, Admin ID, or GraphQL input as
@@ -582,10 +626,8 @@ explicit approval.
 - Keep access tokens out of URLs, persistent browser storage, logs, and GraphQL
   arguments. Future web refresh credentials, if cookie-backed, must be secure,
   HttpOnly, SameSite, narrowly scoped, rotated, and CSRF-protected.
-- Restrict origins and never expose provider tokens through the browser or
-  GraphQL schema.
-- Keep email/password credentials disabled until a separately approved secure
-  credentials service exists.
+- Restrict origins and never expose credentials, password digests, raw email
+  codes, or internal challenge digests through the browser or GraphQL schema.
 
 ### PostgreSQL and Prisma data domains
 
@@ -931,9 +973,10 @@ Phase 2 — backend infrastructure:
 
 Phase 3 — identity and authorization:
 
-- Add database-backed Auth.js identity/provider handling, bearer token
-  issuance/refresh rotation, roles, NestJS GraphQL context, server guards, and
-  protected Student/Teacher/Admin boundaries.
+- Add Admin-provisioned Argon2id credentials, SMTP email-code challenges,
+  bearer token issuance, roles, NestJS GraphQL context, server guards, and
+  protected Student/Teacher/Admin boundaries. Refresh rotation remains a
+  separately reviewed extension.
 
 Phase 4 — first test vertical slice:
 
