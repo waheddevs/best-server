@@ -1,4 +1,11 @@
-import { ContentStatus, Prisma, UserStatus } from '@best/database';
+import {
+  AssignmentStatus,
+  ContentStatus,
+  GroupCategory,
+  Prisma,
+  TestVersionStatus,
+  UserStatus,
+} from '@best/database';
 import { Injectable } from '@nestjs/common';
 
 import { DatabaseService } from '../../database/database.service';
@@ -18,10 +25,19 @@ import type {
 import type {
   GroupObject,
   StudentCurrentGroupObject,
+  TeacherGroupOverviewObject,
 } from '../../schemas/groups/group.object';
 
 const GROUP_SELECT = {
+  _count: {
+    select: {
+      memberships: {
+        where: { endedAt: null, student: { status: UserStatus.ACTIVE } },
+      },
+    },
+  },
   archivedAt: true,
+  category: true,
   createdAt: true,
   endsAtMinutes: true,
   id: true,
@@ -36,6 +52,8 @@ const GROUP_SELECT = {
   updatedAt: true,
 } as const;
 
+type GroupRecord = Prisma.GroupGetPayload<{ select: typeof GROUP_SELECT }>;
+
 @Injectable()
 export class GroupsService {
   constructor(private readonly database: DatabaseService) {}
@@ -48,7 +66,7 @@ export class GroupsService {
     search?: string,
   ): Promise<GroupConnectionObject> {
     return this.getGroups(
-      { teacherId, ...(status === undefined ? {} : { status }) },
+      { teacherId, status: status ?? { not: ContentStatus.DELETED } },
       first,
       after,
       search,
@@ -61,11 +79,58 @@ export class GroupsService {
   ): Promise<GroupObject> {
     const id = parseUuid(groupId, 'groupId');
     const group = await this.database.group.findFirst({
-      where: { id, teacherId },
+      where: { id, teacherId, status: { not: ContentStatus.DELETED } },
       select: GROUP_SELECT,
     });
     if (group === null) throw inaccessibleGroupError();
-    return group;
+    return mapGroup(group);
+  }
+
+  async getTeacherGroupOverview(
+    teacherId: string,
+    groupIdInput: string,
+  ): Promise<TeacherGroupOverviewObject> {
+    const groupId = parseUuid(groupIdInput, 'groupId');
+    const group = await this.database.group.findFirst({
+      where: {
+        id: groupId,
+        status: { not: ContentStatus.DELETED },
+        teacherId,
+      },
+      select: { id: true },
+    });
+    if (group === null) throw inaccessibleGroupError();
+
+    const [
+      activeAssignmentCount,
+      scheduledTestCount,
+      materialCount,
+      currentStudentCount,
+    ] = await Promise.all([
+      this.database.assignment.count({
+        where: { groupId, status: AssignmentStatus.PUBLISHED },
+      }),
+      this.database.test.count({
+        where: {
+          groupId,
+          status: ContentStatus.ACTIVE,
+          versions: { some: { status: TestVersionStatus.PUBLISHED } },
+        },
+      }),
+      this.database.lessonMaterial.count({
+        where: { archivedAt: null, groupId },
+      }),
+      this.database.groupMembership.count({
+        where: { endedAt: null, groupId },
+      }),
+    ]);
+
+    return {
+      activeAssignmentCount,
+      currentStudentCount,
+      materialCount,
+      scheduledTestCount,
+    };
   }
 
   async getStudentCurrentGroup(
@@ -84,7 +149,7 @@ export class GroupsService {
     return membership === null
       ? null
       : {
-          group: membership.group,
+          group: mapGroup(membership.group),
           membershipId: membership.id,
           startedAt: membership.startedAt,
         };
@@ -117,7 +182,7 @@ export class GroupsService {
       select: GROUP_SELECT,
     });
     if (group === null) throw inaccessibleGroupError();
-    return group;
+    return mapGroup(group);
   }
 
   async createTeacherGroup(
@@ -142,7 +207,7 @@ export class GroupsService {
             targetType: 'GROUP',
           },
         });
-        return group;
+        return mapGroup(group);
       });
     } catch (error: unknown) {
       return mapGroupWriteError(error);
@@ -163,6 +228,9 @@ export class GroupsService {
           select: GROUP_SELECT,
         });
         if (current === null) throw inaccessibleGroupError();
+        if (current.status === ContentStatus.DELETED) {
+          throw inaccessibleGroupError();
+        }
         if (current.status === ContentStatus.ARCHIVED) {
           throw new ApplicationError(
             ErrorCode.CONFLICT,
@@ -186,7 +254,7 @@ export class GroupsService {
             targetType: 'GROUP',
           },
         });
-        return group;
+        return mapGroup(group);
       });
     } catch (error: unknown) {
       return mapGroupWriteError(error);
@@ -208,10 +276,13 @@ export class GroupsService {
         select: GROUP_SELECT,
       });
       if (current === null) throw inaccessibleGroupError();
+      if (current.status === ContentStatus.DELETED) {
+        throw inaccessibleGroupError();
+      }
       const desiredStatus = archived
         ? ContentStatus.ARCHIVED
         : ContentStatus.ACTIVE;
-      if (current.status === desiredStatus) return current;
+      if (current.status === desiredStatus) return mapGroup(current);
       if (archived) {
         const activeMembershipCount = await transaction.groupMembership.count({
           where: { endedAt: null, groupId },
@@ -244,7 +315,51 @@ export class GroupsService {
           targetType: 'GROUP',
         },
       });
-      return group;
+      return mapGroup(group);
+    });
+  }
+
+  async deleteTeacherGroup(
+    teacherId: string,
+    groupIdInput: string,
+    correlationId?: string,
+  ): Promise<GroupObject> {
+    const groupId = parseUuid(groupIdInput, 'groupId');
+    return this.database.$transaction(async (transaction) => {
+      await transaction.$queryRaw`SELECT id FROM groups WHERE id = ${groupId}::uuid AND teacher_id = ${teacherId}::uuid FOR UPDATE`;
+      const current = await transaction.group.findFirst({
+        where: { id: groupId, teacherId },
+        select: GROUP_SELECT,
+      });
+      if (current === null) throw inaccessibleGroupError();
+      if (current.status === ContentStatus.DELETED) return mapGroup(current);
+      const activeMembershipCount = await transaction.groupMembership.count({
+        where: { endedAt: null, groupId },
+      });
+      if (activeMembershipCount > 0) {
+        throw new ApplicationError(
+          ErrorCode.CONFLICT,
+          'A group with active memberships cannot be deleted',
+          409,
+        );
+      }
+      const group = await transaction.group.update({
+        where: { id: groupId },
+        data: { status: ContentStatus.DELETED },
+        select: GROUP_SELECT,
+      });
+      await transaction.auditLog.create({
+        data: {
+          action: 'GROUP_DELETED',
+          actorId: teacherId,
+          correlationId: correlationId ?? null,
+          newValues: { status: group.status },
+          oldValues: { status: current.status },
+          targetId: group.id,
+          targetType: 'GROUP',
+        },
+      });
+      return mapGroup(group);
     });
   }
 
@@ -279,7 +394,7 @@ export class GroupsService {
     return {
       edges: page.map((group) => ({
         cursor: encodeCursor(group.id),
-        node: group,
+        node: mapGroup(group),
       })),
       pageInfo: {
         endCursor:
@@ -293,6 +408,7 @@ export class GroupsService {
 }
 
 interface GroupInputValues {
+  readonly category: GroupCategory;
   readonly endsAtMinutes: number | null;
   readonly name: string;
   readonly room: string | null;
@@ -304,6 +420,13 @@ interface GroupInputValues {
 
 function parseGroupInput(input: CreateTeacherGroupInput): GroupInputValues {
   const name = parseText(input.name, 'name', 160);
+  if (!Object.values(GroupCategory).includes(input.category)) {
+    throw new ApplicationError(
+      ErrorCode.BAD_USER_INPUT,
+      'category is invalid',
+      400,
+    );
+  }
   const slug = input.slug.trim().toLowerCase();
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || slug.length > 160) {
     throw new ApplicationError(
@@ -351,6 +474,7 @@ function parseGroupInput(input: CreateTeacherGroupInput): GroupInputValues {
     );
   }
   return {
+    category: input.category,
     endsAtMinutes,
     name,
     room:
@@ -364,8 +488,27 @@ function parseGroupInput(input: CreateTeacherGroupInput): GroupInputValues {
   };
 }
 
-function groupAuditValues(group: GroupObject): Prisma.InputJsonObject {
+function mapGroup(group: GroupRecord): GroupObject {
+  const { _count, ...values } = group;
+  return { ...values, activeStudentCount: _count.memberships };
+}
+
+function groupAuditValues(
+  group: Pick<
+    GroupObject,
+    | 'endsAtMinutes'
+    | 'category'
+    | 'name'
+    | 'room'
+    | 'scheduleDays'
+    | 'slug'
+    | 'startsAtMinutes'
+    | 'status'
+    | 'timeZone'
+  >,
+): Prisma.InputJsonObject {
   return {
+    category: group.category ?? null,
     endsAtMinutes: group.endsAtMinutes ?? null,
     name: group.name,
     room: group.room ?? null,

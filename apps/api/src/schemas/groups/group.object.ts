@@ -1,4 +1,4 @@
-import { ContentStatus, UserStatus } from '@best/database';
+import { ContentStatus, GroupCategory, UserStatus } from '@best/database';
 import {
   Field,
   GraphQLISODateTime,
@@ -6,6 +6,8 @@ import {
   Int,
   ObjectType,
 } from '@nestjs/graphql';
+
+import { GroupRosterStatus } from './group-roster-status.enum';
 
 @ObjectType('Group')
 export class GroupObject {
@@ -18,8 +20,14 @@ export class GroupObject {
   @Field()
   name!: string;
 
+  @Field(() => GroupCategory, { nullable: true })
+  category?: GroupCategory | null;
+
   @Field()
   slug!: string;
+
+  @Field(() => Int)
+  activeStudentCount!: number;
 
   @Field(() => String, { nullable: true })
   room?: string | null;
@@ -81,9 +89,51 @@ export class GroupRosterMemberObject {
   @Field(() => UserStatus)
   status!: UserStatus;
 
+  @Field(() => GroupRosterStatus)
+  rosterStatus!: GroupRosterStatus;
+
+  @Field()
+  outstandingBalanceUzs!: string;
+
   @Field()
   startedAt!: Date;
 
   @Field(() => GraphQLISODateTime, { nullable: true })
   endedAt?: Date | null;
+}
+
+@ObjectType('TeacherGroupRosterSummary')
+export class TeacherGroupRosterSummaryObject {
+  @Field(() => Int)
+  currentTotal!: number;
+
+  @Field(() => Int)
+  historicalTotal!: number;
+
+  @Field(() => Int)
+  active!: number;
+
+  @Field(() => Int)
+  paused!: number;
+
+  @Field(() => Int)
+  debtors!: number;
+
+  @Field(() => Int)
+  departed!: number;
+}
+
+@ObjectType('TeacherGroupOverview')
+export class TeacherGroupOverviewObject {
+  @Field(() => Int)
+  activeAssignmentCount!: number;
+
+  @Field(() => Int)
+  scheduledTestCount!: number;
+
+  @Field(() => Int)
+  materialCount!: number;
+
+  @Field(() => Int)
+  currentStudentCount!: number;
 }

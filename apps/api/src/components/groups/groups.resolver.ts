@@ -21,6 +21,7 @@ import { GroupMutationPayloadObject } from '../../schemas/groups/group-mutation-
 import {
   GroupObject,
   StudentCurrentGroupObject,
+  TeacherGroupOverviewObject,
 } from '../../schemas/groups/group.object';
 import { AuthMember } from '../auth/decorators/auth-member.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -61,6 +62,16 @@ export class GroupsResolver {
     @Args('groupId', { type: () => ID }) groupId: string,
   ): Promise<GroupObject> {
     return this.groupsService.getTeacherGroup(teacherId, groupId);
+  }
+
+  @Query(() => TeacherGroupOverviewObject, { name: 'teacherGroupOverview' })
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER)
+  getTeacherGroupOverview(
+    @AuthMember('id') teacherId: string,
+    @Args('groupId', { type: () => ID }) groupId: string,
+  ): Promise<TeacherGroupOverviewObject> {
+    return this.groupsService.getTeacherGroupOverview(teacherId, groupId);
   }
 
   @Query(() => StudentCurrentGroupObject, {
@@ -116,6 +127,23 @@ export class GroupsResolver {
       group: await this.groupsService.createTeacherGroup(
         teacherId,
         input,
+        context.req.requestId,
+      ),
+    };
+  }
+
+  @Mutation(() => GroupMutationPayloadObject, { name: 'deleteTeacherGroup' })
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER)
+  async deleteTeacherGroup(
+    @AuthMember('id') teacherId: string,
+    @Args('groupId', { type: () => ID }) groupId: string,
+    @Context() context: ApiGraphqlContext,
+  ): Promise<GroupMutationPayloadObject> {
+    return {
+      group: await this.groupsService.deleteTeacherGroup(
+        teacherId,
+        groupId,
         context.req.requestId,
       ),
     };

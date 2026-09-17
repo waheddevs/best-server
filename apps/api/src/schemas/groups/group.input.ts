@@ -1,9 +1,15 @@
-import { Field, ID, InputType, Int } from '@nestjs/graphql';
+import { GroupCategory } from '@best/database';
+import { Field, ID, InputType, Int, registerEnumType } from '@nestjs/graphql';
+
+registerEnumType(GroupCategory, { name: 'GroupCategory' });
 
 @InputType('CreateTeacherGroupInput')
 export class CreateTeacherGroupInput {
   @Field()
   name!: string;
+
+  @Field(() => GroupCategory)
+  category!: GroupCategory;
 
   @Field()
   slug!: string;
