@@ -6,6 +6,8 @@ export {
   AuthProvider,
   ContentStatus,
   FinanceAdjustmentKind,
+  GroupCategory,
+  GroupMembershipStatus,
   ImportExtractionMethod,
   ImportExtractionStatus,
   ImportRightsStatus,

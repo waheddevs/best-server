@@ -6,6 +6,7 @@ import {
   AttendanceStatus,
   AttemptStatus,
   ContentStatus,
+  GroupMembershipStatus,
   Language,
   LessonStatus,
   LibraryVisibility,
@@ -44,6 +45,7 @@ registerEnumType(Language, { name: 'Language' });
 registerEnumType(LibraryVisibility, { name: 'LibraryVisibility' });
 registerEnumType(AttemptStatus, { name: 'AttemptStatus' });
 registerEnumType(ContentStatus, { name: 'ContentStatus' });
+registerEnumType(GroupMembershipStatus, { name: 'GroupMembershipStatus' });
 registerEnumType(MediaType, { name: 'MediaType' });
 registerEnumType(MediaObjectStatus, { name: 'MediaObjectStatus' });
 registerEnumType(MediaMalwareStatus, { name: 'MediaMalwareStatus' });

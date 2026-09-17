@@ -1,9 +1,18 @@
-# Student and Admin dashboard contract matrix
+# Student, Teacher, and Admin dashboard contract matrix
 
 This file is the implementation map between the localized routes in the sibling
 `best-react` repository and this API's server-authorized GraphQL operations.
-OAuth callbacks and the signed identity assertion remain frontend-owned;
-`/internal/auth/exchange` returns the short-lived bearer token used here.
+Public signup and social identity exchange are removed. `beginCredentialLogin`
+creates the email challenge and `verifyCredentialLogin` returns the short-lived
+bearer token only after the code succeeds.
+
+## Authentication
+
+| Frontend state                | Backend operations                                                  |
+| ----------------------------- | ------------------------------------------------------------------- |
+| Login credentials             | `beginCredentialLogin`                                              |
+| Email-code verification       | `verifyCredentialLogin`, `resendCredentialLoginCode`                |
+| Admin creates Student/Teacher | `adminProvisionUser` (server-restricted to `STUDENT` and `TEACHER`) |
 
 ## Student Workspace
 
@@ -21,14 +30,25 @@ OAuth callbacks and the signed identity assertion remain frontend-owned;
 | `/student/notifications`                                         | `myNotifications`, `myUnreadNotificationCount`, `markNotificationRead`, `markAllNotificationsRead`                                                   |
 | `/student/settings`                                              | `myProfile`, `updateMyProfile`                                                                                                                       |
 
+## Teacher Workspace
+
+| Frontend route                       | Backend operations                                                                                                                                              |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/teacher/groups`                    | `teacherGroups`, `createTeacherGroup`, `updateTeacherGroup`, `deleteTeacherGroup`                                                                               |
+| `/teacher/groups/[slug]`             | `teacherGroup`, `teacherGroupOverview`, `teacherGroupRosterSummary`                                                                                             |
+| `/teacher/groups/[slug]/students`    | `teacherGroupRoster`, `teacherGroupRosterSummary`, `addStudentToGroup`, `setGroupMembershipParticipationStatus`, `endGroupMembership`, `requestStudentTransfer` |
+| `/teacher/groups/[slug]/materials`   | `teacherGroupMaterials`                                                                                                                                         |
+| `/teacher/groups/[slug]/assignments` | `teacherGroupAssignments`                                                                                                                                       |
+| `/teacher/transfer-requests`         | `teacherTransferRequests`                                                                                                                                       |
+
 ## Operational Admin Workspace
 
 | Frontend route                                      | Backend operations                                                                                              |
 | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | `/admin`                                            | `adminOperationalOverview`, `adminAcademicOverview`, `myUnreadNotificationCount`                                |
 | `/admin/requests`                                   | `adminContactRequests`, `adminExamRegistrations`, `adminEventRegistrations` and their reviewed-status mutations |
-| `/admin/students` and `/admin/students/[studentId]` | `adminStudents`, `adminUser`, `adminStudentResults`, `adminSetUserStatus`                                       |
-| `/admin/teachers` and `/admin/teachers/[teacherId]` | `adminUsers(role: TEACHER)`, `adminUser`, `adminSetUserStatus`                                                  |
+| `/admin/students` and `/admin/students/[studentId]` | `adminProvisionUser`, `adminStudents`, `adminUser`, `adminStudentResults`, `adminSetUserStatus`                 |
+| `/admin/teachers` and `/admin/teachers/[teacherId]` | `adminProvisionUser`, `adminUsers(role: TEACHER)`, `adminUser`, `adminSetUserStatus`                            |
 | `/admin/groups` and `/admin/groups/[slug]`          | `adminGroups`, `adminGroup`, `adminGroupProgresses`                                                             |
 | `/admin/courses` and `/admin/courses/[slug]`        | `adminCourses`, `adminCourse`, course draft/status mutations                                                    |
 | `/admin/events` and `/admin/events/[slug]`          | `adminEvents`, `adminEvent`, `adminEventRegistrations`, event draft/status mutations                            |
@@ -52,5 +72,5 @@ OAuth callbacks and the signed identity assertion remain frontend-owned;
 - Correct answers never enter Student or Admin payloads.
 - Tuition ledger operations are read-only. Checkout, capture, refunds, payouts,
   and payroll are intentionally absent.
-- Parent/Guardian, Super Admin, chat, credentials/password services,
+- Parent/Guardian, Super Admin, chat, public signup/password reset,
   certificates, and AI grading are not part of this contract.
