@@ -22,7 +22,9 @@ import {
   EndGroupMembershipInput,
   RequestStudentTransferInput,
   ReviewStudentTransferInput,
+  SetGroupMembershipParticipationStatusInput,
 } from '../../schemas/groups/membership.input';
+import { TeacherGroupRosterSummaryObject } from '../../schemas/groups/group.object';
 import { AuthMember } from '../auth/decorators/auth-member.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { AuthGuard } from '../auth/guards/auth.guard';
@@ -72,6 +74,18 @@ export class MembershipsResolver {
       includeEnded,
       search,
     );
+  }
+
+  @Query(() => TeacherGroupRosterSummaryObject, {
+    name: 'teacherGroupRosterSummary',
+  })
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER)
+  getTeacherGroupRosterSummary(
+    @AuthMember('id') teacherId: string,
+    @Args('groupId', { type: () => ID }) groupId: string,
+  ): Promise<TeacherGroupRosterSummaryObject> {
+    return this.membershipsService.getTeacherRosterSummary(teacherId, groupId);
   }
 
   @Query(() => GroupTransferRequestConnectionObject, {
@@ -131,6 +145,28 @@ export class MembershipsResolver {
         input.reason,
         context.req.requestId,
       ),
+    };
+  }
+
+  @Mutation(() => MembershipMutationPayloadObject, {
+    name: 'setGroupMembershipParticipationStatus',
+  })
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER)
+  async setGroupMembershipParticipationStatus(
+    @AuthMember('id') teacherId: string,
+    @Args('input') input: SetGroupMembershipParticipationStatusInput,
+    @Context() context: ApiGraphqlContext,
+  ): Promise<MembershipMutationPayloadObject> {
+    return {
+      membership:
+        await this.membershipsService.setGroupMembershipParticipationStatus(
+          teacherId,
+          input.membershipId,
+          input.status,
+          input.reason,
+          context.req.requestId,
+        ),
     };
   }
 

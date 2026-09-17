@@ -1,5 +1,7 @@
 import {
   ContentStatus,
+  FinanceAdjustmentKind,
+  GroupMembershipStatus,
   Prisma,
   TransferRequestStatus,
   UserRole,
@@ -21,7 +23,11 @@ import type {
   GroupTransferRequestConnectionObject,
   GroupTransferRequestObject,
 } from '../../schemas/groups/group-transfer.object';
-import type { GroupRosterMemberObject } from '../../schemas/groups/group.object';
+import { GroupRosterStatus } from '../../schemas/groups/group-roster-status.enum';
+import type {
+  GroupRosterMemberObject,
+  TeacherGroupRosterSummaryObject,
+} from '../../schemas/groups/group.object';
 import type {
   RequestStudentTransferInput,
   ReviewStudentTransferInput,
@@ -38,6 +44,53 @@ const TRANSFER_SELECT = {
   student: { select: { displayName: true, id: true } },
   toGroup: { select: { id: true, name: true } },
 } as const;
+
+const GROUP_LEARNER_CAPACITY = 15;
+
+const MEMBERSHIP_SELECT = {
+  endedAt: true,
+  id: true,
+  participationStatus: true,
+  startedAt: true,
+  student: {
+    select: {
+      displayName: true,
+      email: true,
+      id: true,
+      phone: true,
+      status: true,
+    },
+  },
+  tuitionCharges: {
+    select: {
+      adjustments: { select: { amountUzs: true, kind: true } },
+      allocations: { select: { amountUzs: true } },
+      amountUzs: true,
+      dueDate: true,
+    },
+  },
+} as const;
+
+type MembershipRecord = Prisma.GroupMembershipGetPayload<{
+  select: typeof MEMBERSHIP_SELECT;
+}>;
+
+async function assertGroupHasCapacity(
+  transaction: Prisma.TransactionClient,
+  groupId: string,
+): Promise<void> {
+  await transaction.$queryRaw`SELECT id FROM groups WHERE id = ${groupId}::uuid FOR UPDATE`;
+  const activeCount = await transaction.groupMembership.count({
+    where: { endedAt: null, groupId },
+  });
+  if (activeCount >= GROUP_LEARNER_CAPACITY) {
+    throw new ApplicationError(
+      ErrorCode.CONFLICT,
+      'The group has reached its 15-learner capacity',
+      409,
+    );
+  }
+}
 
 @Injectable()
 export class MembershipsService {
@@ -84,27 +137,14 @@ export class MembershipsService {
       orderBy: { id: 'asc' },
       take: pageSize + 1,
       ...(cursor === undefined ? {} : { cursor: { id: cursor }, skip: 1 }),
-      select: {
-        endedAt: true,
-        id: true,
-        startedAt: true,
-        student: {
-          select: {
-            displayName: true,
-            email: true,
-            id: true,
-            phone: true,
-            status: true,
-          },
-        },
-      },
+      select: MEMBERSHIP_SELECT,
     });
     const hasNextPage = memberships.length > pageSize;
     const page = hasNextPage ? memberships.slice(0, pageSize) : memberships;
     return {
       edges: page.map((membership) => ({
         cursor: encodeCursor(membership.id),
-        node: mapMembership(membership),
+        node: mapMembership(membership, new Date()),
       })),
       pageInfo: {
         endCursor:
@@ -113,6 +153,33 @@ export class MembershipsService {
             : encodeCursor(page.at(-1)?.id ?? ''),
         hasNextPage,
       },
+    };
+  }
+
+  async getTeacherRosterSummary(
+    teacherId: string,
+    groupIdInput: string,
+  ): Promise<TeacherGroupRosterSummaryObject> {
+    const groupId = parseUuid(groupIdInput, 'groupId');
+    await this.requireOwnedGroup(teacherId, groupId);
+    const memberships = await this.database.groupMembership.findMany({
+      where: { groupId },
+      select: MEMBERSHIP_SELECT,
+    });
+    const now = new Date();
+    const statuses = memberships.map((membership) =>
+      getRosterStatus(membership, now),
+    );
+
+    return {
+      active: countStatus(statuses, GroupRosterStatus.ACTIVE),
+      currentTotal: memberships.filter(
+        (membership) => membership.endedAt === null,
+      ).length,
+      debtors: countStatus(statuses, GroupRosterStatus.DEBTOR),
+      departed: countStatus(statuses, GroupRosterStatus.DEPARTED),
+      historicalTotal: memberships.length,
+      paused: countStatus(statuses, GroupRosterStatus.PAUSED),
     };
   }
 
@@ -152,6 +219,7 @@ export class MembershipsService {
           409,
         );
       }
+      await assertGroupHasCapacity(transaction, groupId);
       const membership = await transaction.groupMembership.create({
         data: { groupId, studentId },
         select: membershipSelect(),
@@ -198,6 +266,55 @@ export class MembershipsService {
           correlationId: correlationId ?? null,
           newValues: { endedAt: endedAt.toISOString() },
           oldValues: { endedAt: null },
+          reason,
+          targetId: membershipId,
+          targetType: 'GROUP_MEMBERSHIP',
+        },
+      });
+      return mapMembership(membership);
+    });
+  }
+
+  async setGroupMembershipParticipationStatus(
+    teacherId: string,
+    membershipIdInput: string,
+    status: GroupMembershipStatus,
+    reasonInput: string,
+    correlationId?: string,
+  ): Promise<GroupRosterMemberObject> {
+    const membershipId = parseUuid(membershipIdInput, 'membershipId');
+    const reason = parseReason(reasonInput);
+
+    return this.database.$transaction(async (transaction) => {
+      await transaction.$queryRaw`SELECT id FROM group_memberships WHERE id = ${membershipId}::uuid FOR UPDATE`;
+      const current = await transaction.groupMembership.findFirst({
+        where: {
+          endedAt: null,
+          group: {
+            status: { not: ContentStatus.DELETED },
+            teacherId,
+          },
+          id: membershipId,
+        },
+        select: MEMBERSHIP_SELECT,
+      });
+      if (current === null) throw inaccessibleMembershipError();
+      if (current.participationStatus === status) return mapMembership(current);
+
+      const membership = await transaction.groupMembership.update({
+        where: { id: membershipId },
+        data: { participationStatus: status },
+        select: MEMBERSHIP_SELECT,
+      });
+      await transaction.auditLog.create({
+        data: {
+          action: 'GROUP_MEMBERSHIP_PARTICIPATION_STATUS_SET',
+          actorId: teacherId,
+          correlationId: correlationId ?? null,
+          newValues: { participationStatus: status },
+          oldValues: {
+            participationStatus: current.participationStatus,
+          },
           reason,
           targetId: membershipId,
           targetType: 'GROUP_MEMBERSHIP',
@@ -375,6 +492,9 @@ export class MembershipsService {
           409,
         );
       }
+      let transferredMembershipIds:
+        | { readonly fromMembershipId: string; readonly toMembershipId: string }
+        | undefined;
       if (input.decision === TransferRequestStatus.APPROVED) {
         const membership = await transaction.groupMembership.findFirst({
           where: {
@@ -395,17 +515,23 @@ export class MembershipsService {
             409,
           );
         }
+        await assertGroupHasCapacity(transaction, current.toGroup.id);
         await transaction.groupMembership.update({
           where: { id: membership.id },
           data: { endedAt: reviewedAt },
         });
-        await transaction.groupMembership.create({
+        const destinationMembership = await transaction.groupMembership.create({
           data: {
             groupId: current.toGroup.id,
             startedAt: reviewedAt,
             studentId: current.student.id,
           },
+          select: { id: true },
         });
+        transferredMembershipIds = {
+          fromMembershipId: membership.id,
+          toMembershipId: destinationMembership.id,
+        };
       }
       const updated = await transaction.groupTransferRequest.update({
         where: { id: requestId },
@@ -422,7 +548,10 @@ export class MembershipsService {
           action: 'GROUP_TRANSFER_REVIEWED',
           actorId: adminId,
           correlationId: correlationId ?? null,
-          newValues: { status: input.decision },
+          newValues: {
+            status: input.decision,
+            ...transferredMembershipIds,
+          },
           oldValues: { status: TransferRequestStatus.PENDING },
           reason: reviewNote,
           targetId: requestId,
@@ -439,7 +568,11 @@ export class MembershipsService {
     groupId: string,
   ): Promise<void> {
     const group = await this.database.group.findFirst({
-      where: { id: groupId, teacherId },
+      where: {
+        id: groupId,
+        status: { not: ContentStatus.DELETED },
+        teacherId,
+      },
       select: { id: true },
     });
     if (group === null) throw inaccessibleMembershipError();
@@ -447,44 +580,64 @@ export class MembershipsService {
 }
 
 function membershipSelect() {
-  return {
-    endedAt: true,
-    id: true,
-    startedAt: true,
-    student: {
-      select: {
-        displayName: true,
-        email: true,
-        id: true,
-        phone: true,
-        status: true,
-      },
-    },
-  } as const;
+  return MEMBERSHIP_SELECT;
 }
 
-function mapMembership(membership: {
-  readonly endedAt: Date | null;
-  readonly id: string;
-  readonly startedAt: Date;
-  readonly student: {
-    readonly displayName: string;
-    readonly email: string | null;
-    readonly id: string;
-    readonly phone: string | null;
-    readonly status: UserStatus;
-  };
-}): GroupRosterMemberObject {
+function mapMembership(
+  membership: MembershipRecord,
+  now = new Date(),
+): GroupRosterMemberObject {
+  const outstandingBalanceUzs = getOverdueBalance(membership, now);
   return {
     displayName: membership.student.displayName,
     email: membership.student.email,
     endedAt: membership.endedAt,
     membershipId: membership.id,
+    outstandingBalanceUzs: outstandingBalanceUzs.toString(),
     phone: membership.student.phone,
+    rosterStatus: getRosterStatus(membership, now, outstandingBalanceUzs),
     startedAt: membership.startedAt,
     status: membership.student.status,
     studentId: membership.student.id,
   };
+}
+
+function getRosterStatus(
+  membership: MembershipRecord,
+  now: Date,
+  overdueBalance = getOverdueBalance(membership, now),
+): GroupRosterStatus {
+  if (membership.endedAt !== null) return GroupRosterStatus.DEPARTED;
+  if (membership.participationStatus === GroupMembershipStatus.PAUSED) {
+    return GroupRosterStatus.PAUSED;
+  }
+  return overdueBalance > 0n
+    ? GroupRosterStatus.DEBTOR
+    : GroupRosterStatus.ACTIVE;
+}
+
+function getOverdueBalance(membership: MembershipRecord, now: Date): bigint {
+  return membership.tuitionCharges.reduce((total, charge) => {
+    if (charge.dueDate.getTime() >= now.getTime()) return total;
+    const allocatedAmount = charge.allocations.reduce(
+      (value, allocation) => value + allocation.amountUzs,
+      0n,
+    );
+    const adjustmentAmount = charge.adjustments.reduce((value, adjustment) => {
+      const direction =
+        adjustment.kind === FinanceAdjustmentKind.DEBIT ? 1n : -1n;
+      return value + adjustment.amountUzs * direction;
+    }, 0n);
+    const outstanding = charge.amountUzs + adjustmentAmount - allocatedAmount;
+    return outstanding > 0n ? total + outstanding : total;
+  }, 0n);
+}
+
+function countStatus(
+  statuses: readonly GroupRosterStatus[],
+  expected: GroupRosterStatus,
+): number {
+  return statuses.filter((status) => status === expected).length;
 }
 
 function mapTransfer(request: {
