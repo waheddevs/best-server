@@ -1,4 +1,4 @@
-import { OutboxEventType } from '@best/database';
+import { OutboxEventType, Prisma } from '@best/database';
 import { InjectQueue } from '@nestjs/bullmq';
 import {
   Injectable,
@@ -111,6 +111,7 @@ export class ScoringOutboxRelayService
             event: 'scoring_outbox_publish_failed',
             eventId: event.id,
             exceptionName: getSafeErrorName(error),
+            prismaCode: getPrismaErrorCode(error),
             nextAttemptNumber,
           });
         }
@@ -119,6 +120,7 @@ export class ScoringOutboxRelayService
       this.logger.error({
         event: 'scoring_outbox_poll_failed',
         exceptionName: getSafeErrorName(error),
+        prismaCode: getPrismaErrorCode(error),
       });
     } finally {
       this.polling = false;
@@ -128,4 +130,10 @@ export class ScoringOutboxRelayService
 
 function getSafeErrorName(error: unknown): string {
   return error instanceof Error ? error.name.slice(0, 500) : 'UnknownError';
+}
+
+function getPrismaErrorCode(error: unknown): string | undefined {
+  return error instanceof Prisma.PrismaClientKnownRequestError
+    ? error.code
+    : undefined;
 }

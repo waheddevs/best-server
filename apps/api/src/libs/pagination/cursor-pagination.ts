@@ -26,8 +26,10 @@ export function encodeCursor(id: string): string {
   return Buffer.from(id, 'utf8').toString('base64url');
 }
 
-export function decodeCursor(cursor: string | undefined): string | undefined {
-  if (cursor === undefined) {
+export function decodeCursor(
+  cursor: string | null | undefined,
+): string | undefined {
+  if (cursor === undefined || cursor === null) {
     return undefined;
   }
 

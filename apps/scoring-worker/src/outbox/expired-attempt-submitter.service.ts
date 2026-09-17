@@ -2,6 +2,7 @@ import {
   AttemptStatus,
   AttemptSubmissionReason,
   OutboxEventType,
+  Prisma,
 } from '@best/database';
 import {
   Injectable,
@@ -100,6 +101,7 @@ export class ExpiredAttemptSubmitterService
       this.logger.error({
         event: 'expired_attempt_poll_failed',
         exceptionName: getSafeErrorName(error),
+        prismaCode: getPrismaErrorCode(error),
       });
     } finally {
       this.polling = false;
@@ -109,4 +111,10 @@ export class ExpiredAttemptSubmitterService
 
 function getSafeErrorName(error: unknown): string {
   return error instanceof Error ? error.name : 'UnknownError';
+}
+
+function getPrismaErrorCode(error: unknown): string | undefined {
+  return error instanceof Prisma.PrismaClientKnownRequestError
+    ? error.code
+    : undefined;
 }
