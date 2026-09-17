@@ -17,9 +17,12 @@ import { after, before, test } from 'node:test';
 
 import { loadInfrastructureEnvironment } from '@best/config';
 import {
+  AssignmentStatus,
   AttemptStatus,
   AttemptSubmissionReason,
+  GroupMembershipStatus,
   Language,
+  LibraryVisibility,
   PublicContentStatus,
   PublicCourseAccent,
   PublicCourseCategory,
@@ -28,14 +31,38 @@ import {
   UserRole,
 } from '@best/database';
 import type { INestApplication } from '@nestjs/common';
-import { NestFactory } from '@nestjs/core';
+import { Test } from '@nestjs/testing';
 import { Pool } from 'pg';
 
 import { AppModule } from '../src/app.module';
 import { AuthService } from '../src/components/auth/auth.service';
+import { CREDENTIAL_EMAIL_SENDER } from '../src/components/auth/auth.constants';
+import type {
+  CredentialEmailSender,
+  CredentialLoginCodeMessage,
+} from '../src/components/auth/credential-email-sender.type';
 import { DatabaseService } from '../src/database/database.service';
 
+class CapturingCredentialEmailSender implements CredentialEmailSender {
+  private latestMessage: CredentialLoginCodeMessage | undefined;
+
+  clear(): void {
+    this.latestMessage = undefined;
+  }
+
+  getLatestMessage(): CredentialLoginCodeMessage | undefined {
+    return this.latestMessage;
+  }
+
+  sendLoginCode(message: CredentialLoginCodeMessage): Promise<void> {
+    this.latestMessage = message;
+    return Promise.resolve();
+  }
+}
+
 const RUNTIME_ENVIRONMENT_NAMES = [
+  'AUTH_EMAIL_DELIVERY_MODE',
+  'AUTH_OTP_HASH_SECRET',
   'CLAMAV_CONNECT_TIMEOUT_MS',
   'CLAMAV_HOST',
   'CLAMAV_PORT',
@@ -71,6 +98,7 @@ let teacherToken: string;
 let testId: string;
 let groupId: string;
 let teacherId: string;
+const credentialEmailSender = new CapturingCredentialEmailSender();
 
 before(async () => {
   fakeStorageServer = createFakeStorageServer();
@@ -82,11 +110,16 @@ before(async () => {
   await adminPool.query(`CREATE DATABASE "${databaseName}"`);
   await applyMigrations(testDatabaseUrl);
   process.env.DATABASE_URL = testDatabaseUrl;
+  process.env.AUTH_EMAIL_DELIVERY_MODE = 'disabled';
+  process.env.AUTH_OTP_HASH_SECRET =
+    'integration-otp-secret-that-is-longer-than-32-characters';
 
-  app = await NestFactory.create(AppModule, {
-    abortOnError: false,
-    logger: false,
-  });
+  const testingModule = await Test.createTestingModule({ imports: [AppModule] })
+    .overrideProvider(CREDENTIAL_EMAIL_SENDER)
+    .useValue(credentialEmailSender)
+    .compile();
+  app = testingModule.createNestApplication({ abortOnError: false });
+  app.useLogger(false);
   await app.listen(0, '127.0.0.1');
   apiUrl = `${await app.getUrl()}/graphql`;
 
@@ -116,6 +149,1357 @@ before(async () => {
     id: adminId,
     role: UserRole.ADMIN,
   });
+});
+
+void test('Admin task assignment persists a linked Teacher notification', async () => {
+  const requestId = randomUUID();
+  const title = `Reserved follow-up ${requestId.slice(0, 8)}`;
+  const countBefore = await executeGraphql(
+    teacherToken,
+    `query { myUnreadNotificationCount }`,
+  );
+  const assigned = await executeGraphql(
+    adminToken,
+    `mutation Assign($input: AdminAssignTeacherTaskInput!) {
+      adminAssignTeacherTask(input: $input) {
+        task { id title status kind }
+      }
+    }`,
+    {
+      input: {
+        kind: 'FOLLOW_UP',
+        requestId,
+        teacherId,
+        title,
+      },
+    },
+  );
+  const task = requireRecordField(
+    requireRecordField(assigned, 'adminAssignTeacherTask'),
+    'task',
+  );
+  assert.equal(task.id, requestId);
+  assert.equal(task.status, 'OPEN');
+  const database = requireApp().get(DatabaseService);
+  const storedTask = await database.teacherTask.findUnique({
+    where: { id: requestId },
+  });
+  assert.equal(storedTask?.teacherId, teacherId);
+  const storedNotice = await database.notification.findUnique({
+    where: {
+      recipientId_eventKey: {
+        recipientId: teacherId,
+        eventKey: `teacher-task:${requestId}`,
+      },
+    },
+  });
+  assert.ok(storedNotice);
+  assert.deepEqual(storedNotice.payload, { taskId: requestId });
+  const countAfter = await executeGraphql(
+    teacherToken,
+    `query { myUnreadNotificationCount }`,
+  );
+  assert.equal(
+    countAfter.myUnreadNotificationCount,
+    Number(countBefore.myUnreadNotificationCount) + 1,
+  );
+  const notices = await executeGraphql(
+    teacherToken,
+    `query { myNotifications(first: 8) {
+      edges { node { id taskId title readAt } }
+    } }`,
+  );
+  const edges = requireArrayField(
+    requireRecordField(notices, 'myNotifications'),
+    'edges',
+  );
+  const first = requireRecordField(
+    requireRecord(edges[0], 'notification edge'),
+    'node',
+  );
+  assert.equal(first.taskId, requestId);
+  assert.equal(first.title, title);
+  await executeGraphql(
+    teacherToken,
+    `mutation Read($input: MarkNotificationReadInput!) {
+      markNotificationRead(input: $input) { notification { id taskId readAt } }
+    }`,
+    { input: { notificationId: storedNotice.id } },
+  );
+  const storedRead = await database.notification.findUnique({
+    where: { id: storedNotice.id },
+  });
+  assert.notEqual(storedRead?.readAt, null);
+  const repeated = await executeGraphql(
+    adminToken,
+    `mutation Assign($input: AdminAssignTeacherTaskInput!) {
+      adminAssignTeacherTask(input: $input) { task { id } }
+    }`,
+    { input: { kind: 'FOLLOW_UP', requestId, teacherId, title } },
+  );
+  assert.equal(
+    requireRecordField(
+      requireRecordField(repeated, 'adminAssignTeacherTask'),
+      'task',
+    ).id,
+    requestId,
+  );
+  const forbidden = await executeGraphqlExpectingErrors(
+    studentToken,
+    `mutation Assign($input: AdminAssignTeacherTaskInput!) {
+      adminAssignTeacherTask(input: $input) { task { id } }
+    }`,
+    { input: { kind: 'FOLLOW_UP', requestId: randomUUID(), teacherId, title } },
+  );
+  assert.ok('errors' in forbidden);
+});
+
+void test('Teacher creates a categorized group with persisted schedule and ownership', async () => {
+  const suffix = randomUUID().slice(0, 8);
+  const name = `Reserved IELTS ${suffix}`;
+  const slug = `reserved-ielts-${suffix}`;
+  const result = await executeGraphql(
+    teacherToken,
+    `mutation Create($input: CreateTeacherGroupInput!) {
+      createTeacherGroup(input: $input) {
+        group { id name category room scheduleDays startsAtMinutes endsAtMinutes teacherId }
+      }
+    }`,
+    {
+      input: {
+        category: 'IELTS',
+        endsAtMinutes: 630,
+        name,
+        room: 'Reserved room 000',
+        scheduleDays: [1, 3, 5],
+        slug,
+        startsAtMinutes: 540,
+        timeZone: 'Asia/Tashkent',
+      },
+    },
+  );
+  const group = requireRecordField(
+    requireRecordField(result, 'createTeacherGroup'),
+    'group',
+  );
+  const database = requireApp().get(DatabaseService);
+  const stored = await database.group.findUnique({
+    where: { id: String(group.id) },
+  });
+  assert.equal(group.category, 'IELTS');
+  assert.equal(stored?.category, 'IELTS');
+  assert.equal(stored.teacherId, teacherId);
+  assert.deepEqual(stored.scheduleDays, [1, 3, 5]);
+  assert.equal(stored.startsAtMinutes, 540);
+  assert.equal(stored.endsAtMinutes, 630);
+  const listed = await executeGraphql(
+    teacherToken,
+    `query NewlyCreatedGroup {
+      teacherGroups(first: 100, status: ACTIVE) {
+        edges { node {
+          id scheduleDays startsAtMinutes endsAtMinutes activeStudentCount
+        } }
+      }
+    }`,
+  );
+  const listedGroup = requireArrayField(
+    requireRecordField(listed, 'teacherGroups'),
+    'edges',
+  )
+    .map((edge) =>
+      requireRecordField(requireRecord(edge, 'group edge'), 'node'),
+    )
+    .find((node) => node.id === group.id);
+  assert.ok(
+    listedGroup,
+    'newly created group must appear in the next active-group API read',
+  );
+  assert.deepEqual(listedGroup.scheduleDays, [1, 3, 5]);
+  assert.equal(listedGroup.activeStudentCount, 0);
+  const audit = await database.auditLog.findFirst({
+    where: { action: 'GROUP_CREATED', targetId: String(group.id) },
+  });
+  assert.ok(audit);
+  const forbidden = await executeGraphqlExpectingErrors(
+    studentToken,
+    `mutation Create($input: CreateTeacherGroupInput!) {
+      createTeacherGroup(input: $input) { group { id } }
+    }`,
+    {
+      input: {
+        category: 'CEFR',
+        endsAtMinutes: 630,
+        name,
+        room: 'Reserved room 000',
+        scheduleDays: [1],
+        slug: `${slug}-student`,
+        startsAtMinutes: 540,
+      },
+    },
+  );
+  assert.ok(requireArrayField(forbidden, 'errors').length > 0);
+});
+
+void test('Teacher updates an owned group with persisted values and audit history', async () => {
+  const suffix = randomUUID().slice(0, 8);
+  const slug = `reserved-update-${suffix}`;
+  const created = await executeGraphql(
+    teacherToken,
+    `mutation CreateForUpdate($input: CreateTeacherGroupInput!) {
+      createTeacherGroup(input: $input) { group { id } }
+    }`,
+    {
+      input: {
+        category: 'IELTS',
+        endsAtMinutes: 600,
+        name: `Reserved update source ${suffix}`,
+        room: 'Reserved room 000',
+        scheduleDays: [1, 3, 5],
+        slug,
+        startsAtMinutes: 480,
+        timeZone: 'Asia/Tashkent',
+      },
+    },
+  );
+  const group = requireRecordField(
+    requireRecordField(created, 'createTeacherGroup'),
+    'group',
+  );
+  const updatedName = `Reserved update target ${suffix}`;
+  const updated = await executeGraphql(
+    teacherToken,
+    `mutation Update($input: UpdateTeacherGroupInput!) {
+      updateTeacherGroup(input: $input) {
+        group {
+          id name slug category room scheduleDays startsAtMinutes endsAtMinutes
+        }
+      }
+    }`,
+    {
+      input: {
+        category: 'CEFR',
+        endsAtMinutes: 750,
+        groupId: group.id,
+        name: updatedName,
+        room: 'Reserved room 001',
+        scheduleDays: [2, 4, 6],
+        slug,
+        startsAtMinutes: 630,
+        timeZone: 'Asia/Tashkent',
+      },
+    },
+  );
+  const updatedGroup = requireRecordField(
+    requireRecordField(updated, 'updateTeacherGroup'),
+    'group',
+  );
+  assert.equal(updatedGroup.id, group.id);
+  assert.equal(updatedGroup.name, updatedName);
+  assert.equal(updatedGroup.slug, slug);
+  assert.equal(updatedGroup.category, 'CEFR');
+  assert.equal(updatedGroup.room, 'Reserved room 001');
+  assert.deepEqual(updatedGroup.scheduleDays, [2, 4, 6]);
+  assert.equal(updatedGroup.startsAtMinutes, 630);
+  assert.equal(updatedGroup.endsAtMinutes, 750);
+
+  const database = requireApp().get(DatabaseService);
+  const stored = await database.group.findUnique({
+    where: { id: String(group.id) },
+  });
+  assert.ok(stored);
+  assert.equal(stored.name, updatedName);
+  assert.equal(stored.category, 'CEFR');
+  assert.equal(stored.room, 'Reserved room 001');
+  assert.deepEqual(stored.scheduleDays, [2, 4, 6]);
+  assert.equal(stored.startsAtMinutes, 630);
+  assert.equal(stored.endsAtMinutes, 750);
+
+  const audit = await database.auditLog.findFirst({
+    where: { action: 'GROUP_UPDATED', targetId: String(group.id) },
+    orderBy: { createdAt: 'desc' },
+  });
+  assert.ok(audit);
+  assert.equal(
+    requireRecord(audit.oldValues, 'old group audit').category,
+    'IELTS',
+  );
+  assert.equal(
+    requireRecord(audit.newValues, 'new group audit').category,
+    'CEFR',
+  );
+
+  const detail = await executeGraphql(
+    teacherToken,
+    `query UpdatedGroup($groupId: ID!) {
+      teacherGroup(groupId: $groupId) { id name category room scheduleDays }
+    }`,
+    { groupId: group.id },
+  );
+  assert.equal(requireRecordField(detail, 'teacherGroup').name, updatedName);
+
+  const otherTeacherId = randomUUID();
+  await database.user.create({
+    data: {
+      displayName: `Reserved Other Teacher ${suffix}`,
+      id: otherTeacherId,
+      role: UserRole.TEACHER,
+    },
+  });
+  const otherTeacherToken = await requireApp()
+    .get(AuthService)
+    .issueAccessToken({ id: otherTeacherId, role: UserRole.TEACHER });
+  const forbidden = await executeGraphqlExpectingErrors(
+    otherTeacherToken,
+    `mutation UpdateOtherTeacherGroup($input: UpdateTeacherGroupInput!) {
+      updateTeacherGroup(input: $input) { group { id } }
+    }`,
+    {
+      input: {
+        category: 'IELTS',
+        endsAtMinutes: 600,
+        groupId: group.id,
+        name: `Reserved forbidden update ${suffix}`,
+        room: 'Reserved room 002',
+        scheduleDays: [1],
+        slug,
+        startsAtMinutes: 540,
+        timeZone: 'Asia/Tashkent',
+      },
+    },
+  );
+  const ownershipError = requireRecord(
+    requireArrayField(forbidden, 'errors')[0],
+    'group ownership error',
+  );
+  assert.equal(
+    requireRecordField(ownershipError, 'extensions').code,
+    'NOT_FOUND',
+  );
+});
+
+void test('Teacher soft-deletes an empty owned group while retaining its row and audit', async () => {
+  const suffix = randomUUID().slice(0, 8);
+  const created = await executeGraphql(
+    teacherToken,
+    `mutation Create($input: CreateTeacherGroupInput!) {
+      createTeacherGroup(input: $input) { group { id } }
+    }`,
+    {
+      input: {
+        category: 'IELTS',
+        endsAtMinutes: 600,
+        name: `Reserved soft delete ${suffix}`,
+        room: 'Reserved room 000',
+        scheduleDays: [1, 3, 5],
+        slug: `reserved-soft-delete-${suffix}`,
+        startsAtMinutes: 540,
+      },
+    },
+  );
+  const group = requireRecordField(
+    requireRecordField(created, 'createTeacherGroup'),
+    'group',
+  );
+  const deleted = await executeGraphql(
+    teacherToken,
+    `mutation Delete($groupId: ID!) {
+      deleteTeacherGroup(groupId: $groupId) { group { id status } }
+    }`,
+    { groupId: group.id },
+  );
+  const deletedGroup = requireRecordField(
+    requireRecordField(deleted, 'deleteTeacherGroup'),
+    'group',
+  );
+  assert.equal(deletedGroup.status, 'DELETED');
+  const database = requireApp().get(DatabaseService);
+  assert.equal(
+    (await database.group.findUnique({ where: { id: String(group.id) } }))
+      ?.status,
+    'DELETED',
+  );
+  assert.equal(
+    await database.auditLog.count({
+      where: { action: 'GROUP_DELETED', targetId: String(group.id) },
+    }),
+    1,
+  );
+  const hidden = await executeGraphqlExpectingErrors(
+    teacherToken,
+    `query Hidden($groupId: ID!) { teacherGroup(groupId: $groupId) { id } }`,
+    { groupId: group.id },
+  );
+  assert.equal(
+    requireRecordField(
+      requireRecord(
+        requireArrayField(hidden, 'errors')[0],
+        'hidden group error',
+      ),
+      'extensions',
+    ).code,
+    'NOT_FOUND',
+  );
+  const active = await executeGraphql(
+    teacherToken,
+    `query Active { teacherGroups(first: 100, status: ACTIVE) { edges { node { id } } } }`,
+  );
+  const activeGroups = requireRecordField(active, 'teacherGroups');
+  assert.equal(
+    requireArrayField(activeGroups, 'edges').some(
+      (edge) =>
+        requireRecordField(requireRecord(edge, 'group edge'), 'node').id ===
+        group.id,
+    ),
+    false,
+  );
+  const retained = await executeGraphql(
+    adminToken,
+    `query Retained($groupId: ID!) { adminGroup(groupId: $groupId) { id status } }`,
+    { groupId: group.id },
+  );
+  assert.equal(requireRecordField(retained, 'adminGroup').status, 'DELETED');
+  await executeGraphql(
+    teacherToken,
+    `mutation DeleteAgain($groupId: ID!) {
+      deleteTeacherGroup(groupId: $groupId) { group { status } }
+    }`,
+    { groupId: group.id },
+  );
+  assert.equal(
+    await database.auditLog.count({
+      where: { action: 'GROUP_DELETED', targetId: String(group.id) },
+    }),
+    1,
+  );
+  const blocked = await executeGraphqlExpectingErrors(
+    teacherToken,
+    `mutation DeleteOccupied($groupId: ID!) {
+      deleteTeacherGroup(groupId: $groupId) { group { id } }
+    }`,
+    { groupId },
+  );
+  assert.equal(
+    requireRecordField(
+      requireRecord(
+        requireArrayField(blocked, 'errors')[0],
+        'occupied group error',
+      ),
+      'extensions',
+    ).code,
+    'CONFLICT',
+  );
+});
+
+void test('Teacher group rejects a sixteenth active learner', async () => {
+  const database = requireApp().get(DatabaseService);
+  const suffix = randomUUID().slice(0, 8);
+  const group = await database.group.create({
+    data: {
+      category: 'IELTS',
+      name: `Reserved capacity ${suffix}`,
+      slug: `reserved-capacity-${suffix}`,
+      teacherId,
+    },
+  });
+  const studentIds = Array.from({ length: 16 }, () => randomUUID());
+  await database.user.createMany({
+    data: studentIds.map((id, index) => ({
+      displayName: `Fictional capacity learner ${String(index + 1)}`,
+      id,
+      role: UserRole.STUDENT,
+    })),
+  });
+  await database.groupMembership.createMany({
+    data: studentIds.slice(0, 14).map((studentId) => ({
+      groupId: group.id,
+      studentId,
+    })),
+  });
+  const mutation = `mutation Add($input: AddStudentToGroupInput!) {
+    addStudentToGroup(input: $input) { membership { membershipId } }
+  }`;
+  const fifteenth = await executeGraphql(teacherToken, mutation, {
+    input: { groupId: group.id, studentId: studentIds[14] },
+  });
+  assert.ok(requireRecordField(fifteenth, 'addStudentToGroup'));
+  const sixteenth = await executeGraphqlExpectingErrors(
+    teacherToken,
+    mutation,
+    {
+      input: { groupId: group.id, studentId: studentIds[15] },
+    },
+  );
+  assert.equal(
+    requireRecordField(
+      requireRecord(
+        requireArrayField(sixteenth, 'errors')[0],
+        'capacity error',
+      ),
+      'extensions',
+    ).code,
+    'CONFLICT',
+  );
+  assert.equal(
+    await database.groupMembership.count({
+      where: { endedAt: null, groupId: group.id },
+    }),
+    15,
+  );
+
+  const sourceGroup = await database.group.create({
+    data: {
+      category: 'CEFR',
+      name: `Reserved transfer source ${suffix}`,
+      slug: `reserved-transfer-source-${suffix}`,
+      teacherId,
+    },
+  });
+  const transferStudentId = studentIds[15];
+  assert.ok(transferStudentId);
+  await database.groupMembership.create({
+    data: { groupId: sourceGroup.id, studentId: transferStudentId },
+  });
+  const transferResult = await executeGraphql(
+    teacherToken,
+    `mutation Request($input: RequestStudentTransferInput!) {
+      requestStudentTransfer(input: $input) { transferRequest { id } }
+    }`,
+    {
+      input: {
+        reason: 'Reserved capacity check',
+        studentId: transferStudentId,
+        toGroupId: group.id,
+      },
+    },
+  );
+  const transferRequest = requireRecordField(
+    requireRecordField(transferResult, 'requestStudentTransfer'),
+    'transferRequest',
+  );
+  const rejectedTransfer = await executeGraphqlExpectingErrors(
+    adminToken,
+    `mutation Review($input: ReviewStudentTransferInput!) {
+      reviewStudentTransfer(input: $input) { transferRequest { id } }
+    }`,
+    {
+      input: {
+        decision: 'APPROVED',
+        reviewNote: 'Reserved capacity check',
+        transferRequestId: transferRequest.id,
+      },
+    },
+  );
+  assert.equal(
+    requireRecordField(
+      requireRecord(
+        requireArrayField(rejectedTransfer, 'errors')[0],
+        'transfer capacity error',
+      ),
+      'extensions',
+    ).code,
+    'CONFLICT',
+  );
+  assert.equal(
+    await database.groupMembership.count({
+      where: {
+        endedAt: null,
+        groupId: sourceGroup.id,
+        studentId: transferStudentId,
+      },
+    }),
+    1,
+  );
+});
+
+void test('Teacher group roster exposes persisted status summary, overview, pause, and transfer departure', async () => {
+  const database = requireApp().get(DatabaseService);
+  const suffix = randomUUID().slice(0, 8);
+  const rosterGroup = await database.group.create({
+    data: {
+      category: 'IELTS',
+      name: `Reserved roster ${suffix}`,
+      slug: `reserved-roster-${suffix}`,
+      teacherId,
+    },
+  });
+  const destinationGroup = await database.group.create({
+    data: {
+      category: 'CEFR',
+      name: `Reserved roster destination ${suffix}`,
+      slug: `reserved-roster-destination-${suffix}`,
+      teacherId,
+    },
+  });
+  const studentIds = Array.from({ length: 12 }, () => randomUUID());
+  await database.user.createMany({
+    data: studentIds.map((id, index) => ({
+      displayName: `Fictional Learner ${String(index + 1)} Surname`,
+      email: `fictional-roster-${suffix}-${String(index + 1)}@example.com`,
+      id,
+      role: UserRole.STUDENT,
+    })),
+  });
+  const departedAt = new Date(Date.now() - 86_400_000);
+  const startedAt = new Date(Date.now() - 30 * 86_400_000);
+  await database.groupMembership.createMany({
+    data: studentIds.map((studentId, index) => ({
+      endedAt: index === 11 ? departedAt : null,
+      groupId: rosterGroup.id,
+      participationStatus:
+        index === 8
+          ? GroupMembershipStatus.PAUSED
+          : GroupMembershipStatus.ACTIVE,
+      startedAt,
+      studentId,
+    })),
+  });
+  const memberships = await database.groupMembership.findMany({
+    where: { groupId: rosterGroup.id },
+    select: { id: true, studentId: true },
+  });
+  const membershipByStudentId = new Map(
+    memberships.map((membership) => [membership.studentId, membership.id]),
+  );
+  const billingMonth = new Date(Date.UTC(2026, 8, 1));
+  const dueDate = new Date(Date.now() - 86_400_000);
+  await database.tuitionCharge.createMany({
+    data: studentIds.slice(9, 11).map((studentId) => ({
+      amountUzs: 1_000_000n,
+      billingMonth,
+      dueDate,
+      groupMembershipId: requireDefined(
+        membershipByStudentId.get(studentId),
+        'debtor membership',
+      ),
+      studentId,
+    })),
+  });
+
+  await database.assignment.create({
+    data: {
+      createdById: teacherId,
+      groupId: rosterGroup.id,
+      publishedAt: new Date(),
+      status: AssignmentStatus.PUBLISHED,
+    },
+  });
+  const testCategory = await database.testCategory.create({
+    data: { name: `Reserved roster test ${suffix}`, teacherId },
+  });
+  const scheduledTest = await database.test.create({
+    data: { categoryId: testCategory.id, groupId: rosterGroup.id },
+  });
+  await database.testVersion.create({
+    data: {
+      primaryLanguage: Language.EN,
+      publishedAt: new Date(),
+      status: TestVersionStatus.PUBLISHED,
+      testId: scheduledTest.id,
+      version: 1,
+    },
+  });
+  const libraryCategory = await database.libraryCategory.create({
+    data: { name: `Reserved roster material ${suffix}`, teacherId },
+  });
+  const libraryItem = await database.libraryItem.create({
+    data: {
+      categoryId: libraryCategory.id,
+      ownerTeacherId: teacherId,
+      primaryLanguage: Language.EN,
+      visibility: LibraryVisibility.ALL_GROUPS,
+    },
+  });
+  await database.lessonMaterial.create({
+    data: {
+      createdById: teacherId,
+      groupId: rosterGroup.id,
+      libraryItemId: libraryItem.id,
+    },
+  });
+
+  const detail = await executeGraphql(
+    teacherToken,
+    `query TeacherGroupRosterDetail($groupId: ID!) {
+      teacherGroupRosterSummary(groupId: $groupId) {
+        currentTotal historicalTotal active paused debtors departed
+      }
+      teacherGroupOverview(groupId: $groupId) {
+        activeAssignmentCount scheduledTestCount materialCount currentStudentCount
+      }
+      teacherGroupRoster(groupId: $groupId, first: 50, includeEnded: true) {
+        edges { node {
+          membershipId studentId displayName rosterStatus outstandingBalanceUzs endedAt
+        } }
+      }
+    }`,
+    { groupId: rosterGroup.id },
+  );
+  assert.deepEqual(requireRecordField(detail, 'teacherGroupRosterSummary'), {
+    active: 8,
+    currentTotal: 11,
+    debtors: 2,
+    departed: 1,
+    historicalTotal: 12,
+    paused: 1,
+  });
+  assert.deepEqual(requireRecordField(detail, 'teacherGroupOverview'), {
+    activeAssignmentCount: 1,
+    currentStudentCount: 11,
+    materialCount: 1,
+    scheduledTestCount: 1,
+  });
+  const rosterNodes = requireArrayField(
+    requireRecordField(detail, 'teacherGroupRoster'),
+    'edges',
+  ).map((edge) =>
+    requireRecordField(requireRecord(edge, 'roster edge'), 'node'),
+  );
+  assert.equal(rosterNodes.length, 12);
+  assert.equal(
+    rosterNodes.filter((node) => node.rosterStatus === 'DEBTOR').length,
+    2,
+  );
+  assert.equal(
+    rosterNodes.filter((node) => node.rosterStatus === 'DEPARTED').length,
+    1,
+  );
+  assert.ok(
+    rosterNodes
+      .filter((node) => node.rosterStatus === 'DEBTOR')
+      .every((node) => node.outstandingBalanceUzs === '1000000'),
+  );
+
+  const pausedStudentId = requireDefined(studentIds[0], 'paused student id');
+  const pausedMembershipId = requireDefined(
+    membershipByStudentId.get(pausedStudentId),
+    'paused membership id',
+  );
+  const paused = await executeGraphql(
+    teacherToken,
+    `mutation PauseRosterMember($input: SetGroupMembershipParticipationStatusInput!) {
+      setGroupMembershipParticipationStatus(input: $input) {
+        membership { membershipId rosterStatus }
+      }
+    }`,
+    {
+      input: {
+        membershipId: pausedMembershipId,
+        reason: 'Reserved temporary participation pause',
+        status: 'PAUSED',
+      },
+    },
+  );
+  assert.equal(
+    requireRecordField(
+      requireRecordField(paused, 'setGroupMembershipParticipationStatus'),
+      'membership',
+    ).rosterStatus,
+    'PAUSED',
+  );
+  assert.equal(
+    (
+      await database.groupMembership.findUnique({
+        where: { id: pausedMembershipId },
+      })
+    )?.participationStatus,
+    GroupMembershipStatus.PAUSED,
+  );
+  assert.equal(
+    await database.auditLog.count({
+      where: {
+        action: 'GROUP_MEMBERSHIP_PARTICIPATION_STATUS_SET',
+        targetId: pausedMembershipId,
+      },
+    }),
+    1,
+  );
+
+  const otherTeacherId = randomUUID();
+  await database.user.create({
+    data: {
+      displayName: `Reserved roster other teacher ${suffix}`,
+      id: otherTeacherId,
+      role: UserRole.TEACHER,
+    },
+  });
+  const otherTeacherToken = await requireApp()
+    .get(AuthService)
+    .issueAccessToken({ id: otherTeacherId, role: UserRole.TEACHER });
+  const ownershipFailure = await executeGraphqlExpectingErrors(
+    otherTeacherToken,
+    `mutation ResumeOtherRosterMember($input: SetGroupMembershipParticipationStatusInput!) {
+      setGroupMembershipParticipationStatus(input: $input) {
+        membership { membershipId }
+      }
+    }`,
+    {
+      input: {
+        membershipId: pausedMembershipId,
+        reason: 'Reserved unauthorized participation change',
+        status: 'ACTIVE',
+      },
+    },
+  );
+  assert.equal(
+    requireRecordField(
+      requireRecord(
+        requireArrayField(ownershipFailure, 'errors')[0],
+        'membership ownership error',
+      ),
+      'extensions',
+    ).code,
+    'NOT_FOUND',
+  );
+
+  const transferResult = await executeGraphql(
+    teacherToken,
+    `mutation RequestRosterTransfer($input: RequestStudentTransferInput!) {
+      requestStudentTransfer(input: $input) { transferRequest { id } }
+    }`,
+    {
+      input: {
+        reason: 'Reserved roster departure transfer',
+        studentId: pausedStudentId,
+        toGroupId: destinationGroup.id,
+      },
+    },
+  );
+  const transferRequestId = requireStringField(
+    requireRecordField(
+      requireRecordField(transferResult, 'requestStudentTransfer'),
+      'transferRequest',
+    ),
+    'id',
+  );
+  await executeGraphql(
+    adminToken,
+    `mutation ApproveRosterTransfer($input: ReviewStudentTransferInput!) {
+      reviewStudentTransfer(input: $input) { transferRequest { id status } }
+    }`,
+    {
+      input: {
+        decision: 'APPROVED',
+        reviewNote: 'Reserved roster transfer approved',
+        transferRequestId,
+      },
+    },
+  );
+  assert.equal(
+    await database.groupMembership.count({
+      where: { endedAt: null, groupId: rosterGroup.id },
+    }),
+    10,
+  );
+  assert.equal(
+    await database.groupMembership.count({
+      where: {
+        endedAt: null,
+        groupId: destinationGroup.id,
+        studentId: pausedStudentId,
+      },
+    }),
+    1,
+  );
+  const transferAudit = await database.auditLog.findFirst({
+    where: { action: 'GROUP_TRANSFER_REVIEWED', targetId: transferRequestId },
+  });
+  assert.ok(transferAudit);
+  const transferAuditValues = requireRecord(
+    transferAudit.newValues,
+    'transfer audit values',
+  );
+  assert.equal(typeof transferAuditValues.fromMembershipId, 'string');
+  assert.equal(typeof transferAuditValues.toMembershipId, 'string');
+});
+
+void test('Admin provisions a credential user who completes email-code login', async () => {
+  const email = `credential-${randomUUID()}@example.com`;
+  const displayName = 'Reserved Credential Student';
+  const password = 'reserved-password-2026';
+  const provisioned = await executeGraphql(
+    adminToken,
+    `mutation ProvisionCredentialUser($input: AdminProvisionUserInput!) {
+      adminProvisionUser(input: $input) {
+        user { id displayName email role status }
+      }
+    }`,
+    {
+      input: { displayName, email, password, role: 'STUDENT' },
+    },
+  );
+  const user = requireRecordField(
+    requireRecordField(provisioned, 'adminProvisionUser'),
+    'user',
+  );
+  const userId = requireStringField(user, 'id');
+  assert.equal(user.role, 'STUDENT');
+
+  const storedUser = await requireApp()
+    .get(DatabaseService)
+    .user.findUnique({
+      where: { id: userId },
+      select: { credentialPasswordHash: true },
+    });
+  assert.match(storedUser?.credentialPasswordHash ?? '', /^\$argon2id\$/);
+  assert.notEqual(storedUser?.credentialPasswordHash, password);
+
+  const deniedProvision = await executeGraphqlExpectingErrors(
+    studentToken,
+    `mutation DeniedProvision($input: AdminProvisionUserInput!) {
+      adminProvisionUser(input: $input) { user { id } }
+    }`,
+    {
+      input: {
+        displayName: 'Denied User',
+        email: `denied-${randomUUID()}@example.com`,
+        password,
+        role: 'TEACHER',
+      },
+    },
+  );
+  assert.equal(
+    requireRecordField(
+      requireRecord(
+        requireArrayField(deniedProvision, 'errors')[0],
+        'denied error',
+      ),
+      'extensions',
+    ).code,
+    'FORBIDDEN',
+  );
+
+  credentialEmailSender.clear();
+  const roleMismatch = await executeGraphqlExpectingErrors(
+    undefined,
+    `mutation RejectRoleMismatch($input: BeginCredentialLoginInput!) {
+      beginCredentialLogin(input: $input) { challengeId }
+    }`,
+    {
+      input: {
+        email,
+        expectedRole: 'TEACHER',
+        name: displayName,
+        password,
+      },
+    },
+  );
+  assert.equal(
+    requireRecordField(
+      requireRecord(
+        requireArrayField(roleMismatch, 'errors')[0],
+        'role mismatch error',
+      ),
+      'extensions',
+    ).code,
+    'UNAUTHENTICATED',
+  );
+  assert.equal(credentialEmailSender.getLatestMessage(), undefined);
+
+  for (const [input, expectedCode] of [
+    [
+      {
+        email: `missing-${randomUUID()}@example.com`,
+        expectedRole: 'STUDENT',
+        name: displayName,
+        password,
+      },
+      'LOGIN_EMAIL_INVALID',
+    ],
+    [
+      {
+        email,
+        expectedRole: 'STUDENT',
+        name: displayName,
+        password: 'incorrect-password-2026',
+      },
+      'LOGIN_PASSWORD_INVALID',
+    ],
+    [
+      {
+        email,
+        expectedRole: 'STUDENT',
+        firstName: 'Incorrect',
+        lastName: 'Credential Student',
+        name: 'Incorrect Credential Student',
+        password,
+      },
+      'LOGIN_FIRST_NAME_INVALID',
+    ],
+    [
+      {
+        email,
+        expectedRole: 'STUDENT',
+        firstName: 'Reserved',
+        lastName: 'Incorrect Student',
+        name: 'Reserved Incorrect Student',
+        password,
+      },
+      'LOGIN_LAST_NAME_INVALID',
+    ],
+    [
+      {
+        email,
+        expectedRole: 'STUDENT',
+        firstName: 'Reserved',
+        lastName: '',
+        name: 'Reserved',
+        password,
+      },
+      'LOGIN_LAST_NAME_INVALID',
+    ],
+  ] as const) {
+    const rejected = await executeGraphqlExpectingErrors(
+      undefined,
+      `mutation RejectInvalidLoginField($input: BeginCredentialLoginInput!) {
+        beginCredentialLogin(input: $input) { challengeId }
+      }`,
+      { input },
+    );
+    assert.equal(
+      requireRecordField(
+        requireRecord(
+          requireArrayField(rejected, 'errors')[0],
+          'login field error',
+        ),
+        'extensions',
+      ).code,
+      expectedCode,
+    );
+    assert.equal(credentialEmailSender.getLatestMessage(), undefined);
+  }
+
+  const challengeResponse = await executeGraphql(
+    undefined,
+    `mutation BeginLogin($input: BeginCredentialLoginInput!) {
+      beginCredentialLogin(input: $input) {
+        challengeId maskedEmail expiresAt resendAvailableAt
+      }
+    }`,
+    {
+      input: {
+        email: email.toUpperCase(),
+        expectedRole: 'STUDENT',
+        firstName: 'Reserved',
+        lastName: 'Credential Student',
+        name: displayName,
+        password,
+      },
+    },
+  );
+  const challenge = requireRecordField(
+    challengeResponse,
+    'beginCredentialLogin',
+  );
+  const challengeId = requireStringField(challenge, 'challengeId');
+  assert.match(requireStringField(challenge, 'maskedEmail'), /\*{3,}@/);
+  const firstMessage = credentialEmailSender.getLatestMessage();
+  if (firstMessage === undefined) {
+    throw new Error('Credential email was not captured');
+  }
+  assert.equal(firstMessage.to, email);
+  const firstCode = firstMessage.code;
+
+  const earlyResend = await executeGraphqlExpectingErrors(
+    undefined,
+    `mutation EarlyResend($input: ResendCredentialLoginCodeInput!) {
+      resendCredentialLoginCode(input: $input) { challengeId }
+    }`,
+    { input: { challengeId } },
+  );
+  assert.equal(
+    requireRecordField(
+      requireRecord(
+        requireArrayField(earlyResend, 'errors')[0],
+        'resend error',
+      ),
+      'extensions',
+    ).code,
+    'RATE_LIMITED',
+  );
+  await requireApp()
+    .get(DatabaseService)
+    .credentialLoginChallenge.update({
+      where: { id: challengeId },
+      data: { resendAvailableAt: new Date(Date.now() - 1_000) },
+    });
+  await executeGraphql(
+    undefined,
+    `mutation Resend($input: ResendCredentialLoginCodeInput!) {
+      resendCredentialLoginCode(input: $input) {
+        challengeId expiresAt resendAvailableAt
+      }
+    }`,
+    { input: { challengeId } },
+  );
+  const resentMessage = credentialEmailSender.getLatestMessage();
+  if (resentMessage === undefined) {
+    throw new Error('Resent credential email was not captured');
+  }
+  const code = resentMessage.code;
+
+  const wrongCode = await executeGraphqlExpectingErrors(
+    undefined,
+    `mutation VerifyWrongCode($input: VerifyCredentialLoginInput!) {
+      verifyCredentialLogin(input: $input) { accessToken }
+    }`,
+    { input: { challengeId, code: firstCode } },
+  );
+  assert.equal(
+    requireRecordField(
+      requireRecord(requireArrayField(wrongCode, 'errors')[0], 'wrong code'),
+      'extensions',
+    ).code,
+    'LOGIN_CODE_INVALID',
+  );
+
+  const verified = await executeGraphql(
+    undefined,
+    `mutation VerifyLogin($input: VerifyCredentialLoginInput!) {
+      verifyCredentialLogin(input: $input) {
+        accessToken expiresInSeconds refreshToken refreshExpiresAt
+        user { id displayName role }
+      }
+    }`,
+    { input: { challengeId, code } },
+  );
+  const login = requireRecordField(verified, 'verifyCredentialLogin');
+  assert.equal(requireRecordField(login, 'user').id, userId);
+  const loginToken = requireStringField(login, 'accessToken');
+  const refreshToken = requireStringField(login, 'refreshToken');
+  assert.match(refreshToken, /^[0-9a-f-]{36}\.[A-Za-z0-9_-]{43}$/);
+  assert.ok(
+    Date.parse(requireStringField(login, 'refreshExpiresAt')) > Date.now(),
+  );
+
+  const refreshTokenId = refreshToken.slice(0, refreshToken.indexOf('.'));
+  const storedRefreshToken = await requireApp()
+    .get(DatabaseService)
+    .credentialRefreshToken.findUnique({
+      where: { id: refreshTokenId },
+      select: { tokenHash: true },
+    });
+  assert.match(storedRefreshToken?.tokenHash ?? '', /^[0-9a-f]{64}$/);
+  assert.notEqual(storedRefreshToken?.tokenHash, refreshToken);
+
+  const viewer = await executeGraphql(
+    loginToken,
+    `query CredentialViewer { viewer { id displayName role } }`,
+  );
+  assert.equal(requireRecordField(viewer, 'viewer').id, userId);
+
+  const refreshed = await executeGraphql(
+    undefined,
+    `mutation RefreshSession($input: RefreshCredentialSessionInput!) {
+      refreshCredentialSession(input: $input) {
+        accessToken expiresInSeconds refreshToken refreshExpiresAt
+        user { id role }
+      }
+    }`,
+    { input: { refreshToken } },
+  );
+  const refreshedSession = requireRecordField(
+    refreshed,
+    'refreshCredentialSession',
+  );
+  const rotatedRefreshToken = requireStringField(
+    refreshedSession,
+    'refreshToken',
+  );
+  assert.notEqual(rotatedRefreshToken, refreshToken);
+  assert.equal(requireRecordField(refreshedSession, 'user').id, userId);
+  const refreshedViewer = await executeGraphql(
+    requireStringField(refreshedSession, 'accessToken'),
+    `query RefreshedCredentialViewer { viewer { id } }`,
+  );
+  assert.equal(requireRecordField(refreshedViewer, 'viewer').id, userId);
+
+  const reusedRefresh = await executeGraphqlExpectingErrors(
+    undefined,
+    `mutation ReuseRefreshSession($input: RefreshCredentialSessionInput!) {
+      refreshCredentialSession(input: $input) { accessToken }
+    }`,
+    { input: { refreshToken } },
+  );
+  assert.equal(
+    requireRecordField(
+      requireRecord(
+        requireArrayField(reusedRefresh, 'errors')[0],
+        'refresh reuse error',
+      ),
+      'extensions',
+    ).code,
+    'UNAUTHENTICATED',
+  );
+  const revokedRotation = await executeGraphqlExpectingErrors(
+    undefined,
+    `mutation RefreshRevokedSession($input: RefreshCredentialSessionInput!) {
+      refreshCredentialSession(input: $input) { accessToken }
+    }`,
+    { input: { refreshToken: rotatedRefreshToken } },
+  );
+  assert.equal(
+    requireRecordField(
+      requireRecord(
+        requireArrayField(revokedRotation, 'errors')[0],
+        'revoked refresh error',
+      ),
+      'extensions',
+    ).code,
+    'UNAUTHENTICATED',
+  );
+  assert.equal(
+    await requireApp()
+      .get(DatabaseService)
+      .auditLog.count({
+        where: {
+          action: 'AUTH_REFRESH_TOKEN_REUSED',
+          actorId: userId,
+        },
+      }),
+    1,
+  );
+
+  const malformedRevoke = await executeGraphql(
+    undefined,
+    `mutation RevokeMalformedSession($input: RevokeCredentialSessionInput!) {
+      revokeCredentialSession(input: $input)
+    }`,
+    { input: { refreshToken: 'invalid' } },
+  );
+  assert.equal(malformedRevoke.revokeCredentialSession, true);
+
+  const reused = await executeGraphqlExpectingErrors(
+    undefined,
+    `mutation ReuseCode($input: VerifyCredentialLoginInput!) {
+      verifyCredentialLogin(input: $input) { accessToken }
+    }`,
+    { input: { challengeId, code } },
+  );
+  assert.equal(
+    requireRecordField(
+      requireRecord(requireArrayField(reused, 'errors')[0], 'reuse error'),
+      'extensions',
+    ).code,
+    'LOGIN_CODE_INVALID',
+  );
+});
+
+void test('Teacher with a legacy given-name profile can use the split login form', async () => {
+  const email = `legacy-teacher-${randomUUID()}@example.com`;
+  const password = 'reserved-teacher-password-2026';
+  await executeGraphql(
+    adminToken,
+    `mutation ProvisionLegacyTeacher($input: AdminProvisionUserInput!) {
+      adminProvisionUser(input: $input) { user { id } }
+    }`,
+    { input: { displayName: 'Ada', email, password, role: 'TEACHER' } },
+  );
+
+  credentialEmailSender.clear();
+  const challengeResponse = await executeGraphql(
+    undefined,
+    `mutation BeginLegacyTeacherLogin($input: BeginCredentialLoginInput!) {
+      beginCredentialLogin(input: $input) { challengeId }
+    }`,
+    {
+      input: {
+        email,
+        expectedRole: 'TEACHER',
+        firstName: 'Ada',
+        lastName: 'Lovelace',
+        name: 'Ada Lovelace',
+        password,
+      },
+    },
+  );
+  const challengeId = requireStringField(
+    requireRecordField(challengeResponse, 'beginCredentialLogin'),
+    'challengeId',
+  );
+  const code = credentialEmailSender.getLatestMessage()?.code;
+  if (code === undefined) throw new Error('Credential email was not captured');
+
+  const verified = await executeGraphql(
+    undefined,
+    `mutation VerifyLegacyTeacherLogin($input: VerifyCredentialLoginInput!) {
+      verifyCredentialLogin(input: $input) {
+        accessToken refreshToken user { displayName }
+      }
+    }`,
+    { input: { challengeId, code } },
+  );
+  const login = requireRecordField(verified, 'verifyCredentialLogin');
+  assert.equal(requireRecordField(login, 'user').displayName, 'Ada');
+
+  const accessToken = requireStringField(login, 'accessToken');
+  const refreshToken = requireStringField(login, 'refreshToken');
+  await executeGraphql(
+    accessToken,
+    `mutation CompleteTeacherName($input: UpdateMyProfileInput!) {
+      updateMyProfile(input: $input) { profile { displayName } }
+    }`,
+    { input: { displayName: 'Ada Lovelace', preferredLanguage: 'UZ' } },
+  );
+  const revoked = await executeGraphql(
+    undefined,
+    `mutation RevokeTeacherSession($input: RevokeCredentialSessionInput!) {
+      revokeCredentialSession(input: $input)
+    }`,
+    { input: { refreshToken } },
+  );
+  assert.equal(revoked.revokeCredentialSession, true);
+  const refreshAfterLogout = await executeGraphqlExpectingErrors(
+    undefined,
+    `mutation RefreshAfterTeacherLogout($input: RefreshCredentialSessionInput!) {
+      refreshCredentialSession(input: $input) { accessToken }
+    }`,
+    { input: { refreshToken } },
+  );
+  assert.equal(
+    requireRecordField(
+      requireRecord(
+        requireArrayField(refreshAfterLogout, 'errors')[0],
+        'refresh after logout error',
+      ),
+      'extensions',
+    ).code,
+    'UNAUTHENTICATED',
+  );
+  const wrongSurname = await executeGraphqlExpectingErrors(
+    undefined,
+    `mutation WrongTeacherSurname($input: BeginCredentialLoginInput!) {
+      beginCredentialLogin(input: $input) { challengeId }
+    }`,
+    {
+      input: {
+        email,
+        expectedRole: 'TEACHER',
+        firstName: 'Ada',
+        lastName: 'Wrong',
+        name: 'Ada Wrong',
+        password,
+      },
+    },
+  );
+  assert.equal(
+    requireRecordField(
+      requireRecord(
+        requireArrayField(wrongSurname, 'errors')[0],
+        'wrong surname',
+      ),
+      'extensions',
+    ).code,
+    'LOGIN_LAST_NAME_INVALID',
+  );
+  await executeGraphql(
+    undefined,
+    `mutation BeginCompleteTeacherLogin($input: BeginCredentialLoginInput!) {
+      beginCredentialLogin(input: $input) { challengeId }
+    }`,
+    {
+      input: { email, expectedRole: 'TEACHER', name: 'Ada Lovelace', password },
+    },
+  );
 });
 
 after(async () => {
@@ -1353,7 +2737,10 @@ void test('public registration and contact endpoints persist validated submissio
       },
     },
   );
-  assert.equal(requireRecordField(courseResponse, 'registerForCourse').accepted, true);
+  assert.equal(
+    requireRecordField(courseResponse, 'registerForCourse').accepted,
+    true,
+  );
 
   const eventResponse = await executeGraphql(
     undefined,
@@ -1372,7 +2759,10 @@ void test('public registration and contact endpoints persist validated submissio
       },
     },
   );
-  assert.equal(requireRecordField(eventResponse, 'registerForEvent').accepted, true);
+  assert.equal(
+    requireRecordField(eventResponse, 'registerForEvent').accepted,
+    true,
+  );
 
   const examResponse = await executeGraphql(
     undefined,
@@ -1391,7 +2781,10 @@ void test('public registration and contact endpoints persist validated submissio
       },
     },
   );
-  assert.equal(requireRecordField(examResponse, 'submitExamRegistration').accepted, true);
+  assert.equal(
+    requireRecordField(examResponse, 'submitExamRegistration').accepted,
+    true,
+  );
 
   const contactResponse = await executeGraphql(
     undefined,
@@ -1409,16 +2802,29 @@ void test('public registration and contact endpoints persist validated submissio
       },
     },
   );
-  assert.equal(requireRecordField(contactResponse, 'submitContactRequest').accepted, true);
-
-  assert.equal(await database.courseRegistration.count({ where: { courseId: course.id } }), 1);
-  assert.equal(await database.eventRegistration.count({ where: { eventId: event.id } }), 1);
   assert.equal(
-    await database.examRegistration.count({ where: { email: `exam-${suffix}@example.com` } }),
+    requireRecordField(contactResponse, 'submitContactRequest').accepted,
+    true,
+  );
+
+  assert.equal(
+    await database.courseRegistration.count({ where: { courseId: course.id } }),
     1,
   );
   assert.equal(
-    await database.contactRequest.count({ where: { email: `contact-${suffix}@example.com` } }),
+    await database.eventRegistration.count({ where: { eventId: event.id } }),
+    1,
+  );
+  assert.equal(
+    await database.examRegistration.count({
+      where: { email: `exam-${suffix}@example.com` },
+    }),
+    1,
+  );
+  assert.equal(
+    await database.contactRequest.count({
+      where: { email: `contact-${suffix}@example.com` },
+    }),
     1,
   );
 });
@@ -1455,10 +2861,15 @@ void test('generated schema keeps answer review out of Student and Admin types',
   assert.match(schema, /adminStudents/);
   assert.match(schema, /adminStudentResults/);
   for (const operation of [
+    'beginCredentialLogin',
+    'verifyCredentialLogin',
+    'resendCredentialLoginCode',
+    'adminProvisionUser',
     'myProfile',
     'adminUsers',
     'updateMyProfile',
     'teacherGroups',
+    'updateTeacherGroup',
     'teacherGroupRoster',
     'requestStudentTransfer',
     'teacherTests',
@@ -1960,6 +3371,12 @@ async function applyMigrations(connectionString: string): Promise<void> {
       '20260904030000_learning_public_notifications',
       '20260904040000_vocabulary_import_pilot',
       '20260905090000_public_website_content',
+      '20260907010000_credential_email_code_login',
+      '20260915010000_teacher_group_category',
+      '20260915020000_teacher_group_soft_delete',
+      '20260915021000_teacher_group_deleted_archive_constraint',
+      '20260916010000_group_membership_participation_status',
+      '20260916020000_credential_refresh_sessions',
     ]) {
       const sql = await readFile(
         resolve(
@@ -2268,6 +3685,14 @@ function requireApp(): INestApplication {
   }
 
   return app;
+}
+
+function requireDefined<T>(value: T | undefined, name: string): T {
+  if (value === undefined) {
+    throw new Error(`${name} must be defined`);
+  }
+
+  return value;
 }
 
 function requireRecordField(
