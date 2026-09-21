@@ -4,12 +4,22 @@
 
 The user has approved connected Teacher group creation. An authenticated
 Teacher may create a group they own with a required IELTS, CEFR, or General
-English category, name, room, ISO lesson days, and daily time range. Preserve
+English category, name, room, ISO lesson days, daily time range, and a monthly
+tuition rate in whole UZS. Persist rates in the existing `GroupTuitionRate`
+table, not a duplicate group column. Existing active local groups received an
+idempotent 300,000 UZS backfill; deleted groups were excluded. The roster's
+overdue balance and current-month paid amount remain derived from charge and
+allocation records. A rate alone never creates a debt or marks payment. Preserve
 the existing database-resolved Teacher role guard, ownership scoping, audit
 transaction, GraphQL contract generation, and PostgreSQL integration test.
 Existing groups without a verified category remain uncategorized until edited.
 This authorization is limited to the group domain and does not grant unrelated
 Teacher writes.
+The approved Add student exception lets a verified Teacher create a Student
+account and enroll it in their own active group atomically. The form collects
+first name, last name, phone, email, and password. Hash the password; validate
+the input, unique email, ownership, and 15-member cap; audit the transaction.
+This is not permission to provision Teacher accounts or use unrelated Admin APIs.
 
 Each group has a fixed maximum of 15 active learners. Teacher roster additions
 and approved transfers must reject a full destination group inside a transaction;
@@ -583,8 +593,10 @@ AuditModule
 
 The approved credential flow supersedes the earlier social-auth preview.
 
-- Only an authenticated operational Admin may provision Student or Teacher
-  credentials. Public signup, Google, Facebook, Apple, and password-reset flows
+- Only an authenticated operational Admin may provision Teacher credentials.
+  Admin may provision Student credentials; the approved Teacher-owned group
+  mutation may provision a Student only together with enrollment into that
+  Teacher's group. Public signup, Google, Facebook, Apple, and password-reset flows
   are not product contracts and must not be reintroduced.
 - Login accepts name, email, and password. Email is the unique credential
   identifier; name is profile matching only and never role or authorization
