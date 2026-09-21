@@ -4,6 +4,7 @@
     "dist",
     "node_modules",
     "prisma.config.ts",
+    "prisma/backfill-teacher-group-rates.ts",
     "**/*.spec.ts",
     "**/*.test.ts"
   ]

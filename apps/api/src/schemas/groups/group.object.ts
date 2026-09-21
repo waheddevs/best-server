@@ -30,6 +30,9 @@ export class GroupObject {
   activeStudentCount!: number;
 
   @Field(() => String, { nullable: true })
+  monthlyTuitionUzs?: string | null;
+
+  @Field(() => String, { nullable: true })
   room?: string | null;
 
   @Field(() => [Int])

@@ -521,6 +521,7 @@ input CreateNextTestVersionInput {
 input CreateTeacherGroupInput {
   category: GroupCategory!
   endsAtMinutes: Int
+  monthlyTuitionUzs: String
   name: String!
   room: String
   scheduleDays: [Int!]!
@@ -585,6 +586,7 @@ type Group {
   createdAt: DateTime!
   endsAtMinutes: Int
   id: ID!
+  monthlyTuitionUzs: String
   name: String!
   room: String
   scheduleDays: [Int!]!
@@ -2031,6 +2033,7 @@ input UpdateTeacherGroupInput {
   category: GroupCategory!
   endsAtMinutes: Int
   groupId: ID!
+  monthlyTuitionUzs: String
   name: String!
   room: String
   scheduleDays: [Int!]!

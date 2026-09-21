@@ -262,7 +262,7 @@ void test('Teacher creates a categorized group with persisted schedule and owner
     teacherToken,
     `mutation Create($input: CreateTeacherGroupInput!) {
       createTeacherGroup(input: $input) {
-        group { id name category room scheduleDays startsAtMinutes endsAtMinutes teacherId }
+        group { id name category room scheduleDays startsAtMinutes endsAtMinutes teacherId monthlyTuitionUzs }
       }
     }`,
     {
@@ -270,6 +270,7 @@ void test('Teacher creates a categorized group with persisted schedule and owner
         category: 'IELTS',
         endsAtMinutes: 630,
         name,
+        monthlyTuitionUzs: '300000',
         room: 'Reserved room 000',
         scheduleDays: [1, 3, 5],
         slug,
@@ -287,6 +288,11 @@ void test('Teacher creates a categorized group with persisted schedule and owner
     where: { id: String(group.id) },
   });
   assert.equal(group.category, 'IELTS');
+  assert.equal(group.monthlyTuitionUzs, '300000');
+  const initialRate = await database.groupTuitionRate.findFirst({
+    where: { groupId: String(group.id), effectiveTo: null },
+  });
+  assert.equal(initialRate?.amountUzs, 300000n);
   assert.equal(stored?.category, 'IELTS');
   assert.equal(stored.teacherId, teacherId);
   assert.deepEqual(stored.scheduleDays, [1, 3, 5]);
@@ -297,7 +303,7 @@ void test('Teacher creates a categorized group with persisted schedule and owner
     `query NewlyCreatedGroup {
       teacherGroups(first: 100, status: ACTIVE) {
         edges { node {
-          id scheduleDays startsAtMinutes endsAtMinutes activeStudentCount
+          id scheduleDays startsAtMinutes endsAtMinutes activeStudentCount monthlyTuitionUzs
         } }
       }
     }`,
@@ -316,10 +322,15 @@ void test('Teacher creates a categorized group with persisted schedule and owner
   );
   assert.deepEqual(listedGroup.scheduleDays, [1, 3, 5]);
   assert.equal(listedGroup.activeStudentCount, 0);
+  assert.equal(listedGroup.monthlyTuitionUzs, '300000');
   const audit = await database.auditLog.findFirst({
     where: { action: 'GROUP_CREATED', targetId: String(group.id) },
   });
   assert.ok(audit);
+  assert.equal(
+    requireRecord(audit.newValues, 'created group audit').monthlyTuitionUzs,
+    '300000',
+  );
   const forbidden = await executeGraphqlExpectingErrors(
     studentToken,
     `mutation Create($input: CreateTeacherGroupInput!) {
@@ -338,6 +349,39 @@ void test('Teacher creates a categorized group with persisted schedule and owner
     },
   );
   assert.ok(requireArrayField(forbidden, 'errors').length > 0);
+  const invalidPriceSlug = `${slug}-invalid-price`;
+  const invalidPrice = await executeGraphqlExpectingErrors(
+    teacherToken,
+    `mutation InvalidGroupPrice($input: CreateTeacherGroupInput!) {
+      createTeacherGroup(input: $input) { group { id } }
+    }`,
+    {
+      input: {
+        category: 'IELTS',
+        endsAtMinutes: 630,
+        monthlyTuitionUzs: '-1',
+        name: `${name} invalid price`,
+        room: 'Reserved room 000',
+        scheduleDays: [1],
+        slug: invalidPriceSlug,
+        startsAtMinutes: 540,
+      },
+    },
+  );
+  assert.equal(
+    requireRecordField(
+      requireRecord(
+        requireArrayField(invalidPrice, 'errors')[0],
+        'price error',
+      ),
+      'extensions',
+    ).code,
+    'BAD_USER_INPUT',
+  );
+  assert.equal(
+    await database.group.count({ where: { slug: invalidPriceSlug } }),
+    0,
+  );
 });
 
 void test('Teacher updates an owned group with persisted values and audit history', async () => {
@@ -371,7 +415,7 @@ void test('Teacher updates an owned group with persisted values and audit histor
     `mutation Update($input: UpdateTeacherGroupInput!) {
       updateTeacherGroup(input: $input) {
         group {
-          id name slug category room scheduleDays startsAtMinutes endsAtMinutes
+          id name slug category room scheduleDays startsAtMinutes endsAtMinutes monthlyTuitionUzs
         }
       }
     }`,
@@ -381,6 +425,7 @@ void test('Teacher updates an owned group with persisted values and audit histor
         endsAtMinutes: 750,
         groupId: group.id,
         name: updatedName,
+        monthlyTuitionUzs: '350000',
         room: 'Reserved room 001',
         scheduleDays: [2, 4, 6],
         slug,
@@ -401,6 +446,7 @@ void test('Teacher updates an owned group with persisted values and audit histor
   assert.deepEqual(updatedGroup.scheduleDays, [2, 4, 6]);
   assert.equal(updatedGroup.startsAtMinutes, 630);
   assert.equal(updatedGroup.endsAtMinutes, 750);
+  assert.equal(updatedGroup.monthlyTuitionUzs, '350000');
 
   const database = requireApp().get(DatabaseService);
   const stored = await database.group.findUnique({
@@ -413,12 +459,20 @@ void test('Teacher updates an owned group with persisted values and audit histor
   assert.deepEqual(stored.scheduleDays, [2, 4, 6]);
   assert.equal(stored.startsAtMinutes, 630);
   assert.equal(stored.endsAtMinutes, 750);
+  const editedRate = await database.groupTuitionRate.findFirst({
+    where: { groupId: String(group.id), effectiveTo: null },
+  });
+  assert.equal(editedRate?.amountUzs, 350000n);
 
   const audit = await database.auditLog.findFirst({
     where: { action: 'GROUP_UPDATED', targetId: String(group.id) },
     orderBy: { createdAt: 'desc' },
   });
   assert.ok(audit);
+  assert.equal(
+    requireRecord(audit.newValues, 'updated group audit').monthlyTuitionUzs,
+    '350000',
+  );
   assert.equal(
     requireRecord(audit.oldValues, 'old group audit').category,
     'IELTS',

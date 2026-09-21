@@ -28,6 +28,9 @@ export class CreateTeacherGroupInput {
 
   @Field(() => String, { nullable: true })
   timeZone?: string;
+
+  @Field(() => String, { nullable: true })
+  monthlyTuitionUzs?: string;
 }
 
 @InputType('UpdateTeacherGroupInput')

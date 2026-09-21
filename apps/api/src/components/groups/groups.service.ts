@@ -49,6 +49,12 @@ const GROUP_SELECT = {
   status: true,
   teacherId: true,
   timeZone: true,
+  tuitionRates: {
+    where: { effectiveTo: null },
+    orderBy: { effectiveFrom: 'desc' },
+    take: 1,
+    select: { amountUzs: true, effectiveFrom: true, id: true },
+  },
   updatedAt: true,
 } as const;
 
@@ -191,10 +197,22 @@ export class GroupsService {
     correlationId?: string,
   ): Promise<GroupObject> {
     const values = parseGroupInput(input);
+    const monthlyTuitionUzs =
+      parseMonthlyTuition(input.monthlyTuitionUzs) ?? 300000n;
     try {
       return await this.database.$transaction(async (transaction) => {
         const group = await transaction.group.create({
-          data: { ...values, teacherId },
+          data: {
+            ...values,
+            teacherId,
+            tuitionRates: {
+              create: {
+                amountUzs: monthlyTuitionUzs,
+                createdById: teacherId,
+                effectiveFrom: tashkentDate(),
+              },
+            },
+          },
           select: GROUP_SELECT,
         });
         await transaction.auditLog.create({
@@ -221,6 +239,7 @@ export class GroupsService {
   ): Promise<GroupObject> {
     const groupId = parseUuid(input.groupId, 'groupId');
     const values = parseGroupInput(input);
+    const monthlyTuitionUzs = parseMonthlyTuition(input.monthlyTuitionUzs);
     try {
       return await this.database.$transaction(async (transaction) => {
         const current = await transaction.group.findFirst({
@@ -238,9 +257,53 @@ export class GroupsService {
             409,
           );
         }
-        const group = await transaction.group.update({
+        await transaction.group.update({
           where: { id: groupId },
           data: values,
+        });
+        const currentRate = current.tuitionRates[0];
+        if (
+          monthlyTuitionUzs !== undefined &&
+          currentRate?.amountUzs !== monthlyTuitionUzs
+        ) {
+          const effectiveFrom = tashkentDate();
+          if (currentRate !== undefined) {
+            if (
+              currentRate.effectiveFrom.getTime() === effectiveFrom.getTime()
+            ) {
+              await transaction.groupTuitionRate.update({
+                where: { id: currentRate.id },
+                data: { amountUzs: monthlyTuitionUzs },
+              });
+            } else {
+              await transaction.groupTuitionRate.update({
+                where: { id: currentRate.id },
+                data: {
+                  effectiveTo: new Date(effectiveFrom.getTime() - 86400000),
+                },
+              });
+              await transaction.groupTuitionRate.create({
+                data: {
+                  amountUzs: monthlyTuitionUzs,
+                  createdById: teacherId,
+                  effectiveFrom,
+                  groupId,
+                },
+              });
+            }
+          } else {
+            await transaction.groupTuitionRate.create({
+              data: {
+                amountUzs: monthlyTuitionUzs,
+                createdById: teacherId,
+                effectiveFrom,
+                groupId,
+              },
+            });
+          }
+        }
+        const group = await transaction.group.findUniqueOrThrow({
+          where: { id: groupId },
           select: GROUP_SELECT,
         });
         await transaction.auditLog.create({
@@ -418,6 +481,30 @@ interface GroupInputValues {
   readonly timeZone: string;
 }
 
+function parseMonthlyTuition(value: string | undefined): bigint | undefined {
+  if (value === undefined) return undefined;
+  if (!/^[1-9]\d{0,9}$/.test(value) || BigInt(value) > 2000000000n) {
+    throw new ApplicationError(
+      ErrorCode.BAD_USER_INPUT,
+      'monthlyTuitionUzs must be a whole UZS amount from 1 to 2000000000',
+      400,
+    );
+  }
+  return BigInt(value);
+}
+
+function tashkentDate(): Date {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    day: '2-digit',
+    month: '2-digit',
+    timeZone: 'Asia/Tashkent',
+    year: 'numeric',
+  }).formatToParts(new Date());
+  const part = (type: string): number =>
+    Number(parts.find((value) => value.type === type)?.value);
+  return new Date(Date.UTC(part('year'), part('month') - 1, part('day')));
+}
+
 function parseGroupInput(input: CreateTeacherGroupInput): GroupInputValues {
   const name = parseText(input.name, 'name', 160);
   if (!Object.values(GroupCategory).includes(input.category)) {
@@ -489,28 +576,20 @@ function parseGroupInput(input: CreateTeacherGroupInput): GroupInputValues {
 }
 
 function mapGroup(group: GroupRecord): GroupObject {
-  const { _count, ...values } = group;
-  return { ...values, activeStudentCount: _count.memberships };
+  const { _count, tuitionRates, ...values } = group;
+  return {
+    ...values,
+    activeStudentCount: _count.memberships,
+    monthlyTuitionUzs: tuitionRates[0]?.amountUzs.toString() ?? null,
+  };
 }
 
-function groupAuditValues(
-  group: Pick<
-    GroupObject,
-    | 'endsAtMinutes'
-    | 'category'
-    | 'name'
-    | 'room'
-    | 'scheduleDays'
-    | 'slug'
-    | 'startsAtMinutes'
-    | 'status'
-    | 'timeZone'
-  >,
-): Prisma.InputJsonObject {
+function groupAuditValues(group: GroupRecord): Prisma.InputJsonObject {
   return {
     category: group.category ?? null,
     endsAtMinutes: group.endsAtMinutes ?? null,
     name: group.name,
+    monthlyTuitionUzs: group.tuitionRates[0]?.amountUzs.toString() ?? null,
     room: group.room ?? null,
     scheduleDays: group.scheduleDays,
     slug: group.slug,
