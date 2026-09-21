@@ -946,6 +946,48 @@ void test('Teacher group roster exposes persisted status summary, overview, paus
       studentId,
     })),
   });
+  const now = new Date();
+  const monthParts = new Intl.DateTimeFormat('en-US', {
+    month: '2-digit',
+    timeZone: 'Asia/Tashkent',
+    year: 'numeric',
+  }).formatToParts(now);
+  const currentMonth = new Date(
+    Date.UTC(
+      Number(monthParts.find((part) => part.type === 'year')?.value),
+      Number(monthParts.find((part) => part.type === 'month')?.value) - 1,
+      1,
+    ),
+  );
+  const payingStudentId = requireDefined(studentIds[0], 'paying student');
+  const currentCharge = await database.tuitionCharge.create({
+    data: {
+      amountUzs: 300000n,
+      billingMonth: currentMonth,
+      dueDate: new Date(Date.now() + 7 * 86400000),
+      groupMembershipId: requireDefined(
+        membershipByStudentId.get(payingStudentId),
+        'paying membership',
+      ),
+      studentId: payingStudentId,
+    },
+  });
+  const payment = await database.payment.create({
+    data: {
+      amountUzs: 100000n,
+      method: 'CASH',
+      paidAt: now,
+      recordedById: teacherId,
+      studentId: payingStudentId,
+    },
+  });
+  await database.paymentAllocation.create({
+    data: {
+      amountUzs: 100000n,
+      chargeId: currentCharge.id,
+      paymentId: payment.id,
+    },
+  });
 
   await database.assignment.create({
     data: {
@@ -1000,7 +1042,7 @@ void test('Teacher group roster exposes persisted status summary, overview, paus
       }
       teacherGroupRoster(groupId: $groupId, first: 50, includeEnded: true) {
         edges { node {
-          membershipId studentId displayName rosterStatus outstandingBalanceUzs endedAt
+          membershipId studentId displayName rosterStatus outstandingBalanceUzs paidAmountUzs endedAt
         } }
       }
     }`,
@@ -1028,6 +1070,11 @@ void test('Teacher group roster exposes persisted status summary, overview, paus
   );
   assert.equal(rosterNodes.length, 12);
   assert.equal(
+    rosterNodes.find((node) => node.studentId === payingStudentId)
+      ?.paidAmountUzs,
+    '100000',
+  );
+  assert.equal(
     rosterNodes.filter((node) => node.rosterStatus === 'DEBTOR').length,
     2,
   );
@@ -1040,6 +1087,54 @@ void test('Teacher group roster exposes persisted status summary, overview, paus
       .filter((node) => node.rosterStatus === 'DEBTOR')
       .every((node) => node.outstandingBalanceUzs === '1000000'),
   );
+
+  const debtorStudentId = requireDefined(studentIds[9], 'debtor student');
+  const debtorCharge = await database.tuitionCharge.findFirstOrThrow({
+    where: { studentId: debtorStudentId },
+  });
+  const settledPayment = await database.payment.create({
+    data: {
+      amountUzs: 1000000n,
+      method: 'CASH',
+      paidAt: new Date(),
+      recordedById: teacherId,
+      studentId: debtorStudentId,
+    },
+  });
+  await database.paymentAllocation.create({
+    data: {
+      amountUzs: 1000000n,
+      chargeId: debtorCharge.id,
+      paymentId: settledPayment.id,
+    },
+  });
+  const settledRoster = await executeGraphql(
+    teacherToken,
+    `query SettledRoster($groupId: ID!) {
+      teacherGroupRosterSummary(groupId: $groupId) { active debtors }
+      teacherGroupRoster(groupId: $groupId, first: 50) {
+        edges { node { studentId rosterStatus outstandingBalanceUzs } }
+      }
+    }`,
+    { groupId: rosterGroup.id },
+  );
+  const settledSummary = requireRecordField(
+    settledRoster,
+    'teacherGroupRosterSummary',
+  );
+  assert.equal(settledSummary.debtors, 1);
+  assert.equal(settledSummary.active, 9);
+  const settledMember = requireArrayField(
+    requireRecordField(settledRoster, 'teacherGroupRoster'),
+    'edges',
+  )
+    .map((edge) =>
+      requireRecordField(requireRecord(edge, 'settled edge'), 'node'),
+    )
+    .find((member) => member.studentId === debtorStudentId);
+  assert.ok(settledMember);
+  assert.equal(settledMember.rosterStatus, 'ACTIVE');
+  assert.equal(settledMember.outstandingBalanceUzs, '0');
 
   const pausedStudentId = requireDefined(studentIds[0], 'paused student id');
   const pausedMembershipId = requireDefined(

@@ -68,6 +68,7 @@ const MEMBERSHIP_SELECT = {
       adjustments: { select: { amountUzs: true, kind: true } },
       allocations: { select: { amountUzs: true } },
       amountUzs: true,
+      billingMonth: true,
       dueDate: true,
     },
   },
@@ -703,12 +704,35 @@ function mapMembership(
   now = new Date(),
 ): GroupRosterMemberObject {
   const outstandingBalanceUzs = getOverdueBalance(membership, now);
+  const monthParts = new Intl.DateTimeFormat('en-US', {
+    month: '2-digit',
+    timeZone: 'Asia/Tashkent',
+    year: 'numeric',
+  }).formatToParts(now);
+  const month = Number(monthParts.find((part) => part.type === 'month')?.value);
+  const year = Number(monthParts.find((part) => part.type === 'year')?.value);
+  const paidAmountUzs = membership.tuitionCharges.reduce((total, charge) => {
+    if (
+      charge.billingMonth.getUTCFullYear() !== year ||
+      charge.billingMonth.getUTCMonth() + 1 !== month
+    ) {
+      return total;
+    }
+    return (
+      total +
+      charge.allocations.reduce(
+        (allocated, allocation) => allocated + allocation.amountUzs,
+        0n,
+      )
+    );
+  }, 0n);
   return {
     displayName: membership.student.displayName,
     email: membership.student.email,
     endedAt: membership.endedAt,
     membershipId: membership.id,
     outstandingBalanceUzs: outstandingBalanceUzs.toString(),
+    paidAmountUzs: paidAmountUzs.toString(),
     phone: membership.student.phone,
     rosterStatus: getRosterStatus(membership, now, outstandingBalanceUzs),
     startedAt: membership.startedAt,

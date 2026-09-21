@@ -634,6 +634,7 @@ type GroupRosterMember {
   endedAt: DateTime
   membershipId: ID!
   outstandingBalanceUzs: String!
+  paidAmountUzs: String!
   phone: String
   rosterStatus: GroupRosterStatus!
   startedAt: DateTime!

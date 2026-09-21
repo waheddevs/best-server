@@ -99,6 +99,9 @@ export class GroupRosterMemberObject {
   outstandingBalanceUzs!: string;
 
   @Field()
+  paidAmountUzs!: string;
+
+  @Field()
   startedAt!: Date;
 
   @Field(() => GraphQLISODateTime, { nullable: true })
