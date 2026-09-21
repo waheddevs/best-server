@@ -953,6 +953,7 @@ type Mutation {
   submitContactRequest(input: SubmitContactRequestInput!): PublicSubmissionReceipt!
   submitExamRegistration(input: SubmitExamRegistrationInput!): PublicSubmissionReceipt!
   submitTestAttempt(input: SubmitTestAttemptInput!, language: Language!): SubmitTestAttemptPayload!
+  teacherCreateStudentInGroup(input: TeacherCreateStudentInGroupInput!): MembershipMutationPayload!
   updateAssignment(input: UpdateAssignmentInput!): AssignmentPayload!
   updateCourseDraft(input: UpdateCourseInput!): PublicCoursePayload!
   updateEventDraft(input: UpdateEventInput!): PublicEventPayload!
@@ -1656,6 +1657,15 @@ type TeacherAttemptReview {
   submittedAt: DateTime
   testId: ID!
   title: String!
+}
+
+input TeacherCreateStudentInGroupInput {
+  email: String!
+  firstName: String!
+  groupId: ID!
+  lastName: String!
+  password: String!
+  phone: String!
 }
 
 type TeacherDashboard {

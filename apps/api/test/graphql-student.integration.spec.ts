@@ -711,6 +711,124 @@ void test('Teacher group rejects a sixteenth active learner', async () => {
   );
 });
 
+void test('Teacher creates a credential Student directly in an owned group', async () => {
+  const database = requireApp().get(DatabaseService);
+  const suffix = randomUUID().slice(0, 8);
+  const group = await database.group.create({
+    data: {
+      category: 'IELTS',
+      name: `Reserved student enrollment ${suffix}`,
+      slug: `reserved-student-enrollment-${suffix}`,
+      teacherId,
+    },
+  });
+  const email = `teacher-student-${suffix}@example.com`;
+  const password = 'fictional-password-2026';
+  const mutation = `mutation CreateStudent($input: TeacherCreateStudentInGroupInput!) {
+    teacherCreateStudentInGroup(input: $input) {
+      membership { membershipId studentId displayName phone rosterStatus }
+    }
+  }`;
+  const input = {
+    email,
+    firstName: 'Fictional',
+    groupId: group.id,
+    lastName: 'Student',
+    password,
+    phone: '+998901234567',
+  };
+  const created = await executeGraphql(teacherToken, mutation, { input });
+  const membership = requireRecordField(
+    requireRecordField(created, 'teacherCreateStudentInGroup'),
+    'membership',
+  );
+  const studentId = requireStringField(membership, 'studentId');
+  assert.equal(membership.displayName, 'Fictional Student');
+  assert.equal(membership.rosterStatus, 'ACTIVE');
+  const student = await database.user.findUniqueOrThrow({
+    where: { id: studentId },
+  });
+  assert.equal(student.email, email);
+  assert.equal(student.phone, '+998901234567');
+  assert.equal(student.role, UserRole.STUDENT);
+  assert.match(student.credentialPasswordHash ?? '', /^\$argon2id\$/);
+  assert.notEqual(student.credentialPasswordHash, password);
+  assert.equal(
+    await database.groupMembership.count({
+      where: { groupId: group.id, studentId },
+    }),
+    1,
+  );
+  assert.equal(
+    await database.auditLog.count({
+      where: {
+        action: 'TEACHER_STUDENT_CREATED_AND_ENROLLED',
+        actorId: teacherId,
+      },
+    }),
+    1,
+  );
+
+  const duplicate = await executeGraphqlExpectingErrors(
+    teacherToken,
+    mutation,
+    { input },
+  );
+  assert.equal(
+    requireRecordField(
+      requireRecord(
+        requireArrayField(duplicate, 'errors')[0],
+        'duplicate error',
+      ),
+      'extensions',
+    ).code,
+    'CONFLICT',
+  );
+  const denied = await executeGraphqlExpectingErrors(adminToken, mutation, {
+    input: { ...input, email: `denied-${suffix}@example.com` },
+  });
+  assert.equal(
+    requireRecordField(
+      requireRecord(requireArrayField(denied, 'errors')[0], 'role error'),
+      'extensions',
+    ).code,
+    'FORBIDDEN',
+  );
+  const otherTeacher = await database.user.create({
+    data: { displayName: 'Reserved Other Teacher', role: UserRole.TEACHER },
+  });
+  const otherGroup = await database.group.create({
+    data: {
+      category: 'CEFR',
+      name: `Reserved other group ${suffix}`,
+      slug: `reserved-other-group-${suffix}`,
+      teacherId: otherTeacher.id,
+    },
+  });
+  const inaccessibleEmail = `inaccessible-${suffix}@example.com`;
+  const inaccessible = await executeGraphqlExpectingErrors(
+    teacherToken,
+    mutation,
+    {
+      input: { ...input, email: inaccessibleEmail, groupId: otherGroup.id },
+    },
+  );
+  assert.equal(
+    requireRecordField(
+      requireRecord(
+        requireArrayField(inaccessible, 'errors')[0],
+        'ownership error',
+      ),
+      'extensions',
+    ).code,
+    'NOT_FOUND',
+  );
+  assert.equal(
+    await database.user.count({ where: { email: inaccessibleEmail } }),
+    0,
+  );
+});
+
 void test('Teacher group roster exposes persisted status summary, overview, pause, and transfer departure', async () => {
   const database = requireApp().get(DatabaseService);
   const suffix = randomUUID().slice(0, 8);

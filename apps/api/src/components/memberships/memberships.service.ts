@@ -31,7 +31,9 @@ import type {
 import type {
   RequestStudentTransferInput,
   ReviewStudentTransferInput,
+  TeacherCreateStudentInGroupInput,
 } from '../../schemas/groups/membership.input';
+import { CredentialPasswordService } from '../auth/credential-password.service';
 
 const TRANSFER_SELECT = {
   createdAt: true,
@@ -94,7 +96,120 @@ async function assertGroupHasCapacity(
 
 @Injectable()
 export class MembershipsService {
-  constructor(private readonly database: DatabaseService) {}
+  constructor(
+    private readonly database: DatabaseService,
+    private readonly passwordService: CredentialPasswordService,
+  ) {}
+
+  async createStudentInGroup(
+    teacherId: string,
+    input: TeacherCreateStudentInGroupInput,
+    correlationId?: string,
+  ): Promise<GroupRosterMemberObject> {
+    const groupId = parseUuid(input.groupId, 'groupId');
+    const firstName = input.firstName.trim().replace(/\s+/g, ' ');
+    const lastName = input.lastName.trim().replace(/\s+/g, ' ');
+    const displayName = `${firstName} ${lastName}`;
+    const phone = input.phone.replace(/[\s()-]/g, '');
+    const email = input.email.trim().toLowerCase();
+    if (!firstName || firstName.length > 80) {
+      throw new ApplicationError(
+        ErrorCode.BAD_USER_INPUT,
+        'firstName is invalid',
+        400,
+      );
+    }
+    if (!lastName || lastName.length > 80 || displayName.length > 160) {
+      throw new ApplicationError(
+        ErrorCode.BAD_USER_INPUT,
+        'lastName is invalid',
+        400,
+      );
+    }
+    if (!/^\+[1-9]\d{7,14}$/.test(phone)) {
+      throw new ApplicationError(
+        ErrorCode.BAD_USER_INPUT,
+        'phone is invalid',
+        400,
+      );
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 320) {
+      throw new ApplicationError(
+        ErrorCode.BAD_USER_INPUT,
+        'email is invalid',
+        400,
+      );
+    }
+    if (input.password.length < 12 || input.password.length > 128) {
+      throw new ApplicationError(
+        ErrorCode.BAD_USER_INPUT,
+        'password is invalid',
+        400,
+      );
+    }
+    const credentialPasswordHash = await this.passwordService.hashPassword(
+      input.password,
+    );
+
+    try {
+      return await this.database.$transaction(async (transaction) => {
+        const group = await transaction.group.findFirst({
+          where: { id: groupId, status: ContentStatus.ACTIVE, teacherId },
+          select: { id: true },
+        });
+        if (group === null) throw inaccessibleMembershipError();
+        await assertGroupHasCapacity(transaction, groupId);
+        const existing = await transaction.user.findUnique({
+          where: { email },
+          select: { id: true },
+        });
+        if (existing !== null) {
+          throw new ApplicationError(
+            ErrorCode.CONFLICT,
+            'Student email already exists',
+            409,
+          );
+        }
+        const student = await transaction.user.create({
+          data: {
+            credentialPasswordHash,
+            displayName,
+            email,
+            phone,
+            role: UserRole.STUDENT,
+          },
+          select: { id: true },
+        });
+        const membership = await transaction.groupMembership.create({
+          data: { groupId, studentId: student.id },
+          select: membershipSelect(),
+        });
+        await transaction.auditLog.create({
+          data: {
+            action: 'TEACHER_STUDENT_CREATED_AND_ENROLLED',
+            actorId: teacherId,
+            correlationId: correlationId ?? null,
+            newValues: { groupId, studentId: student.id },
+            targetId: membership.id,
+            targetType: 'GROUP_MEMBERSHIP',
+          },
+        });
+        return mapMembership(membership);
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ApplicationError(
+          ErrorCode.CONFLICT,
+          'Student email already exists',
+          409,
+        );
+      }
+      throw error;
+    }
+  }
 
   async getTeacherRoster(
     teacherId: string,

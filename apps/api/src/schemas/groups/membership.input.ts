@@ -10,6 +10,27 @@ export class AddStudentToGroupInput {
   studentId!: string;
 }
 
+@InputType('TeacherCreateStudentInGroupInput')
+export class TeacherCreateStudentInGroupInput {
+  @Field(() => ID)
+  groupId!: string;
+
+  @Field()
+  firstName!: string;
+
+  @Field()
+  lastName!: string;
+
+  @Field()
+  phone!: string;
+
+  @Field()
+  email!: string;
+
+  @Field()
+  password!: string;
+}
+
 @InputType('EndGroupMembershipInput')
 export class EndGroupMembershipInput {
   @Field(() => ID)
