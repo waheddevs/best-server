@@ -40,6 +40,12 @@ export class EndGroupMembershipInput {
   reason!: string;
 }
 
+@InputType('TeacherDeleteStudentInput')
+export class TeacherDeleteStudentInput {
+  @Field(() => ID)
+  membershipId!: string;
+}
+
 @InputType('SetGroupMembershipParticipationStatusInput')
 export class SetGroupMembershipParticipationStatusInput {
   @Field(() => ID)

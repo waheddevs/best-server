@@ -312,6 +312,14 @@ export class UsersService {
     const reason = parseReason(reasonInput);
     rejectSelfAdministration(adminId, id);
 
+    if (status === UserStatus.DELETED) {
+      throw new ApplicationError(
+        ErrorCode.BAD_USER_INPUT,
+        'Use the scoped student deletion workflow',
+        400,
+      );
+    }
+
     return this.database.$transaction(async (transaction) => {
       const current = await transaction.user.findUnique({
         where: { id },
@@ -319,6 +327,10 @@ export class UsersService {
       });
 
       if (current === null) {
+        throw inaccessibleUserError();
+      }
+
+      if (current.status === UserStatus.DELETED) {
         throw inaccessibleUserError();
       }
 

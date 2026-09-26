@@ -201,6 +201,12 @@ export class GroupsService {
       parseMonthlyTuition(input.monthlyTuitionUzs) ?? 300000n;
     try {
       return await this.database.$transaction(async (transaction) => {
+        await this.lockTeacherSchedule(transaction, teacherId);
+        await this.ensureTeacherScheduleAvailable(
+          transaction,
+          teacherId,
+          values,
+        );
         const group = await transaction.group.create({
           data: {
             ...values,
@@ -242,6 +248,7 @@ export class GroupsService {
     const monthlyTuitionUzs = parseMonthlyTuition(input.monthlyTuitionUzs);
     try {
       return await this.database.$transaction(async (transaction) => {
+        await this.lockTeacherSchedule(transaction, teacherId);
         const current = await transaction.group.findFirst({
           where: { id: groupId, teacherId },
           select: GROUP_SELECT,
@@ -257,6 +264,12 @@ export class GroupsService {
             409,
           );
         }
+        await this.ensureTeacherScheduleAvailable(
+          transaction,
+          teacherId,
+          values,
+          groupId,
+        );
         await transaction.group.update({
           where: { id: groupId },
           data: values,
@@ -334,6 +347,9 @@ export class GroupsService {
     const groupId = parseUuid(groupIdInput, 'groupId');
     const reason = parseReason(reasonInput);
     return this.database.$transaction(async (transaction) => {
+      if (!archived) {
+        await this.lockTeacherSchedule(transaction, teacherId);
+      }
       const current = await transaction.group.findFirst({
         where: { id: groupId, teacherId },
         select: GROUP_SELECT,
@@ -357,6 +373,13 @@ export class GroupsService {
             409,
           );
         }
+      } else {
+        await this.ensureTeacherScheduleAvailable(
+          transaction,
+          teacherId,
+          current,
+          groupId,
+        );
       }
       const group = await transaction.group.update({
         where: { id: groupId },
@@ -424,6 +447,57 @@ export class GroupsService {
       });
       return mapGroup(group);
     });
+  }
+
+  private async lockTeacherSchedule(
+    transaction: Prisma.TransactionClient,
+    teacherId: string,
+  ): Promise<void> {
+    await transaction.$executeRaw`
+      SELECT pg_advisory_xact_lock(
+        hashtext('teacher-group-schedule'),
+        hashtext(${teacherId})
+      )
+    `;
+  }
+
+  private async ensureTeacherScheduleAvailable(
+    transaction: Prisma.TransactionClient,
+    teacherId: string,
+    schedule: Pick<
+      GroupInputValues,
+      'endsAtMinutes' | 'scheduleDays' | 'startsAtMinutes'
+    >,
+    excludedGroupId?: string,
+  ): Promise<void> {
+    if (
+      schedule.scheduleDays.length === 0 ||
+      schedule.startsAtMinutes === null ||
+      schedule.endsAtMinutes === null
+    ) {
+      return;
+    }
+
+    const conflictingGroup = await transaction.group.findFirst({
+      where: {
+        ...(excludedGroupId === undefined
+          ? {}
+          : { id: { not: excludedGroupId } }),
+        endsAtMinutes: { gt: schedule.startsAtMinutes },
+        scheduleDays: { hasSome: schedule.scheduleDays },
+        startsAtMinutes: { lt: schedule.endsAtMinutes },
+        status: ContentStatus.ACTIVE,
+        teacherId,
+      },
+      select: { id: true },
+    });
+    if (conflictingGroup !== null) {
+      throw new ApplicationError(
+        ErrorCode.CONFLICT,
+        'The teacher already has an active group during this time',
+        409,
+      );
+    }
   }
 
   private async getGroups(

@@ -72,6 +72,18 @@ export class StudentCurrentGroupObject {
   group!: GroupObject;
 }
 
+@ObjectType('GroupRosterPayment')
+export class GroupRosterPaymentObject {
+  @Field(() => ID)
+  id!: string;
+
+  @Field()
+  amountUzs!: string;
+
+  @Field(() => GraphQLISODateTime)
+  paidAt!: Date;
+}
+
 @ObjectType('GroupRosterMember')
 export class GroupRosterMemberObject {
   @Field(() => ID)
@@ -100,6 +112,9 @@ export class GroupRosterMemberObject {
 
   @Field()
   paidAmountUzs!: string;
+
+  @Field(() => [GroupRosterPaymentObject])
+  recentPayments!: GroupRosterPaymentObject[];
 
   @Field()
   startedAt!: Date;

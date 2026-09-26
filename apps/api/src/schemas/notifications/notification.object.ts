@@ -11,6 +11,10 @@ import { PageInfoObject } from '../pagination/page-info.object';
 export class TeacherDashboardObject {
   @Field(() => Int) activeGroupCount!: number;
   @Field(() => Int) activeStudentCount!: number;
+  @Field(() => Int) newLearnersThisMonth!: number;
+  @Field(() => Int) totalActiveLearners!: number;
+  @Field(() => Int) departedThisMonth!: number;
+  @Field(() => Int) monthsWithBest!: number;
   @Field(() => Int) lessonsToday!: number;
   @Field(() => Int) openTaskCount!: number;
   @Field(() => Int) pendingSubmissionCount!: number;

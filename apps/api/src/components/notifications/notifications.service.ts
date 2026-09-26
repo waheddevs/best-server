@@ -25,11 +25,13 @@ import type {
   TeacherTaskConnectionObject,
   TeacherTaskObject,
 } from '../../schemas/notifications/notification.object';
+import { calculateTeacherDashboardMetrics } from './teacher-dashboard-metrics';
 @Injectable()
 export class NotificationsService {
   constructor(private readonly db: DatabaseService) {}
   async dashboard(teacherId: string): Promise<TeacherDashboardObject> {
-    const start = new Date();
+    const now = new Date();
+    const start = new Date(now);
     start.setHours(0, 0, 0, 0);
     const end = new Date(start);
     end.setDate(end.getDate() + 1);
@@ -40,6 +42,8 @@ export class NotificationsService {
       openTaskCount,
       pendingSubmissionCount,
       unreadNotificationCount,
+      teacher,
+      memberships,
     ] = await Promise.all([
       this.db.group.count({
         where: { teacherId, status: ContentStatus.ACTIVE },
@@ -72,6 +76,21 @@ export class NotificationsService {
       this.db.notification.count({
         where: { recipientId: teacherId, readAt: null },
       }),
+      this.db.user.findUniqueOrThrow({
+        where: { id: teacherId },
+        select: { createdAt: true },
+      }),
+      this.db.groupMembership.findMany({
+        where: { group: { teacherId } },
+        select: {
+          studentId: true,
+          startedAt: true,
+          endedAt: true,
+          participationStatus: true,
+          group: { select: { status: true } },
+          student: { select: { status: true } },
+        },
+      }),
     ]);
     return {
       activeGroupCount,
@@ -80,6 +99,7 @@ export class NotificationsService {
       openTaskCount,
       pendingSubmissionCount,
       unreadNotificationCount,
+      ...calculateTeacherDashboardMetrics(memberships, teacher.createdAt, now),
     };
   }
   async tasks(
@@ -112,9 +132,15 @@ export class NotificationsService {
     const taskId = parseUuid(input.requestId, 'requestId');
     const title = input.title.trim();
     if (title.length === 0 || title.length > 240) {
-      throw new ApplicationError(ErrorCode.BAD_USER_INPUT, 'Invalid task title', 400);
+      throw new ApplicationError(
+        ErrorCode.BAD_USER_INPUT,
+        'Invalid task title',
+        400,
+      );
     }
-    const existing = await this.db.teacherTask.findUnique({ where: { id: taskId } });
+    const existing = await this.db.teacherTask.findUnique({
+      where: { id: taskId },
+    });
     if (existing !== null) {
       if (existing.teacherId !== teacherId || existing.title !== title) {
         throw notFound('task');
@@ -122,7 +148,11 @@ export class NotificationsService {
       return existing;
     }
     const teacher = await this.db.user.findFirst({
-      where: { id: teacherId, role: UserRole.TEACHER, status: UserStatus.ACTIVE },
+      where: {
+        id: teacherId,
+        role: UserRole.TEACHER,
+        status: UserStatus.ACTIVE,
+      },
       select: { id: true },
     });
     if (teacher === null) throw notFound('teacher');

@@ -66,7 +66,14 @@ const MEMBERSHIP_SELECT = {
   tuitionCharges: {
     select: {
       adjustments: { select: { amountUzs: true, kind: true } },
-      allocations: { select: { amountUzs: true } },
+      allocations: {
+        select: {
+          amountUzs: true,
+          payment: {
+            select: { amountUzs: true, id: true, paidAt: true },
+          },
+        },
+      },
       amountUzs: true,
       billingMonth: true,
       dueDate: true,
@@ -229,10 +236,11 @@ export class MembershipsService {
       where: {
         groupId,
         ...(includeEnded ? {} : { endedAt: null }),
-        ...(normalizedSearch === undefined
-          ? {}
-          : {
-              student: {
+        student: {
+          status: { not: UserStatus.DELETED },
+          ...(normalizedSearch === undefined
+            ? {}
+            : {
                 OR: [
                   {
                     displayName: {
@@ -247,8 +255,8 @@ export class MembershipsService {
                     phone: { contains: normalizedSearch, mode: 'insensitive' },
                   },
                 ],
-              },
-            }),
+              }),
+        },
       },
       orderBy: { id: 'asc' },
       take: pageSize + 1,
@@ -279,7 +287,7 @@ export class MembershipsService {
     const groupId = parseUuid(groupIdInput, 'groupId');
     await this.requireOwnedGroup(teacherId, groupId);
     const memberships = await this.database.groupMembership.findMany({
-      where: { groupId },
+      where: { groupId, student: { status: { not: UserStatus.DELETED } } },
       select: MEMBERSHIP_SELECT,
     });
     const now = new Date();
@@ -385,6 +393,60 @@ export class MembershipsService {
           reason,
           targetId: membershipId,
           targetType: 'GROUP_MEMBERSHIP',
+        },
+      });
+      return mapMembership(membership);
+    });
+  }
+
+  async deleteTeacherStudent(
+    teacherId: string,
+    membershipIdInput: string,
+    correlationId?: string,
+  ): Promise<GroupRosterMemberObject> {
+    const membershipId = parseUuid(membershipIdInput, 'membershipId');
+    return this.database.$transaction(async (transaction) => {
+      await transaction.$queryRaw`SELECT id FROM group_memberships WHERE id = ${membershipId}::uuid FOR UPDATE`;
+      const current = await transaction.groupMembership.findFirst({
+        where: {
+          endedAt: null,
+          group: { status: ContentStatus.ACTIVE, teacherId },
+          id: membershipId,
+          student: { role: UserRole.STUDENT, status: UserStatus.ACTIVE },
+        },
+        select: MEMBERSHIP_SELECT,
+      });
+      if (current === null) throw inaccessibleMembershipError();
+
+      const updated = await transaction.user.updateMany({
+        where: {
+          id: current.student.id,
+          role: UserRole.STUDENT,
+          status: UserStatus.ACTIVE,
+        },
+        data: { status: UserStatus.DELETED },
+      });
+      if (updated.count !== 1) throw inaccessibleMembershipError();
+
+      const endedAt = new Date();
+      const membership = await transaction.groupMembership.update({
+        where: { id: membershipId },
+        data: { endedAt },
+        select: MEMBERSHIP_SELECT,
+      });
+      await transaction.auditLog.create({
+        data: {
+          action: 'TEACHER_STUDENT_SOFT_DELETED',
+          actorId: teacherId,
+          correlationId: correlationId ?? null,
+          newValues: {
+            endedAt: endedAt.toISOString(),
+            membershipId,
+            status: UserStatus.DELETED,
+          },
+          oldValues: { endedAt: null, status: UserStatus.ACTIVE },
+          targetId: current.student.id,
+          targetType: 'USER',
         },
       });
       return mapMembership(membership);
@@ -617,6 +679,7 @@ export class MembershipsService {
             endedAt: null,
             groupId: current.fromGroup.id,
             studentId: current.student.id,
+            student: { status: UserStatus.ACTIVE },
           },
           select: { id: true },
         });
@@ -726,6 +789,22 @@ function mapMembership(
       )
     );
   }, 0n);
+  const recentPayments = [
+    ...new Map(
+      membership.tuitionCharges.flatMap((charge) =>
+        charge.allocations.map(
+          (allocation) => [allocation.payment.id, allocation.payment] as const,
+        ),
+      ),
+    ).values(),
+  ]
+    .sort((left, right) => right.paidAt.getTime() - left.paidAt.getTime())
+    .slice(0, 20)
+    .map((payment) => ({
+      amountUzs: payment.amountUzs.toString(),
+      id: payment.id,
+      paidAt: payment.paidAt,
+    }));
   return {
     displayName: membership.student.displayName,
     email: membership.student.email,
@@ -734,6 +813,7 @@ function mapMembership(
     outstandingBalanceUzs: outstandingBalanceUzs.toString(),
     paidAmountUzs: paidAmountUzs.toString(),
     phone: membership.student.phone,
+    recentPayments,
     rosterStatus: getRosterStatus(membership, now, outstandingBalanceUzs),
     startedAt: membership.startedAt,
     status: membership.student.status,

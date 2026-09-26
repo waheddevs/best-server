@@ -24,6 +24,7 @@ import {
   ReviewStudentTransferInput,
   SetGroupMembershipParticipationStatusInput,
   TeacherCreateStudentInGroupInput,
+  TeacherDeleteStudentInput,
 } from '../../schemas/groups/membership.input';
 import { TeacherGroupRosterSummaryObject } from '../../schemas/groups/group.object';
 import { AuthMember } from '../auth/decorators/auth-member.decorator';
@@ -143,6 +144,25 @@ export class MembershipsResolver {
       membership: await this.membershipsService.createStudentInGroup(
         teacherId,
         input,
+        context.req.requestId,
+      ),
+    };
+  }
+
+  @Mutation(() => MembershipMutationPayloadObject, {
+    name: 'teacherDeleteStudent',
+  })
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER)
+  async teacherDeleteStudent(
+    @AuthMember('id') teacherId: string,
+    @Args('input') input: TeacherDeleteStudentInput,
+    @Context() context: ApiGraphqlContext,
+  ): Promise<MembershipMutationPayloadObject> {
+    return {
+      membership: await this.membershipsService.deleteTeacherStudent(
+        teacherId,
+        input.membershipId,
         context.req.requestId,
       ),
     };
