@@ -86,6 +86,35 @@ refresh token per session, while consumed token rows retain reuse-detection
 history. See `CREDENTIAL_REFRESH_SESSION_DATA_DESIGN.md` for rotation,
 concurrency, expiry, audit, and rollback decisions.
 
+## Media archive type migration
+
+`20260923030000_media_archive_type` adds `ARCHIVE` to the PostgreSQL
+`MediaType` enum so malware-scanned ZIP files can be attached to Teacher lesson
+materials and tasks. Existing media rows are unchanged. Rollback should disable
+ZIP uploads in application code and retain the unused enum value; removing a
+deployed PostgreSQL enum value requires a separately reviewed forward migration.
+
+## BEST LC Academic Test migration
+
+`20260923040000_best_lc_academic_tests` adds the approved paper/skill hierarchy,
+version-owned sections, typed response shapes, Teacher review records, and
+released Reading/Listening evidence offsets. Existing standalone tests and
+single-choice answers remain unchanged. The only relaxed legacy constraint is
+that `attempt_answers.selected_option_id` becomes nullable so text, selection,
+and private audio responses can use the same versioned attempt lifecycle.
+
+Apply this migration before deploying the expanded API or scoring worker. A
+rollback deploys the prior application versions and retains the additive schema;
+enum removal or response-data conversion requires a reviewed forward migration.
+See `BEST_LC_ACADEMIC_TEST_DATA_DESIGN.md` for ownership, privacy, publication,
+and result-release decisions.
+
+`20260923041000_best_lc_academic_publish_rules` is the forward-only follow-up
+that replaces the legacy single-choice-only publish check. It validates each
+question kind against `objective-v2` or `manual-rubric-v1`, requires paper-owned
+sections, and rejects released evidence offsets outside the immutable section
+content. The already deployed preceding migration is intentionally unchanged.
+
 ## Apply and inspect
 
 With PostgreSQL running and `DATABASE_URL` set in the untracked root `.env`:
