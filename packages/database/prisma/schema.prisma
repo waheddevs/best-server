@@ -17,6 +17,7 @@ enum UserRole {
 enum UserStatus {
   ACTIVE
   INACTIVE
+  DELETED
 }
 
 enum AuthProvider {
@@ -34,6 +35,24 @@ enum ContentStatus {
 enum TestVersionStatus {
   DRAFT
   PUBLISHED
+}
+
+enum TestSkill {
+  LISTENING
+  READING
+  WRITING
+  SPEAKING
+}
+
+enum QuestionKind {
+  SINGLE_CHOICE
+  MULTIPLE_CHOICE
+  SHORT_TEXT
+  TRUE_FALSE_NOT_GIVEN
+  YES_NO_NOT_GIVEN
+  MATCHING
+  LONG_TEXT
+  AUDIO_RESPONSE
 }
 
 enum Language {
@@ -64,6 +83,7 @@ enum MediaType {
   IMAGE
   AUDIO
   VIDEO
+  ARCHIVE
 }
 
 enum MediaObjectStatus {
@@ -153,6 +173,11 @@ enum LessonStatus {
   SCHEDULED
   COMPLETED
   CANCELLED
+}
+
+enum LessonMaterialKind {
+  MATERIAL
+  TASK
 }
 
 enum AttendanceStatus {
@@ -249,7 +274,9 @@ model User {
   ownedGroups               Group[]                    @relation("GroupTeacher")
   groupMemberships          GroupMembership[]          @relation("StudentMembership")
   createdTestCategories     TestCategory[]             @relation("TestCategoryCreator")
+  createdTestPapers         TestPaper[]                @relation("TestPaperCreator")
   attempts                  Attempt[]                  @relation("StudentAttempts")
+  reviewedAttempts          AttemptReview[]            @relation("AttemptReviewer")
   receivedAttemptGrants     AttemptGrant[]             @relation("AttemptGrantStudent")
   issuedAttemptGrants       AttemptGrant[]             @relation("AttemptGrantActor")
   createdLibraryCategories  LibraryCategory[]          @relation("LibraryCategoryCreator")
@@ -371,6 +398,7 @@ model Group {
   teacher            User                     @relation("GroupTeacher", fields: [teacherId], references: [id], onDelete: Restrict)
   memberships        GroupMembership[]
   tests              Test[]
+  testPapers         TestPaper[]
   libraryAccesses    LibraryGroupAccess[]
   tuitionRates       GroupTuitionRate[]
   tuitionOverrides   StudentTuitionOverride[]
@@ -444,21 +472,47 @@ model TestCategory {
   @@map("test_categories")
 }
 
+model TestPaper {
+  id           String        @id @default(uuid()) @db.Uuid
+  groupId      String        @map("group_id") @db.Uuid
+  createdById  String        @map("created_by_id") @db.Uuid
+  slug         String        @db.VarChar(160)
+  academicYear Int           @map("academic_year")
+  title        String        @db.VarChar(240)
+  sourceLabel  String        @map("source_label") @db.Text
+  status       ContentStatus @default(ACTIVE)
+  archivedAt   DateTime?     @map("archived_at") @db.Timestamptz(3)
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  group        Group         @relation(fields: [groupId], references: [id], onDelete: Restrict)
+  createdBy    User          @relation("TestPaperCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  tests        Test[]
+
+  @@unique([groupId, slug])
+  @@index([groupId, academicYear, status])
+  @@map("test_papers")
+}
+
 model Test {
   id         String         @id @default(uuid()) @db.Uuid
   groupId    String         @map("group_id") @db.Uuid
   categoryId String         @map("category_id") @db.Uuid
+  paperId    String?        @map("paper_id") @db.Uuid
+  skill      TestSkill?
   status     ContentStatus  @default(ACTIVE)
   archivedAt DateTime?      @map("archived_at") @db.Timestamptz(3)
   createdAt  DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt  DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
   group      Group          @relation(fields: [groupId], references: [id], onDelete: Restrict)
   category   TestCategory   @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  paper      TestPaper?     @relation(fields: [paperId], references: [id], onDelete: Restrict)
   versions   TestVersion[]
   grants     AttemptGrant[]
 
+  @@unique([paperId, skill])
   @@index([groupId, status])
   @@index([categoryId])
+  @@index([paperId])
   @@map("tests")
 }
 
@@ -480,11 +534,43 @@ model TestVersion {
   test                 Test              @relation(fields: [testId], references: [id], onDelete: Restrict)
   translations         TestTranslation[]
   questions            Question[]
+  sections             TestSection[]
   attempts             Attempt[]
 
   @@unique([testId, version])
   @@index([status, availabilityStartsAt, availabilityEndsAt])
   @@map("test_versions")
+}
+
+model TestSection {
+  id            String                   @id @default(uuid()) @db.Uuid
+  testVersionId String                   @map("test_version_id") @db.Uuid
+  position      Int
+  mediaObjectId String?                  @map("media_object_id") @db.Uuid
+  createdAt     DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
+  testVersion   TestVersion              @relation(fields: [testVersionId], references: [id], onDelete: Cascade)
+  mediaObject   MediaObject?             @relation("TestSectionMedia", fields: [mediaObjectId], references: [id], onDelete: Restrict)
+  translations  TestSectionTranslation[]
+  questions     Question[]
+  evidence      QuestionEvidence[]
+
+  @@unique([testVersionId, position])
+  @@index([mediaObjectId])
+  @@map("test_sections")
+}
+
+model TestSectionTranslation {
+  id            String      @id @default(uuid()) @db.Uuid
+  testSectionId String      @map("test_section_id") @db.Uuid
+  language      Language
+  title         String      @db.VarChar(240)
+  instructions  String      @db.Text
+  content       String?     @db.Text
+  testSection   TestSection @relation(fields: [testSectionId], references: [id], onDelete: Cascade)
+
+  @@unique([testSectionId, language])
+  @@map("test_section_translations")
 }
 
 model TestTranslation {
@@ -500,17 +586,50 @@ model TestTranslation {
 }
 
 model Question {
-  id            String                @id @default(uuid()) @db.Uuid
-  testVersionId String                @map("test_version_id") @db.Uuid
-  position      Int
-  createdAt     DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
-  testVersion   TestVersion           @relation(fields: [testVersionId], references: [id], onDelete: Cascade)
-  translations  QuestionTranslation[]
-  options       AnswerOption[]
-  answers       AttemptAnswer[]
+  id              String                   @id @default(uuid()) @db.Uuid
+  testVersionId   String                   @map("test_version_id") @db.Uuid
+  sectionId       String?                  @map("section_id") @db.Uuid
+  kind            QuestionKind             @default(SINGLE_CHOICE)
+  answerLimit     Int?                     @map("answer_limit")
+  maxSelections   Int?                     @map("max_selections")
+  position        Int
+  createdAt       DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  testVersion     TestVersion              @relation(fields: [testVersionId], references: [id], onDelete: Cascade)
+  section         TestSection?             @relation(fields: [sectionId], references: [id], onDelete: Restrict)
+  translations    QuestionTranslation[]
+  options         AnswerOption[]
+  answers         AttemptAnswer[]
+  acceptedAnswers QuestionAcceptedAnswer[]
+  evidence        QuestionEvidence?
 
   @@unique([testVersionId, position])
+  @@index([sectionId, position])
   @@map("questions")
+}
+
+model QuestionAcceptedAnswer {
+  id              String   @id @default(uuid()) @db.Uuid
+  questionId      String   @map("question_id") @db.Uuid
+  position        Int
+  normalizedValue String   @map("normalized_value") @db.VarChar(500)
+  question        Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([questionId, position])
+  @@unique([questionId, normalizedValue])
+  @@map("question_accepted_answers")
+}
+
+model QuestionEvidence {
+  id          String      @id @default(uuid()) @db.Uuid
+  questionId  String      @unique @map("question_id") @db.Uuid
+  sectionId   String      @map("section_id") @db.Uuid
+  startOffset Int         @map("start_offset")
+  endOffset   Int         @map("end_offset")
+  question    Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  section     TestSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  @@index([sectionId])
+  @@map("question_evidence")
 }
 
 model QuestionTranslation {
@@ -525,13 +644,14 @@ model QuestionTranslation {
 }
 
 model AnswerOption {
-  id           String                    @id @default(uuid()) @db.Uuid
-  questionId   String                    @map("question_id") @db.Uuid
-  position     Int
-  isCorrect    Boolean                   @default(false) @map("is_correct")
-  question     Question                  @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  translations AnswerOptionTranslation[]
-  answers      AttemptAnswer[]
+  id               String                    @id @default(uuid()) @db.Uuid
+  questionId       String                    @map("question_id") @db.Uuid
+  position         Int
+  isCorrect        Boolean                   @default(false) @map("is_correct")
+  question         Question                  @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  translations     AnswerOptionTranslation[]
+  answers          AttemptAnswer[]
+  answerSelections AttemptAnswerSelection[]
 
   @@unique([questionId, position])
   @@map("answer_options")
@@ -571,6 +691,7 @@ model Attempt {
   student            User                     @relation("StudentAttempts", fields: [studentId], references: [id], onDelete: Restrict)
   groupMembership    GroupMembership          @relation(fields: [groupMembershipId], references: [id], onDelete: Restrict)
   answers            AttemptAnswer[]
+  review             AttemptReview?
 
   @@unique([studentId, testVersionId, attemptNumber])
   @@index([testVersionId, status])
@@ -579,18 +700,55 @@ model Attempt {
 }
 
 model AttemptAnswer {
-  id               String       @id @default(uuid()) @db.Uuid
-  attemptId        String       @map("attempt_id") @db.Uuid
-  questionId       String       @map("question_id") @db.Uuid
-  selectedOptionId String       @map("selected_option_id") @db.Uuid
-  savedAt          DateTime     @default(now()) @map("saved_at") @db.Timestamptz(3)
-  attempt          Attempt      @relation(fields: [attemptId], references: [id], onDelete: Cascade)
-  question         Question     @relation(fields: [questionId], references: [id], onDelete: Restrict)
-  selectedOption   AnswerOption @relation(fields: [selectedOptionId], references: [id], onDelete: Restrict)
+  id                    String                   @id @default(uuid()) @db.Uuid
+  attemptId             String                   @map("attempt_id") @db.Uuid
+  questionId            String                   @map("question_id") @db.Uuid
+  selectedOptionId      String?                  @map("selected_option_id") @db.Uuid
+  textValue             String?                  @map("text_value") @db.Text
+  responseMediaObjectId String?                  @map("response_media_object_id") @db.Uuid
+  savedAt               DateTime                 @default(now()) @map("saved_at") @db.Timestamptz(3)
+  attempt               Attempt                  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question              Question                 @relation(fields: [questionId], references: [id], onDelete: Restrict)
+  selectedOption        AnswerOption?            @relation(fields: [selectedOptionId], references: [id], onDelete: Restrict)
+  responseMediaObject   MediaObject?             @relation("AttemptAnswerMedia", fields: [responseMediaObjectId], references: [id], onDelete: Restrict)
+  selections            AttemptAnswerSelection[]
 
   @@unique([attemptId, questionId])
   @@index([selectedOptionId])
+  @@index([responseMediaObjectId])
   @@map("attempt_answers")
+}
+
+model AttemptAnswerSelection {
+  attemptAnswerId String        @map("attempt_answer_id") @db.Uuid
+  answerOptionId  String        @map("answer_option_id") @db.Uuid
+  position        Int
+  attemptAnswer   AttemptAnswer @relation(fields: [attemptAnswerId], references: [id], onDelete: Cascade)
+  answerOption    AnswerOption  @relation(fields: [answerOptionId], references: [id], onDelete: Restrict)
+
+  @@id([attemptAnswerId, answerOptionId])
+  @@unique([attemptAnswerId, position])
+  @@index([answerOptionId])
+  @@map("attempt_answer_selections")
+}
+
+model AttemptReview {
+  id            String    @id @default(uuid()) @db.Uuid
+  attemptId     String    @unique @map("attempt_id") @db.Uuid
+  reviewerId    String    @map("reviewer_id") @db.Uuid
+  rubricVersion String    @map("rubric_version") @db.VarChar(80)
+  rubricScores  Json      @map("rubric_scores")
+  practiceBand  Decimal   @map("practice_band") @db.Decimal(2, 1)
+  feedback      String?   @db.Text
+  reviewedAt    DateTime  @map("reviewed_at") @db.Timestamptz(3)
+  releasedAt    DateTime? @map("released_at") @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  attempt       Attempt   @relation(fields: [attemptId], references: [id], onDelete: Restrict)
+  reviewer      User      @relation("AttemptReviewer", fields: [reviewerId], references: [id], onDelete: Restrict)
+
+  @@index([reviewerId, releasedAt, reviewedAt])
+  @@map("attempt_reviews")
 }
 
 model AttemptGrant {
@@ -701,6 +859,8 @@ model MediaObject {
   eventCovers             PublicEvent[]
   submissionAttachments   AssignmentSubmission[]
   importSourceDocument    ImportSourceDocument?
+  testSections            TestSection[]          @relation("TestSectionMedia")
+  attemptAnswerResponses  AttemptAnswer[]        @relation("AttemptAnswerMedia")
 
   @@index([createdById, mediaType])
   @@index([status, uploadExpiresAt])
@@ -726,9 +886,11 @@ model Lesson {
   groupId      String              @map("group_id") @db.Uuid
   createdById  String              @map("created_by_id") @db.Uuid
   status       LessonStatus        @default(DRAFT)
+  lessonNumber Int                 @map("lesson_number")
   startsAt     DateTime            @map("starts_at") @db.Timestamptz(3)
   endsAt       DateTime            @map("ends_at") @db.Timestamptz(3)
   room         String?             @db.VarChar(80)
+  archivedAt   DateTime?           @map("archived_at") @db.Timestamptz(3)
   createdAt    DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
   group        Group               @relation(fields: [groupId], references: [id], onDelete: Restrict)
@@ -738,7 +900,9 @@ model Lesson {
   materials    LessonMaterial[]
   assignments  Assignment[]
 
+  @@unique([groupId, lessonNumber])
   @@index([groupId, startsAt])
+  @@index([groupId, archivedAt, lessonNumber])
   @@index([createdById, startsAt])
   @@map("lessons")
 }
@@ -773,22 +937,24 @@ model LessonAttendance {
 }
 
 model LessonMaterial {
-  id            String      @id @default(uuid()) @db.Uuid
-  groupId       String      @map("group_id") @db.Uuid
-  lessonId      String?     @map("lesson_id") @db.Uuid
-  libraryItemId String      @map("library_item_id") @db.Uuid
-  createdById   String      @map("created_by_id") @db.Uuid
-  position      Int         @default(1)
-  archivedAt    DateTime?   @map("archived_at") @db.Timestamptz(3)
-  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt     DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
-  group         Group       @relation(fields: [groupId], references: [id], onDelete: Restrict)
-  lesson        Lesson?     @relation(fields: [lessonId], references: [id], onDelete: SetNull)
-  libraryItem   LibraryItem @relation(fields: [libraryItemId], references: [id], onDelete: Restrict)
-  createdBy     User        @relation("MaterialCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  id            String             @id @default(uuid()) @db.Uuid
+  groupId       String             @map("group_id") @db.Uuid
+  lessonId      String?            @map("lesson_id") @db.Uuid
+  libraryItemId String             @map("library_item_id") @db.Uuid
+  createdById   String             @map("created_by_id") @db.Uuid
+  kind          LessonMaterialKind @default(MATERIAL)
+  position      Int                @default(1)
+  archivedAt    DateTime?          @map("archived_at") @db.Timestamptz(3)
+  createdAt     DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+  group         Group              @relation(fields: [groupId], references: [id], onDelete: Restrict)
+  lesson        Lesson?            @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+  libraryItem   LibraryItem        @relation(fields: [libraryItemId], references: [id], onDelete: Restrict)
+  createdBy     User               @relation("MaterialCreator", fields: [createdById], references: [id], onDelete: Restrict)
 
   @@unique([groupId, libraryItemId])
   @@index([lessonId, position])
+  @@index([lessonId, kind, position])
   @@map("lesson_materials")
 }
 

@@ -8,6 +8,7 @@ import {
   ContentStatus,
   GroupMembershipStatus,
   Language,
+  LessonMaterialKind,
   LessonStatus,
   LibraryVisibility,
   MediaMalwareStatus,
@@ -21,9 +22,11 @@ import {
   PublicCourseAccent,
   PublicCourseCategory,
   PublicEventTimelineStatus,
+  QuestionKind,
   SubmissionStatus,
   TeacherTaskKind,
   TeacherTaskStatus,
+  TestSkill,
   TestVersionStatus,
 } from '@best/database';
 import { ApolloDriver, type ApolloDriverConfig } from '@nestjs/apollo';
@@ -51,6 +54,7 @@ registerEnumType(MediaObjectStatus, { name: 'MediaObjectStatus' });
 registerEnumType(MediaMalwareStatus, { name: 'MediaMalwareStatus' });
 registerEnumType(TransferRequestStatus, { name: 'TransferRequestStatus' });
 registerEnumType(LessonStatus, { name: 'LessonStatus' });
+registerEnumType(LessonMaterialKind, { name: 'LessonMaterialKind' });
 registerEnumType(AttendanceStatus, { name: 'AttendanceStatus' });
 registerEnumType(AssignmentStatus, { name: 'AssignmentStatus' });
 registerEnumType(SubmissionStatus, { name: 'SubmissionStatus' });
@@ -64,6 +68,8 @@ registerEnumType(IntakeStatus, { name: 'IntakeStatus' });
 registerEnumType(TeacherTaskKind, { name: 'TeacherTaskKind' });
 registerEnumType(TeacherTaskStatus, { name: 'TeacherTaskStatus' });
 registerEnumType(TestVersionStatus, { name: 'TestVersionStatus' });
+registerEnumType(TestSkill, { name: 'TestSkill' });
+registerEnumType(QuestionKind, { name: 'QuestionKind' });
 
 const SCHEMA_PATH = resolve(
   __dirname,
