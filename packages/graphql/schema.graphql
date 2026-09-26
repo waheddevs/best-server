@@ -477,6 +477,7 @@ input CreateLessonInput {
 
 input CreateLessonMaterialInput {
   groupId: ID!
+  kind: LessonMaterialKind! = MATERIAL
   lessonId: ID
   libraryItemId: ID!
   position: Int! = 1
@@ -636,6 +637,7 @@ type GroupRosterMember {
   outstandingBalanceUzs: String!
   paidAmountUzs: String!
   phone: String
+  recentPayments: [GroupRosterPayment!]!
   rosterStatus: GroupRosterStatus!
   startedAt: DateTime!
   status: UserStatus!
@@ -645,6 +647,12 @@ type GroupRosterMember {
 type GroupRosterMemberEdge {
   cursor: String!
   node: GroupRosterMember!
+}
+
+type GroupRosterPayment {
+  amountUzs: String!
+  id: ID!
+  paidAt: DateTime!
 }
 
 enum GroupRosterStatus {
@@ -693,10 +701,12 @@ enum Language {
 }
 
 type Lesson {
+  archivedAt: DateTime
   createdAt: DateTime!
   endsAt: DateTime!
   groupId: ID!
   id: ID!
+  lessonNumber: Int!
   room: String
   startsAt: DateTime!
   status: LessonStatus!
@@ -736,11 +746,15 @@ type LessonEdge {
 type LessonMaterial {
   archivedAt: DateTime
   createdAt: DateTime!
+  description: String
   groupId: ID!
   id: ID!
+  kind: LessonMaterialKind!
   lessonId: ID
   libraryItemId: ID!
+  mediaObject: MediaObject!
   position: Int!
+  title: String!
   updatedAt: DateTime!
 }
 
@@ -752,6 +766,11 @@ type LessonMaterialConnection {
 type LessonMaterialEdge {
   cursor: String!
   node: LessonMaterial!
+}
+
+enum LessonMaterialKind {
+  MATERIAL
+  TASK
 }
 
 type LessonMaterialPayload {
@@ -868,6 +887,7 @@ enum MediaObjectStatus {
 }
 
 enum MediaType {
+  ARCHIVE
   AUDIO
   IMAGE
   PDF
@@ -945,6 +965,7 @@ type Mutation {
   setCourseStatus(input: SetPublicCourseStatusInput!): PublicCoursePayload!
   setEventStatus(input: SetPublicEventStatusInput!): PublicEventPayload!
   setGroupMembershipParticipationStatus(input: SetGroupMembershipParticipationStatusInput!): MembershipMutationPayload!
+  setLessonArchived(input: SetLessonArchivedInput!): LessonPayload!
   setLessonMaterialArchived(input: SetLessonMaterialArchivedInput!): LessonMaterialPayload!
   setLessonStatus(input: SetLessonStatusInput!): LessonPayload!
   setLibraryCategoryArchived(input: SetLibraryCategoryArchivedInput!): LibraryCategoryPayload!
@@ -957,6 +978,7 @@ type Mutation {
   submitExamRegistration(input: SubmitExamRegistrationInput!): PublicSubmissionReceipt!
   submitTestAttempt(input: SubmitTestAttemptInput!, language: Language!): SubmitTestAttemptPayload!
   teacherCreateStudentInGroup(input: TeacherCreateStudentInGroupInput!): MembershipMutationPayload!
+  teacherDeleteStudent(input: TeacherDeleteStudentInput!): MembershipMutationPayload!
   updateAssignment(input: UpdateAssignmentInput!): AssignmentPayload!
   updateCourseDraft(input: UpdateCourseInput!): PublicCoursePayload!
   updateEventDraft(input: UpdateEventInput!): PublicEventPayload!
@@ -1245,9 +1267,12 @@ type Query {
   studentLibraryItem(language: Language!, libraryItemId: ID!): StudentLibraryItem!
   studentLibraryItems(after: String, categoryId: ID, first: Int, language: Language!): StudentLibraryItemConnection!
   studentProgress: StudentProgress!
+  studentReleasedAttemptResult(attemptId: ID!): StudentReleasedAttemptResult!
   studentResults(after: String, first: Int, language: Language!): StudentResultConnection!
   studentSchedule(from: DateTime!, to: DateTime!): [Lesson!]!
   studentTest(language: Language!, testId: ID!): StudentTest!
+  studentTestPaper(paperId: ID!): StudentTestPaper!
+  studentTestPapers(after: String, first: Int): StudentTestPaperConnection!
   studentTuitionLedger(after: String, first: Int): TuitionLedgerConnection!
   teacherAssignment(assignmentId: ID!): Assignment!
   teacherAssignmentSubmissions(after: String, assignmentId: ID!, first: Int, status: SubmissionStatus): AssignmentSubmissionConnection!
@@ -1258,7 +1283,7 @@ type Query {
   teacherGroup(groupId: ID!): Group!
   teacherGroupAssignments(after: String, first: Int, groupId: ID!, status: AssignmentStatus): AssignmentConnection!
   teacherGroupLessons(after: String, first: Int, groupId: ID!, status: LessonStatus): LessonConnection!
-  teacherGroupMaterials(after: String, first: Int, groupId: ID!): LessonMaterialConnection!
+  teacherGroupMaterials(after: String, first: Int, groupId: ID!, language: Language! = EN): LessonMaterialConnection!
   teacherGroupOverview(groupId: ID!): TeacherGroupOverview!
   teacherGroupProgress(groupId: ID!): TeacherGroupProgress!
   teacherGroupRoster(after: String, first: Int, groupId: ID!, includeEnded: Boolean = false, search: String): GroupRosterConnection!
@@ -1274,10 +1299,22 @@ type Query {
   teacherTasks(after: String, first: Int, kind: TeacherTaskKind, status: TeacherTaskStatus): TeacherTaskConnection!
   teacherTestCategories: [TestCategory!]!
   teacherTestDraft(testId: ID!): TeacherTestVersion!
+  teacherTestPapers(groupId: ID!): [TeacherTestPaper!]!
   teacherTestVersion(testVersionId: ID!): TeacherTestVersion!
   teacherTests(after: String, first: Int, groupId: ID, search: String, status: ContentStatus): TeacherTestConnection!
   teacherTransferRequests(after: String, first: Int, status: TransferRequestStatus): GroupTransferRequestConnection!
   viewer: Viewer!
+}
+
+enum QuestionKind {
+  AUDIO_RESPONSE
+  LONG_TEXT
+  MATCHING
+  MULTIPLE_CHOICE
+  SHORT_TEXT
+  SINGLE_CHOICE
+  TRUE_FALSE_NOT_GIVEN
+  YES_NO_NOT_GIVEN
 }
 
 input QuestionTranslationInput {
@@ -1356,7 +1393,10 @@ input RevokeCredentialSessionInput {
 input SaveAttemptAnswerInput {
   attemptId: ID!
   questionId: ID!
-  selectedOptionId: ID!
+  responseMediaObjectId: ID
+  selectedOptionId: ID
+  selectedOptionIds: [ID!]
+  textValue: String
 }
 
 type SaveAttemptAnswerPayload {
@@ -1373,6 +1413,11 @@ input SetIntakeStatusInput {
   intakeId: ID!
   reviewNote: String!
   status: IntakeStatus!
+}
+
+input SetLessonArchivedInput {
+  archived: Boolean!
+  lessonId: ID!
 }
 
 input SetLessonMaterialArchivedInput {
@@ -1442,7 +1487,9 @@ type StudentAttempt {
   language: Language!
   questions: [StudentQuestion!]!
   result: StudentAttemptResult
+  sections: [StudentTestSection!]!
   serverTime: DateTime!
+  skill: TestSkill
   startedAt: DateTime!
   status: AttemptStatus!
   submittedAt: DateTime
@@ -1501,10 +1548,45 @@ type StudentProgress {
 }
 
 type StudentQuestion {
+  answerLimit: Int
   id: ID!
+  kind: QuestionKind!
+  maxSelections: Int
   options: [StudentAnswerOption!]!
   position: Int!
   prompt: String!
+  sectionId: ID
+}
+
+type StudentReleasedAttemptResult {
+  answers: [StudentReleasedResultAnswer!]!
+  attemptId: ID!
+  correctAnswerCount: Int!
+  percentage: Float!
+  sections: [StudentReleasedResultSection!]!
+  skill: TestSkill!
+  testId: ID!
+  title: String!
+  totalQuestionCount: Int!
+}
+
+type StudentReleasedResultAnswer {
+  correctAnswer: [String!]!
+  evidenceEndOffset: Int
+  evidenceStartOffset: Int
+  isCorrect: Boolean!
+  position: Int!
+  prompt: String!
+  questionId: ID!
+  sectionId: ID
+  studentAnswer: [String!]!
+}
+
+type StudentReleasedResultSection {
+  content: String!
+  id: ID!
+  position: Int!
+  title: String!
 }
 
 type StudentResult {
@@ -1514,6 +1596,7 @@ type StudentResult {
   highestPercentage: Float!
   passed: Boolean!
   percentage: Float!
+  skill: TestSkill
   submittedAt: DateTime!
   testId: ID!
   title: String!
@@ -1532,8 +1615,11 @@ type StudentResultEdge {
 
 type StudentSavedAnswer {
   questionId: ID!
+  responseMediaObjectId: ID
   savedAt: DateTime!
-  selectedOptionId: ID!
+  selectedOptionId: ID
+  selectedOptionIds: [ID!]!
+  textValue: String
 }
 
 type StudentTest {
@@ -1559,6 +1645,46 @@ type StudentTestConnection {
 type StudentTestEdge {
   cursor: String!
   node: StudentTest!
+}
+
+type StudentTestPaper {
+  academicYear: Int!
+  id: ID!
+  skills: [StudentTestPaperSkill!]!
+  slug: String!
+  sourceLabel: String!
+  title: String!
+}
+
+type StudentTestPaperConnection {
+  edges: [StudentTestPaperEdge!]!
+  pageInfo: PageInfo!
+}
+
+type StudentTestPaperEdge {
+  cursor: String!
+  node: StudentTestPaper!
+}
+
+type StudentTestPaperSkill {
+  attemptId: ID
+  attemptStatus: AttemptStatus
+  description: String
+  durationMinutes: Int
+  questionCount: Int!
+  skill: TestSkill!
+  testId: ID!
+  testVersionId: ID!
+  title: String!
+}
+
+type StudentTestSection {
+  content: String
+  id: ID!
+  instructions: String!
+  mediaObjectId: ID
+  position: Int!
+  title: String!
 }
 
 enum SubmissionStatus {
@@ -1674,10 +1800,18 @@ input TeacherCreateStudentInGroupInput {
 type TeacherDashboard {
   activeGroupCount: Int!
   activeStudentCount: Int!
+  departedThisMonth: Int!
   lessonsToday: Int!
+  monthsWithBest: Int!
+  newLearnersThisMonth: Int!
   openTaskCount: Int!
   pendingSubmissionCount: Int!
+  totalActiveLearners: Int!
   unreadNotificationCount: Int!
+}
+
+input TeacherDeleteStudentInput {
+  membershipId: ID!
 }
 
 type TeacherGroupOverview {
@@ -1854,6 +1988,26 @@ type TeacherTestEdge {
   node: TeacherTest!
 }
 
+type TeacherTestPaper {
+  academicYear: Int!
+  id: ID!
+  skills: [TeacherTestPaperSkill!]!
+  slug: String!
+  sourceLabel: String!
+  title: String!
+}
+
+type TeacherTestPaperSkill {
+  description: String
+  durationMinutes: Int
+  questionCount: Int!
+  skill: TestSkill!
+  status: TestVersionStatus!
+  testId: ID!
+  testVersionId: ID!
+  title: String!
+}
+
 type TeacherTestPayload {
   test: TeacherTest!
 }
@@ -1899,6 +2053,13 @@ type TestCategory {
 
 type TestCategoryPayload {
   category: TestCategory!
+}
+
+enum TestSkill {
+  LISTENING
+  READING
+  SPEAKING
+  WRITING
 }
 
 input TestTranslationInput {
@@ -1996,6 +2157,7 @@ input UpdateLessonInput {
 
 input UpdateLessonMaterialInput {
   groupId: ID!
+  kind: LessonMaterialKind! = MATERIAL
   lessonId: ID
   libraryItemId: ID!
   materialId: ID!
@@ -2101,6 +2263,7 @@ enum UserRole {
 
 enum UserStatus {
   ACTIVE
+  DELETED
   INACTIVE
 }
 
