@@ -1,5 +1,5 @@
 import { AttemptStatus } from '@best/database';
-import { scoreSingleChoice } from '@best/scoring';
+import { scoreObjective, scoreSingleChoice } from '@best/scoring';
 import { Injectable } from '@nestjs/common';
 
 import { ScoringDatabaseService } from '../database/scoring-database.service';
@@ -16,16 +16,26 @@ export class ScoringService {
       where: { id: attemptId },
       include: {
         answers: {
-          select: { questionId: true, selectedOptionId: true },
+          select: {
+            questionId: true,
+            selectedOptionId: true,
+            selections: { select: { answerOptionId: true } },
+            textValue: true,
+          },
         },
         testVersion: {
           include: {
             questions: {
               orderBy: { position: 'asc' },
               include: {
+                acceptedAnswers: {
+                  orderBy: { position: 'asc' },
+                  select: { normalizedValue: true },
+                },
                 options: {
-                  where: { isCorrect: true },
+                  orderBy: { position: 'asc' },
                   select: { id: true },
+                  where: { isCorrect: true },
                 },
               },
             },
@@ -46,35 +56,92 @@ export class ScoringService {
       throw new Error('Only submitted attempts can be scored');
     }
 
-    const selectedOptionByQuestion = new Map(
-      attempt.answers.map((answer) => [
-        answer.questionId,
-        answer.selectedOptionId,
-      ]),
+    if (attempt.testVersion.scoringRuleVersion === 'manual-rubric-v1') {
+      return;
+    }
+
+    const answerByQuestion = new Map(
+      attempt.answers.map((answer) => [answer.questionId, answer]),
     );
-    const score = scoreSingleChoice({
-      passingPercentage: attempt.testVersion.passingPercentage,
-      questions: attempt.testVersion.questions.map((question) => {
-        const correctOption = question.options[0];
+    const score =
+      attempt.testVersion.scoringRuleVersion === 'single-choice-v1'
+        ? scoreSingleChoice({
+            passingPercentage: attempt.testVersion.passingPercentage,
+            questions: attempt.testVersion.questions.map((question) => {
+              const correctOption = question.options[0];
 
-        if (correctOption === undefined || question.options.length !== 1) {
-          throw new Error('Published question has invalid correct-answer data');
-        }
+              if (
+                correctOption === undefined ||
+                question.options.length !== 1
+              ) {
+                throw new Error(
+                  'Published question has invalid correct-answer data',
+                );
+              }
 
-        const selectedOptionId = selectedOptionByQuestion.get(question.id);
+              const selectedOptionId = answerByQuestion.get(
+                question.id,
+              )?.selectedOptionId;
 
-        return selectedOptionId === undefined
-          ? {
-              correctOptionId: correctOption.id,
-              questionId: question.id,
-            }
-          : {
-              correctOptionId: correctOption.id,
-              questionId: question.id,
-              selectedOptionId,
-            };
-      }),
-    });
+              return selectedOptionId == null
+                ? {
+                    correctOptionId: correctOption.id,
+                    questionId: question.id,
+                  }
+                : {
+                    correctOptionId: correctOption.id,
+                    questionId: question.id,
+                    selectedOptionId,
+                  };
+            }),
+          })
+        : attempt.testVersion.scoringRuleVersion === 'objective-v2'
+          ? scoreObjective({
+              passingPercentage: attempt.testVersion.passingPercentage,
+              questions: attempt.testVersion.questions.map((question) => {
+                const answer = answerByQuestion.get(question.id);
+                const selectedOptionIds = answer?.selections.map(
+                  ({ answerOptionId }) => answerOptionId,
+                ) ??
+                  (answer?.selectedOptionId === null ||
+                  answer?.selectedOptionId === undefined
+                    ? []
+                    : [answer.selectedOptionId]);
+
+                if (question.kind === 'SHORT_TEXT') {
+                  return {
+                    acceptedTextValues: question.acceptedAnswers.map(
+                      ({ normalizedValue }) => normalizedValue,
+                    ),
+                    kind: question.kind,
+                    questionId: question.id,
+                    ...(answer?.textValue === null ||
+                    answer?.textValue === undefined
+                      ? {}
+                      : { textValue: answer.textValue }),
+                  };
+                }
+
+                if (
+                  question.kind === 'LONG_TEXT' ||
+                  question.kind === 'AUDIO_RESPONSE'
+                ) {
+                  throw new Error(
+                    'Objective scoring cannot score a manual-response question',
+                  );
+                }
+
+                return {
+                  correctOptionIds: question.options.map(({ id }) => id),
+                  kind: question.kind,
+                  questionId: question.id,
+                  selectedOptionIds,
+                };
+              }),
+            })
+          : (() => {
+              throw new Error('The scoring rule version is not supported');
+            })();
 
     await this.database.$transaction(async (transaction) => {
       const update = await transaction.attempt.updateMany({

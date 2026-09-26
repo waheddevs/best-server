@@ -175,6 +175,7 @@ async function createScoringFixture(databaseClient: DatabaseClient): Promise<{
       id: groupId,
       name: 'Fake Scoring Group',
       paymentDeadlineDay: 10,
+      slug: `fake-scoring-${groupId}`,
       teacherId,
     },
   });
@@ -338,6 +339,22 @@ async function applyMigrations(connectionString: string): Promise<void> {
       '20260901031000_media_object_updated_at_default',
       '20260901040000_media_malware_scan',
       '20260901041000_fix_media_attachment_trigger',
+      '20260904010000_user_profiles',
+      '20260904020000_groups_memberships_transfers',
+      '20260904030000_learning_public_notifications',
+      '20260904040000_vocabulary_import_pilot',
+      '20260905090000_public_website_content',
+      '20260907010000_credential_email_code_login',
+      '20260915010000_teacher_group_category',
+      '20260915020000_teacher_group_soft_delete',
+      '20260915021000_teacher_group_deleted_archive_constraint',
+      '20260916010000_group_membership_participation_status',
+      '20260916020000_credential_refresh_sessions',
+      '20260923010000_teacher_student_soft_delete',
+      '20260923020000_teacher_lesson_plans',
+      '20260923030000_media_archive_type',
+      '20260923040000_best_lc_academic_tests',
+      '20260923041000_best_lc_academic_publish_rules',
     ]) {
       const sql = await readFile(
         resolve(
