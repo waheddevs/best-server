@@ -11,6 +11,7 @@ import {
 import { SaveAttemptAnswerInput } from '../../schemas/attempts/save-attempt-answer.input';
 import { StartTestAttemptInput } from '../../schemas/attempts/start-test-attempt.input';
 import { StudentAttemptObject } from '../../schemas/attempts/student-attempt.object';
+import { StudentReleasedAttemptResultObject } from '../../schemas/attempts/student-released-attempt-result.object';
 import { SubmitTestAttemptInput } from '../../schemas/attempts/submit-test-attempt.input';
 import { AuthMember } from '../auth/decorators/auth-member.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -22,6 +23,21 @@ import { AttemptsService } from './attempts.service';
 @Resolver()
 export class AttemptsResolver {
   constructor(private readonly attemptsService: AttemptsService) {}
+
+  @Query(() => StudentReleasedAttemptResultObject, {
+    name: 'studentReleasedAttemptResult',
+  })
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.STUDENT)
+  getStudentReleasedAttemptResult(
+    @AuthMember('id') studentId: string,
+    @Args('attemptId', { type: () => ID }) attemptId: string,
+  ): Promise<StudentReleasedAttemptResultObject> {
+    return this.attemptsService.getStudentReleasedAttemptResult(
+      studentId,
+      attemptId,
+    );
+  }
 
   @Query(() => StudentAttemptObject, { name: 'studentAttempt' })
   @UseGuards(AuthGuard, RolesGuard)

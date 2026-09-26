@@ -1,3 +1,4 @@
+import { TestSkill } from '@best/database';
 import {
   Field,
   Float,
@@ -17,6 +18,9 @@ export class StudentResultObject {
 
   @Field(() => String)
   title!: string;
+
+  @Field(() => TestSkill, { nullable: true })
+  skill!: TestSkill | null;
 
   @Field(() => Int)
   attemptNumber!: number;

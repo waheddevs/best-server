@@ -4,6 +4,9 @@ import { Args, ID, Int, Query, Resolver } from '@nestjs/graphql';
 
 import { StudentTestConnectionObject } from '../../schemas/tests/student-test-connection.object';
 import { StudentTestObject } from '../../schemas/tests/student-test.object';
+import { StudentTestPaperConnectionObject } from '../../schemas/tests/student-test-paper-connection.object';
+import { StudentTestPaperObject } from '../../schemas/tests/student-test-paper.object';
+import { TeacherTestPaperObject } from '../../schemas/tests/teacher-test-paper.object';
 import {
   AdminTestSummaryConnectionObject,
   AdminTestSummaryObject,
@@ -18,6 +21,39 @@ import { TestsService } from './tests.service';
 @Resolver()
 export class TestsResolver {
   constructor(private readonly testsService: TestsService) {}
+
+  @Query(() => [TeacherTestPaperObject], { name: 'teacherTestPapers' })
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER)
+  getTeacherTestPapers(
+    @AuthMember('id') teacherId: string,
+    @Args('groupId', { type: () => ID }) groupId: string,
+  ): Promise<TeacherTestPaperObject[]> {
+    return this.testsService.getTeacherTestPapers(teacherId, groupId);
+  }
+
+  @Query(() => StudentTestPaperConnectionObject, {
+    name: 'studentTestPapers',
+  })
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.STUDENT)
+  getStudentTestPapers(
+    @AuthMember('id') studentId: string,
+    @Args('first', { nullable: true, type: () => Int }) first?: number,
+    @Args('after', { nullable: true, type: () => String }) after?: string,
+  ): Promise<StudentTestPaperConnectionObject> {
+    return this.testsService.getStudentTestPapers(studentId, first, after);
+  }
+
+  @Query(() => StudentTestPaperObject, { name: 'studentTestPaper' })
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.STUDENT)
+  getStudentTestPaper(
+    @AuthMember('id') studentId: string,
+    @Args('paperId', { type: () => ID }) paperId: string,
+  ): Promise<StudentTestPaperObject> {
+    return this.testsService.getStudentTestPaper(studentId, paperId);
+  }
 
   @Query(() => AdminTestSummaryConnectionObject, { name: 'adminTests' })
   @UseGuards(AuthGuard, RolesGuard)

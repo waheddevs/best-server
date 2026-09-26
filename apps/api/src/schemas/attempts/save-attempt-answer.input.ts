@@ -8,6 +8,15 @@ export class SaveAttemptAnswerInput {
   @Field(() => ID)
   questionId!: string;
 
-  @Field(() => ID)
-  selectedOptionId!: string;
+  @Field(() => ID, { nullable: true })
+  selectedOptionId?: string;
+
+  @Field(() => [ID], { nullable: true })
+  selectedOptionIds?: string[];
+
+  @Field(() => String, { nullable: true })
+  textValue?: string;
+
+  @Field(() => ID, { nullable: true })
+  responseMediaObjectId?: string;
 }

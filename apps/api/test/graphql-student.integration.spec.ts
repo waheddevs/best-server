@@ -20,6 +20,7 @@ import {
   AssignmentStatus,
   AttemptStatus,
   AttemptSubmissionReason,
+  ContentStatus,
   GroupMembershipStatus,
   Language,
   LibraryVisibility,
@@ -149,6 +150,29 @@ before(async () => {
     id: adminId,
     role: UserRole.ADMIN,
   });
+});
+
+void test('Teacher dashboard metrics come from owned memberships and account creation', async () => {
+  const operation = `query TeacherDashboardMetrics {
+    teacherDashboard {
+      newLearnersThisMonth
+      totalActiveLearners
+      departedThisMonth
+      monthsWithBest
+    }
+  }`;
+  const response = await executeGraphql(teacherToken, operation);
+  const dashboard = requireRecordField(response, 'teacherDashboard');
+  assert.equal(dashboard.newLearnersThisMonth, 1);
+  assert.equal(dashboard.totalActiveLearners, 1);
+  assert.equal(dashboard.departedThisMonth, 0);
+  assert.equal(dashboard.monthsWithBest, 0);
+
+  const forbidden = await executeGraphqlExpectingErrors(
+    studentToken,
+    operation,
+  );
+  assert.ok(requireArrayField(forbidden, 'errors').length > 0);
 });
 
 void test('Admin task assignment persists a linked Teacher notification', async () => {
@@ -382,6 +406,168 @@ void test('Teacher creates a categorized group with persisted schedule and owner
     await database.group.count({ where: { slug: invalidPriceSlug } }),
     0,
   );
+  await database.group.update({
+    where: { id: String(group.id) },
+    data: { archivedAt: new Date(), status: ContentStatus.ARCHIVED },
+  });
+});
+
+void test('Teacher group create and update reject overlapping active schedules', async () => {
+  const database = requireApp().get(DatabaseService);
+  const suffix = randomUUID().slice(0, 8);
+  const createMutation = `mutation CreateScheduleGroup($input: CreateTeacherGroupInput!) {
+    createTeacherGroup(input: $input) { group { id } }
+  }`;
+  const primarySlug = `reserved-schedule-primary-${suffix}`;
+  const primaryResult = await executeGraphql(teacherToken, createMutation, {
+    input: {
+      category: 'IELTS',
+      endsAtMinutes: 840,
+      name: `Reserved schedule primary ${suffix}`,
+      room: 'Reserved room 010',
+      scheduleDays: [1, 3, 5],
+      slug: primarySlug,
+      startsAtMinutes: 780,
+      timeZone: 'Asia/Tashkent',
+    },
+  });
+  const primary = requireRecordField(
+    requireRecordField(primaryResult, 'createTeacherGroup'),
+    'group',
+  );
+
+  const conflictingSlug = `reserved-schedule-conflict-${suffix}`;
+  const conflictingCreate = await executeGraphqlExpectingErrors(
+    teacherToken,
+    createMutation,
+    {
+      input: {
+        category: 'CEFR',
+        endsAtMinutes: 870,
+        name: `Reserved schedule conflict ${suffix}`,
+        room: 'Reserved room 011',
+        scheduleDays: [3],
+        slug: conflictingSlug,
+        startsAtMinutes: 810,
+        timeZone: 'Asia/Tashkent',
+      },
+    },
+  );
+  assert.equal(
+    requireRecordField(
+      requireRecord(
+        requireArrayField(conflictingCreate, 'errors')[0],
+        'create schedule conflict',
+      ),
+      'extensions',
+    ).code,
+    'CONFLICT',
+  );
+  assert.equal(
+    await database.group.count({ where: { slug: conflictingSlug } }),
+    0,
+  );
+
+  const adjacentSlug = `reserved-schedule-adjacent-${suffix}`;
+  const adjacentResult = await executeGraphql(teacherToken, createMutation, {
+    input: {
+      category: 'GENERAL_ENGLISH',
+      endsAtMinutes: 900,
+      name: `Reserved schedule adjacent ${suffix}`,
+      room: 'Reserved room 012',
+      scheduleDays: [1],
+      slug: adjacentSlug,
+      startsAtMinutes: 840,
+      timeZone: 'Asia/Tashkent',
+    },
+  });
+  const adjacent = requireRecordField(
+    requireRecordField(adjacentResult, 'createTeacherGroup'),
+    'group',
+  );
+
+  const updateConflict = await executeGraphqlExpectingErrors(
+    teacherToken,
+    `mutation UpdateScheduleGroup($input: UpdateTeacherGroupInput!) {
+      updateTeacherGroup(input: $input) { group { id } }
+    }`,
+    {
+      input: {
+        category: 'GENERAL_ENGLISH',
+        endsAtMinutes: 850,
+        groupId: adjacent.id,
+        name: `Reserved schedule adjacent ${suffix}`,
+        room: 'Reserved room 012',
+        scheduleDays: [5],
+        slug: adjacentSlug,
+        startsAtMinutes: 830,
+        timeZone: 'Asia/Tashkent',
+      },
+    },
+  );
+  assert.equal(
+    requireRecordField(
+      requireRecord(
+        requireArrayField(updateConflict, 'errors')[0],
+        'update schedule conflict',
+      ),
+      'extensions',
+    ).code,
+    'CONFLICT',
+  );
+  const unchangedAdjacent = await database.group.findUniqueOrThrow({
+    where: { id: String(adjacent.id) },
+  });
+  assert.deepEqual(unchangedAdjacent.scheduleDays, [1]);
+  assert.equal(unchangedAdjacent.startsAtMinutes, 840);
+  assert.equal(unchangedAdjacent.endsAtMinutes, 900);
+
+  await database.group.update({
+    where: { id: String(adjacent.id) },
+    data: {
+      archivedAt: new Date(),
+      endsAtMinutes: 870,
+      scheduleDays: [3],
+      startsAtMinutes: 810,
+      status: ContentStatus.ARCHIVED,
+    },
+  });
+  const restoreConflict = await executeGraphqlExpectingErrors(
+    teacherToken,
+    `mutation RestoreScheduleGroup($input: SetTeacherGroupArchivedInput!) {
+      setTeacherGroupArchived(input: $input) { group { id status } }
+    }`,
+    {
+      input: {
+        archived: false,
+        groupId: adjacent.id,
+        reason: 'Reserved overlapping schedule restore check',
+      },
+    },
+  );
+  assert.equal(
+    requireRecordField(
+      requireRecord(
+        requireArrayField(restoreConflict, 'errors')[0],
+        'restore schedule conflict',
+      ),
+      'extensions',
+    ).code,
+    'CONFLICT',
+  );
+  assert.equal(
+    (
+      await database.group.findUniqueOrThrow({
+        where: { id: String(adjacent.id) },
+      })
+    ).status,
+    ContentStatus.ARCHIVED,
+  );
+
+  await database.group.updateMany({
+    where: { id: { in: [String(primary.id), String(adjacent.id)] } },
+    data: { archivedAt: new Date(), status: ContentStatus.ARCHIVED },
+  });
 });
 
 void test('Teacher updates an owned group with persisted values and audit history', async () => {
@@ -529,6 +715,10 @@ void test('Teacher updates an owned group with persisted values and audit histor
     requireRecordField(ownershipError, 'extensions').code,
     'NOT_FOUND',
   );
+  await database.group.update({
+    where: { id: String(group.id) },
+    data: { archivedAt: new Date(), status: ContentStatus.ARCHIVED },
+  });
 });
 
 void test('Teacher soft-deletes an empty owned group while retaining its row and audit', async () => {
@@ -883,6 +1073,118 @@ void test('Teacher creates a credential Student directly in an owned group', asy
   );
 });
 
+void test('Teacher soft-deletes only an owned Student and preserves their records', async () => {
+  const database = requireApp().get(DatabaseService);
+  const suffix = randomUUID().slice(0, 8);
+  const group = await database.group.create({
+    data: {
+      category: 'IELTS',
+      name: `Reserved soft delete ${suffix}`,
+      slug: `reserved-soft-delete-${suffix}`,
+      teacherId,
+    },
+  });
+  const student = await database.user.create({
+    data: {
+      displayName: 'Fictional Delete Student',
+      email: `soft-delete-${suffix}@example.com`,
+      role: UserRole.STUDENT,
+    },
+  });
+  const membership = await database.groupMembership.create({
+    data: { groupId: group.id, studentId: student.id },
+  });
+  const mutation = `mutation DeleteStudent($input: TeacherDeleteStudentInput!) {
+    teacherDeleteStudent(input: $input) {
+      membership { membershipId studentId status endedAt }
+    }
+  }`;
+  const input = { membershipId: membership.id };
+
+  const denied = await executeGraphqlExpectingErrors(adminToken, mutation, {
+    input,
+  });
+  assert.ok(requireArrayField(denied, 'errors').length > 0);
+  const otherTeacher = await database.user.create({
+    data: { displayName: 'Fictional Other Teacher', role: UserRole.TEACHER },
+  });
+  const otherTeacherToken = await requireApp()
+    .get(AuthService)
+    .issueAccessToken({ id: otherTeacher.id, role: UserRole.TEACHER });
+  const notOwned = await executeGraphqlExpectingErrors(
+    otherTeacherToken,
+    mutation,
+    { input },
+  );
+  assert.equal(
+    requireRecordField(
+      requireRecord(requireArrayField(notOwned, 'errors')[0], 'owner error'),
+      'extensions',
+    ).code,
+    'NOT_FOUND',
+  );
+  assert.equal(
+    (await database.user.findUniqueOrThrow({ where: { id: student.id } }))
+      .status,
+    'ACTIVE',
+  );
+
+  const deleted = await executeGraphql(teacherToken, mutation, { input });
+  const result = requireRecordField(
+    requireRecordField(deleted, 'teacherDeleteStudent'),
+    'membership',
+  );
+  assert.equal(result.studentId, student.id);
+  assert.equal(result.status, 'DELETED');
+  assert.ok(result.endedAt);
+  assert.equal(
+    (await database.user.findUniqueOrThrow({ where: { id: student.id } }))
+      .status,
+    'DELETED',
+  );
+  assert.ok(
+    (
+      await database.groupMembership.findUniqueOrThrow({
+        where: { id: membership.id },
+      })
+    ).endedAt,
+  );
+  assert.equal(
+    await database.auditLog.count({
+      where: {
+        action: 'TEACHER_STUDENT_SOFT_DELETED',
+        actorId: teacherId,
+        targetId: student.id,
+      },
+    }),
+    1,
+  );
+
+  const roster = await executeGraphql(
+    teacherToken,
+    `query DeletedStudentRoster($groupId: ID!) {
+      teacherGroupRoster(groupId: $groupId, first: 20, includeEnded: true) {
+        edges { node { studentId } }
+      }
+      teacherGroupRosterSummary(groupId: $groupId) { currentTotal historicalTotal }
+    }`,
+    { groupId: group.id },
+  );
+  assert.deepEqual(requireRecordField(roster, 'teacherGroupRosterSummary'), {
+    currentTotal: 0,
+    historicalTotal: 0,
+  });
+  assert.equal(
+    requireArrayField(requireRecordField(roster, 'teacherGroupRoster'), 'edges')
+      .length,
+    0,
+  );
+  const repeated = await executeGraphqlExpectingErrors(teacherToken, mutation, {
+    input,
+  });
+  assert.ok(requireArrayField(repeated, 'errors').length > 0);
+});
+
 void test('Teacher group roster exposes persisted status summary, overview, pause, and transfer departure', async () => {
   const database = requireApp().get(DatabaseService);
   const suffix = randomUUID().slice(0, 8);
@@ -1043,6 +1345,7 @@ void test('Teacher group roster exposes persisted status summary, overview, paus
       teacherGroupRoster(groupId: $groupId, first: 50, includeEnded: true) {
         edges { node {
           membershipId studentId displayName rosterStatus outstandingBalanceUzs paidAmountUzs endedAt
+          recentPayments { id amountUzs paidAt }
         } }
       }
     }`,
@@ -1069,9 +1372,17 @@ void test('Teacher group roster exposes persisted status summary, overview, paus
     requireRecordField(requireRecord(edge, 'roster edge'), 'node'),
   );
   assert.equal(rosterNodes.length, 12);
+  const payingRosterNode = rosterNodes.find(
+    (node) => node.studentId === payingStudentId,
+  );
+  assert.equal(payingRosterNode?.paidAmountUzs, '100000');
+  const recentPayments = requireArrayField(
+    requireDefined(payingRosterNode, 'paying roster node'),
+    'recentPayments',
+  );
+  assert.equal(recentPayments.length, 1);
   assert.equal(
-    rosterNodes.find((node) => node.studentId === payingStudentId)
-      ?.paidAmountUzs,
+    requireRecord(recentPayments[0], 'recent payment').amountUzs,
     '100000',
   );
   assert.equal(
@@ -2711,6 +3022,47 @@ void test('Teacher manages Library and only an authorized Student can read and d
   assert.equal(item.status, 'ACTIVE');
   assert.deepEqual(item.groupIds, [groupId]);
 
+  const lessonResource = await executeGraphql(
+    teacherToken,
+    `mutation CreateLessonResource($input: CreateLessonMaterialInput!) {
+      createLessonMaterial(input: $input) { material { id kind title mediaObject { id } } }
+    }`,
+    {
+      input: {
+        groupId,
+        kind: 'TASK',
+        libraryItemId,
+        position: 2,
+      },
+    },
+  );
+  const resource = requireRecordField(
+    requireRecordField(lessonResource, 'createLessonMaterial'),
+    'material',
+  );
+  assert.equal(resource.kind, 'TASK');
+  assert.equal(resource.title, 'Reading lesson');
+  assert.equal(requireRecordField(resource, 'mediaObject').id, mediaObjectId);
+
+  const materialList = await executeGraphql(
+    teacherToken,
+    `query TeacherLessonResources($groupId: ID!, $language: Language!) {
+      teacherGroupMaterials(groupId: $groupId, language: $language, first: 20) {
+        edges { node { id kind title mediaObject { id mimeType } } }
+      }
+    }`,
+    { groupId, language: 'UZ' },
+  );
+  const materialEdges = requireArrayField(
+    requireRecordField(materialList, 'teacherGroupMaterials'),
+    'edges',
+  );
+  assert.equal(materialEdges.length, 1);
+  assert.equal(
+    requireRecordField(requireRecord(materialEdges[0], 'edge'), 'node').title,
+    'Reading lesson',
+  );
+
   const studentList = await executeGraphql(
     studentToken,
     `query StudentLibrary($language: Language!) {
@@ -2931,6 +3283,206 @@ void test('Section 8 profile, learning, public, and operations flows are connect
   );
 });
 
+void test('Teacher lesson plans receive stable numbers and soft-delete from the workspace', async () => {
+  const created = await executeGraphql(
+    teacherToken,
+    `mutation CreateNumberedLesson($input: CreateLessonInput!) {
+      createLesson(input: $input) {
+        lesson { id lessonNumber archivedAt }
+      }
+    }`,
+    {
+      input: {
+        endsAt: '2033-02-12T11:30:00.000Z',
+        groupId,
+        startsAt: '2033-02-12T10:00:00.000Z',
+        translations: [
+          { language: 'EN', title: 'Fictional lesson-plan contract test' },
+        ],
+      },
+    },
+  );
+  const lesson = requireRecordField(
+    requireRecordField(created, 'createLesson'),
+    'lesson',
+  );
+  const lessonId = requireStringField(lesson, 'id');
+  assert.equal(lesson.archivedAt, null);
+  assert.equal(typeof lesson.lessonNumber, 'number');
+  assert.ok(Number(lesson.lessonNumber) > 0);
+
+  const mediaObjectId = await uploadAndConfirmPdf(
+    'archived-lesson-material.pdf',
+    Buffer.from('%PDF-1.7\nArchived lesson material\n%%EOF'),
+  );
+  const categoryResponse = await executeGraphql(
+    teacherToken,
+    `mutation CreateArchivedLessonCategory($input: CreateLibraryCategoryInput!) {
+      createLibraryCategory(input: $input) { category { id } }
+    }`,
+    { input: { name: `Archived lesson ${randomUUID().slice(0, 8)}` } },
+  );
+  const categoryId = requireStringField(
+    requireRecordField(
+      requireRecordField(categoryResponse, 'createLibraryCategory'),
+      'category',
+    ),
+    'id',
+  );
+  const itemResponse = await executeGraphql(
+    teacherToken,
+    `mutation CreateArchivedLessonItem($input: CreateLibraryItemInput!) {
+      createLibraryItem(input: $input) { item { id } }
+    }`,
+    {
+      input: {
+        categoryId,
+        groupIds: [groupId],
+        mediaObjectIds: [mediaObjectId],
+        primaryLanguage: 'EN',
+        translations: [{ language: 'EN', title: 'Archived lesson material' }],
+        visibility: 'SELECTED_GROUPS',
+      },
+    },
+  );
+  const libraryItemId = requireStringField(
+    requireRecordField(
+      requireRecordField(itemResponse, 'createLibraryItem'),
+      'item',
+    ),
+    'id',
+  );
+  const materialResponse = await executeGraphql(
+    teacherToken,
+    `mutation LinkArchivedLessonMaterial($input: CreateLessonMaterialInput!) {
+      createLessonMaterial(input: $input) { material { id } }
+    }`,
+    {
+      input: {
+        groupId,
+        kind: 'MATERIAL',
+        lessonId,
+        libraryItemId,
+        position: 1,
+      },
+    },
+  );
+  const lessonMaterialId = requireStringField(
+    requireRecordField(
+      requireRecordField(materialResponse, 'createLessonMaterial'),
+      'material',
+    ),
+    'id',
+  );
+
+  const listed = await executeGraphql(
+    teacherToken,
+    `query NumberedLessons($groupId: ID!) {
+      teacherGroupLessons(groupId: $groupId, first: 50) {
+        edges { node { id lessonNumber } }
+      }
+    }`,
+    { groupId },
+  );
+  const listedIds = requireArrayField(
+    requireRecordField(listed, 'teacherGroupLessons'),
+    'edges',
+  ).map((edge) =>
+    requireStringField(
+      requireRecordField(requireRecord(edge, 'lesson edge'), 'node'),
+      'id',
+    ),
+  );
+  assert.ok(listedIds.includes(lessonId));
+
+  await executeGraphql(
+    teacherToken,
+    `mutation ArchiveLesson($input: SetLessonArchivedInput!) {
+      setLessonArchived(input: $input) { lesson { id archivedAt } }
+    }`,
+    { input: { archived: true, lessonId } },
+  );
+  const hidden = await executeGraphql(
+    teacherToken,
+    `query HiddenLesson($groupId: ID!) {
+      teacherGroupLessons(groupId: $groupId, first: 50) {
+        edges { node { id } }
+      }
+    }`,
+    { groupId },
+  );
+  const hiddenIds = requireArrayField(
+    requireRecordField(hidden, 'teacherGroupLessons'),
+    'edges',
+  ).map((edge) =>
+    requireStringField(
+      requireRecordField(requireRecord(edge, 'lesson edge'), 'node'),
+      'id',
+    ),
+  );
+  assert.equal(hiddenIds.includes(lessonId), false);
+
+  const materialsAfterArchive = await executeGraphql(
+    teacherToken,
+    `query MaterialsAfterLessonArchive($groupId: ID!) {
+      teacherGroupMaterials(groupId: $groupId, language: EN, first: 100) {
+        edges { node { id } }
+      }
+    }`,
+    { groupId },
+  );
+  const visibleMaterialIds = requireArrayField(
+    requireRecordField(materialsAfterArchive, 'teacherGroupMaterials'),
+    'edges',
+  ).map((edge) =>
+    requireStringField(
+      requireRecordField(requireRecord(edge, 'material edge'), 'node'),
+      'id',
+    ),
+  );
+  assert.equal(visibleMaterialIds.includes(lessonMaterialId), false);
+
+  const database = requireApp().get(DatabaseService);
+  const persisted = await database.lesson.findUniqueOrThrow({
+    select: { archivedAt: true },
+    where: { id: lessonId },
+  });
+  assert.ok(persisted.archivedAt instanceof Date);
+  assert.equal(
+    await database.auditLog.count({
+      where: { action: 'LESSON_ARCHIVED', targetId: lessonId },
+    }),
+    1,
+  );
+
+  const replacement = await executeGraphql(
+    teacherToken,
+    `mutation ReplaceArchivedLesson($input: CreateLessonInput!) {
+      createLesson(input: $input) { lesson { id startsAt endsAt } }
+    }`,
+    {
+      input: {
+        endsAt: '2033-02-12T11:30:00.000Z',
+        groupId,
+        startsAt: '2033-02-12T10:00:00.000Z',
+        translations: [
+          { language: 'EN', title: 'Replacement for archived lesson' },
+        ],
+      },
+    },
+  );
+  assert.notEqual(
+    requireStringField(
+      requireRecordField(
+        requireRecordField(replacement, 'createLesson'),
+        'lesson',
+      ),
+      'id',
+    ),
+    lessonId,
+  );
+});
+
 void test('public registration and contact endpoints persist validated submissions', async () => {
   if (app === undefined) throw new Error('Test application is not ready.');
   const database = app.get(DatabaseService);
@@ -3096,19 +3648,24 @@ void test('public registration and contact endpoints persist validated submissio
   );
 });
 
-void test('generated schema keeps answer review out of Student and Admin types', async () => {
+void test('generated schema releases answer review only through the scored-result contract', async () => {
   const schema = await readFile(
     resolve(__dirname, '../../../packages/graphql/schema.graphql'),
     'utf8',
   );
-  const studentTypes = [...schema.matchAll(/type Student\w* \{[^}]*\}/g)].map(
-    ([definition]) => definition,
-  );
+  const studentTypes = [...schema.matchAll(/type Student\w* \{[^}]*\}/g)]
+    .map(([definition]) => definition)
+    .filter((definition) => !definition.startsWith('type StudentReleased'));
   const adminTypes = [...schema.matchAll(/type Admin\w* \{[^}]*\}/g)].map(
     ([definition]) => definition,
   );
 
   assert.doesNotMatch(studentTypes.join('\n'), /isCorrect|correctOptionId/);
+  assert.match(schema, /studentReleasedAttemptResult/);
+  assert.match(
+    schema,
+    /type StudentReleasedResultAnswer \{[^}]*correctAnswer:[^}]*isCorrect:/s,
+  );
   assert.doesNotMatch(
     adminTypes.join('\n'),
     /selectedOption|correctOption|isCorrect/,
@@ -3644,6 +4201,11 @@ async function applyMigrations(connectionString: string): Promise<void> {
       '20260915021000_teacher_group_deleted_archive_constraint',
       '20260916010000_group_membership_participation_status',
       '20260916020000_credential_refresh_sessions',
+      '20260923010000_teacher_student_soft_delete',
+      '20260923020000_teacher_lesson_plans',
+      '20260923030000_media_archive_type',
+      '20260923040000_best_lc_academic_tests',
+      '20260923041000_best_lc_academic_publish_rules',
     ]) {
       const sql = await readFile(
         resolve(

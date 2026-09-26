@@ -2,6 +2,7 @@ import {
   AttemptStatus,
   ContentStatus,
   Language,
+  TestSkill,
   TestVersionStatus,
 } from '@best/database';
 import { Injectable } from '@nestjs/common';
@@ -17,12 +18,145 @@ import {
 } from '../../libs/pagination/cursor-pagination';
 import type { StudentTestConnectionObject } from '../../schemas/tests/student-test-connection.object';
 import type { StudentTestObject } from '../../schemas/tests/student-test.object';
+import type { StudentTestPaperConnectionObject } from '../../schemas/tests/student-test-paper-connection.object';
+import type { StudentTestPaperObject } from '../../schemas/tests/student-test-paper.object';
+import type { TeacherTestPaperObject } from '../../schemas/tests/teacher-test-paper.object';
 import type { AdminTestSummaryConnectionObject } from '../../schemas/tests/admin-test-summary.object';
 import type { AdminTestSummaryObject } from '../../schemas/tests/admin-test-summary.object';
 
 @Injectable()
 export class TestsService {
   constructor(private readonly database: DatabaseService) {}
+
+  async getTeacherTestPapers(
+    teacherId: string,
+    groupIdInput: string,
+  ): Promise<TeacherTestPaperObject[]> {
+    const groupId = parseUuid(groupIdInput, 'groupId');
+    const group = await this.database.group.findFirst({
+      where: { id: groupId, teacherId },
+      select: { id: true },
+    });
+    if (group === null) {
+      throw new ApplicationError(
+        ErrorCode.NOT_FOUND,
+        'The requested group was not found',
+        404,
+      );
+    }
+
+    const papers = await this.database.testPaper.findMany({
+      where: { groupId, status: ContentStatus.ACTIVE },
+      orderBy: [{ academicYear: 'desc' }, { createdAt: 'desc' }],
+      include: {
+        tests: {
+          where: { skill: { not: null }, status: ContentStatus.ACTIVE },
+          orderBy: { skill: 'asc' },
+          include: {
+            versions: {
+              orderBy: { version: 'desc' },
+              take: 1,
+              include: {
+                _count: { select: { questions: true } },
+                translations: {
+                  where: { language: Language.EN },
+                  select: { description: true, title: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return papers.map((paper) => ({
+      academicYear: paper.academicYear,
+      id: paper.id,
+      skills: paper.tests.flatMap((test) => {
+        const version = test.versions[0];
+        const translation = version?.translations[0];
+        if (test.skill === null || version === undefined || translation === undefined) {
+          return [];
+        }
+        return [{
+          description: translation.description,
+          durationMinutes: version.durationMinutes,
+          questionCount: version._count.questions,
+          skill: test.skill,
+          status: version.status,
+          testId: test.id,
+          testVersionId: version.id,
+          title: translation.title,
+        }];
+      }),
+      slug: paper.slug,
+      sourceLabel: paper.sourceLabel,
+      title: paper.title,
+    }));
+  }
+
+  async getStudentTestPapers(
+    studentId: string,
+    first: number | undefined,
+    after: string | undefined,
+  ): Promise<StudentTestPaperConnectionObject> {
+    const pageSize = parsePageSize(first);
+    const afterId = decodeCursor(after);
+    const now = new Date();
+    const papers = await this.database.testPaper.findMany({
+      where: {
+        ...(afterId === undefined ? {} : { id: { gt: afterId } }),
+        group: { memberships: { some: { endedAt: null, studentId } } },
+        status: ContentStatus.ACTIVE,
+        tests: {
+          some: {
+            status: ContentStatus.ACTIVE,
+            versions: { some: availableVersionWhere(now) },
+          },
+        },
+      },
+      orderBy: { id: 'asc' },
+      take: pageSize + 1,
+      include: { tests: paperSkillInclude(studentId, now) },
+    });
+    const hasNextPage = papers.length > pageSize;
+    const page = hasNextPage ? papers.slice(0, pageSize) : papers;
+    const edges = page.map((paper) => ({
+      cursor: encodeCursor(paper.id),
+      node: mapStudentTestPaper(paper),
+    }));
+
+    return {
+      edges,
+      pageInfo: { endCursor: edges.at(-1)?.cursor ?? null, hasNextPage },
+    };
+  }
+
+  async getStudentTestPaper(
+    studentId: string,
+    paperIdInput: string,
+  ): Promise<StudentTestPaperObject> {
+    const id = parseUuid(paperIdInput, 'paperId');
+    const now = new Date();
+    const paper = await this.database.testPaper.findFirst({
+      where: {
+        id,
+        group: { memberships: { some: { endedAt: null, studentId } } },
+        status: ContentStatus.ACTIVE,
+      },
+      include: { tests: paperSkillInclude(studentId, now) },
+    });
+
+    if (paper === null || paper.tests.length === 0) {
+      throw new ApplicationError(
+        ErrorCode.NOT_FOUND,
+        'The requested test paper is not available',
+        404,
+      );
+    }
+
+    return mapStudentTestPaper(paper);
+  }
 
   async getAdminTest(
     testId: string,
@@ -249,6 +383,91 @@ export class TestsService {
 
     return mapStudentTest(test, language);
   }
+}
+
+function paperSkillInclude(studentId: string, now: Date) {
+  return {
+    where: { status: ContentStatus.ACTIVE, skill: { not: null } },
+    orderBy: { skill: 'asc' as const },
+    include: {
+      versions: {
+        where: availableVersionWhere(now),
+        orderBy: { version: 'desc' as const },
+        take: 1,
+        include: {
+          _count: { select: { questions: true } },
+          attempts: {
+            where: { studentId },
+            orderBy: { attemptNumber: 'desc' as const },
+            take: 1,
+            select: { id: true, status: true },
+          },
+          translations: {
+            where: { language: Language.EN },
+            select: { description: true, title: true },
+          },
+        },
+      },
+    },
+  };
+}
+
+interface StudentTestPaperRecord {
+  readonly academicYear: number;
+  readonly id: string;
+  readonly slug: string;
+  readonly sourceLabel: string;
+  readonly title: string;
+  readonly tests: readonly {
+    readonly id: string;
+    readonly skill: TestSkill | null;
+    readonly versions: readonly {
+      readonly _count: { readonly questions: number };
+      readonly attempts: readonly {
+        readonly id: string;
+        readonly status: AttemptStatus;
+      }[];
+      readonly durationMinutes: number | null;
+      readonly id: string;
+      readonly translations: readonly {
+        readonly description: string | null;
+        readonly title: string;
+      }[];
+    }[];
+  }[];
+}
+
+function mapStudentTestPaper(
+  paper: StudentTestPaperRecord,
+): StudentTestPaperObject {
+  const skills = paper.tests.flatMap((test) => {
+    const version = test.versions[0];
+    const translation = version?.translations[0];
+    if (test.skill === null || version === undefined || translation === undefined) {
+      return [];
+    }
+    const attempt = version.attempts[0];
+    return [{
+      attemptId: attempt?.id ?? null,
+      attemptStatus: attempt?.status ?? null,
+      description: translation.description,
+      durationMinutes: version.durationMinutes,
+      questionCount: version._count.questions,
+      skill: test.skill,
+      testId: test.id,
+      testVersionId: version.id,
+      title: translation.title,
+    }];
+  });
+
+  return {
+    academicYear: paper.academicYear,
+    id: paper.id,
+    skills,
+    slug: paper.slug,
+    sourceLabel: paper.sourceLabel,
+    title: paper.title,
+  };
 }
 
 function availableVersionWhere(now: Date) {

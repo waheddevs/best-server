@@ -3,8 +3,13 @@ import {
   AttemptSubmissionReason,
   ContentStatus,
   Language,
+  MediaMalwareStatus,
+  MediaObjectStatus,
+  MediaType,
   OutboxEventType,
   Prisma,
+  QuestionKind,
+  TestSkill,
   TestVersionStatus,
 } from '@best/database';
 import { Injectable } from '@nestjs/common';
@@ -16,11 +21,198 @@ import { parseUuid } from '../../libs/pagination/cursor-pagination';
 import type { SaveAttemptAnswerInput } from '../../schemas/attempts/save-attempt-answer.input';
 import type { StartTestAttemptInput } from '../../schemas/attempts/start-test-attempt.input';
 import type { StudentAttemptObject } from '../../schemas/attempts/student-attempt.object';
+import type { StudentReleasedAttemptResultObject } from '../../schemas/attempts/student-released-attempt-result.object';
 import type { SubmitTestAttemptInput } from '../../schemas/attempts/submit-test-attempt.input';
 
 @Injectable()
 export class AttemptsService {
   constructor(private readonly database: DatabaseService) {}
+
+  async getStudentReleasedAttemptResult(
+    studentId: string,
+    attemptIdInput: string,
+  ): Promise<StudentReleasedAttemptResultObject> {
+    const attemptId = parseUuid(attemptIdInput, 'attemptId');
+    const attempt = await this.database.attempt.findFirst({
+      where: {
+        id: attemptId,
+        status: AttemptStatus.SCORED,
+        studentId,
+        testVersion: {
+          test: { skill: { in: [TestSkill.LISTENING, TestSkill.READING] } },
+        },
+      },
+      include: {
+        answers: {
+          include: {
+            selectedOption: {
+              include: {
+                translations: {
+                  where: { language: Language.EN },
+                  select: { text: true },
+                },
+              },
+            },
+            selections: {
+              orderBy: { position: 'asc' },
+              include: {
+                answerOption: {
+                  include: {
+                    translations: {
+                      where: { language: Language.EN },
+                      select: { text: true },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        testVersion: {
+          include: {
+            questions: {
+              orderBy: { position: 'asc' },
+              include: {
+                acceptedAnswers: { orderBy: { position: 'asc' } },
+                evidence: true,
+                options: {
+                  orderBy: { position: 'asc' },
+                  include: {
+                    translations: {
+                      where: { language: Language.EN },
+                      select: { text: true },
+                    },
+                  },
+                },
+                translations: {
+                  where: { language: Language.EN },
+                  select: { prompt: true },
+                },
+              },
+            },
+            sections: {
+              orderBy: { position: 'asc' },
+              include: {
+                translations: {
+                  where: { language: Language.EN },
+                  select: { content: true, title: true },
+                },
+              },
+            },
+            test: { select: { id: true, skill: true } },
+            translations: {
+              where: { language: Language.EN },
+              select: { title: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (attempt === null) {
+      throw new ApplicationError(
+        ErrorCode.NOT_FOUND,
+        'The released objective result was not found',
+        404,
+      );
+    }
+
+    const skill = attempt.testVersion.test.skill;
+    const title = attempt.testVersion.translations[0]?.title;
+    if (
+      (skill !== TestSkill.LISTENING && skill !== TestSkill.READING) ||
+      title === undefined ||
+      attempt.correctAnswerCount === null ||
+      attempt.totalQuestionCount === null ||
+      attempt.percentage === null
+    ) {
+      throw new ApplicationError(
+        ErrorCode.INTERNAL_SERVER_ERROR,
+        'The released objective result is incomplete',
+        500,
+      );
+    }
+
+    const answerByQuestion = new Map(
+      attempt.answers.map((answer) => [answer.questionId, answer]),
+    );
+    const sections = attempt.testVersion.sections.map((section) => {
+      const translation = section.translations[0];
+      if (translation?.content === null || translation?.content === undefined) {
+        throw new ApplicationError(
+          ErrorCode.INTERNAL_SERVER_ERROR,
+          'Released evidence content is incomplete',
+          500,
+        );
+      }
+      return {
+        content: translation.content,
+        id: section.id,
+        position: section.position,
+        title: translation.title,
+      };
+    });
+    const answers = attempt.testVersion.questions.map((question) => {
+      const translation = question.translations[0];
+      if (translation === undefined) {
+        throw unavailableTranslationError();
+      }
+      const response = answerByQuestion.get(question.id);
+      const correctOptions = question.options.filter((option) => option.isCorrect);
+      const correctOptionIds = correctOptions.map((option) => option.id).sort();
+      const selectedOptionIds = [
+        ...(response?.selectedOptionId ? [response.selectedOptionId] : []),
+        ...(response?.selections.map((selection) => selection.answerOptionId) ?? []),
+      ].sort();
+      const correctAnswer =
+        question.acceptedAnswers.length > 0
+          ? question.acceptedAnswers.map((answer) => answer.normalizedValue)
+          : correctOptions.map((option) => option.translations[0]?.text ?? option.id);
+      const studentAnswer = response?.textValue
+        ? [response.textValue]
+        : response?.selectedOption
+          ? [response.selectedOption.translations[0]?.text ?? response.selectedOption.id]
+          : (response?.selections.map(
+              (selection) =>
+                selection.answerOption.translations[0]?.text ??
+                selection.answerOption.id,
+            ) ?? []);
+      const isCorrect =
+        question.acceptedAnswers.length > 0
+          ? response?.textValue !== null && response?.textValue !== undefined
+            ? question.acceptedAnswers.some(
+                (answer) =>
+                  normalizeObjectiveText(response.textValue ?? '') ===
+                  answer.normalizedValue,
+              )
+            : false
+          : sameStringSet(correctOptionIds, selectedOptionIds);
+
+      return {
+        correctAnswer,
+        evidenceEndOffset: question.evidence?.endOffset ?? null,
+        evidenceStartOffset: question.evidence?.startOffset ?? null,
+        isCorrect,
+        position: question.position,
+        prompt: translation.prompt,
+        questionId: question.id,
+        sectionId: question.sectionId,
+        studentAnswer,
+      };
+    });
+
+    return {
+      answers,
+      attemptId: attempt.id,
+      correctAnswerCount: attempt.correctAnswerCount,
+      percentage: attempt.percentage.toNumber(),
+      sections,
+      skill,
+      testId: attempt.testVersion.test.id,
+      title,
+      totalQuestionCount: attempt.totalQuestionCount,
+    };
+  }
 
   async getStudentAttempt(
     studentId: string,
@@ -56,10 +248,6 @@ export class AttemptsService {
   ): Promise<StudentAttemptObject> {
     const attemptId = parseUuid(input.attemptId, 'attemptId');
     const questionId = parseUuid(input.questionId, 'questionId');
-    const selectedOptionId = parseUuid(
-      input.selectedOptionId,
-      'selectedOptionId',
-    );
     await this.ensureAttemptTranslation(studentId, attemptId, language);
     const now = new Date();
     const outcome = await this.database.$transaction(async (transaction) => {
@@ -101,28 +289,179 @@ export class AttemptsService {
         return { expired: true };
       }
 
-      const option = await transaction.answerOption.findFirst({
+      const question = await transaction.question.findFirst({
         where: {
-          id: selectedOptionId,
-          questionId,
-          question: { testVersionId: attempt.testVersion.id },
+          id: questionId,
+          testVersionId: attempt.testVersion.id,
         },
-        select: { id: true },
+        select: {
+          answerLimit: true,
+          kind: true,
+          maxSelections: true,
+        },
       });
 
-      if (option === null) {
+      if (question === null) {
         throw new ApplicationError(
           ErrorCode.BAD_USER_INPUT,
-          'The selected option does not belong to this attempt question',
+          'The question does not belong to this attempt',
           400,
         );
       }
 
-      await transaction.attemptAnswer.upsert({
-        where: { attemptId_questionId: { attemptId, questionId } },
-        create: { attemptId, questionId, selectedOptionId, savedAt: now },
-        update: { savedAt: now, selectedOptionId },
-      });
+      const selectedOptionIds = [...new Set(input.selectedOptionIds ?? [])].map(
+        (optionId) => parseUuid(optionId, 'selectedOptionIds'),
+      );
+      const selectedOptionId =
+        input.selectedOptionId === undefined
+          ? undefined
+          : parseUuid(input.selectedOptionId, 'selectedOptionId');
+      const responseMediaObjectId =
+        input.responseMediaObjectId === undefined
+          ? undefined
+          : parseUuid(input.responseMediaObjectId, 'responseMediaObjectId');
+      const textValue = input.textValue?.trim();
+
+      if (
+        question.kind === QuestionKind.SINGLE_CHOICE ||
+        question.kind === QuestionKind.TRUE_FALSE_NOT_GIVEN ||
+        question.kind === QuestionKind.YES_NO_NOT_GIVEN
+      ) {
+        if (
+          selectedOptionId === undefined ||
+          selectedOptionIds.length > 0 ||
+          textValue !== undefined ||
+          responseMediaObjectId !== undefined
+        ) {
+          throw invalidResponseShapeError();
+        }
+        await ensureOptionsBelongToQuestion(transaction, questionId, [selectedOptionId]);
+        await transaction.attemptAnswer.upsert({
+          where: { attemptId_questionId: { attemptId, questionId } },
+          create: { attemptId, questionId, selectedOptionId, savedAt: now },
+          update: {
+            responseMediaObjectId: null,
+            savedAt: now,
+            selectedOptionId,
+            textValue: null,
+          },
+        });
+      } else if (
+        question.kind === QuestionKind.SHORT_TEXT ||
+        question.kind === QuestionKind.LONG_TEXT
+      ) {
+        if (
+          textValue === undefined ||
+          textValue.length === 0 ||
+          selectedOptionId !== undefined ||
+          selectedOptionIds.length > 0 ||
+          responseMediaObjectId !== undefined
+        ) {
+          throw invalidResponseShapeError();
+        }
+        if (
+          question.kind === QuestionKind.SHORT_TEXT &&
+          question.answerLimit !== null &&
+          countWords(textValue) > question.answerLimit
+        ) {
+          throw new ApplicationError(
+            ErrorCode.BAD_USER_INPUT,
+            'The answer exceeds this question word limit',
+            400,
+          );
+        }
+        await transaction.attemptAnswer.upsert({
+          where: { attemptId_questionId: { attemptId, questionId } },
+          create: { attemptId, questionId, savedAt: now, textValue },
+          update: {
+            responseMediaObjectId: null,
+            savedAt: now,
+            selectedOptionId: null,
+            textValue,
+          },
+        });
+      } else if (
+        question.kind === QuestionKind.MULTIPLE_CHOICE ||
+        question.kind === QuestionKind.MATCHING
+      ) {
+        if (
+          selectedOptionIds.length === 0 ||
+          selectedOptionId !== undefined ||
+          textValue !== undefined ||
+          responseMediaObjectId !== undefined ||
+          (question.maxSelections !== null &&
+            selectedOptionIds.length > question.maxSelections)
+        ) {
+          throw invalidResponseShapeError();
+        }
+        await ensureOptionsBelongToQuestion(
+          transaction,
+          questionId,
+          selectedOptionIds,
+        );
+        const answer = await transaction.attemptAnswer.upsert({
+          where: { attemptId_questionId: { attemptId, questionId } },
+          create: { attemptId, questionId, savedAt: now },
+          update: {
+            responseMediaObjectId: null,
+            savedAt: now,
+            selectedOptionId: null,
+            textValue: null,
+          },
+          select: { id: true },
+        });
+        await transaction.attemptAnswerSelection.deleteMany({
+          where: { attemptAnswerId: answer.id },
+        });
+        await transaction.attemptAnswerSelection.createMany({
+          data: selectedOptionIds.map((answerOptionId, index) => ({
+            answerOptionId,
+            attemptAnswerId: answer.id,
+            position: index + 1,
+          })),
+        });
+      } else {
+        if (
+          responseMediaObjectId === undefined ||
+          selectedOptionId !== undefined ||
+          selectedOptionIds.length > 0 ||
+          textValue !== undefined
+        ) {
+          throw invalidResponseShapeError();
+        }
+        const mediaObject = await transaction.mediaObject.findFirst({
+          where: {
+            createdById: studentId,
+            id: responseMediaObjectId,
+            malwareStatus: MediaMalwareStatus.CLEAN,
+            mediaType: MediaType.AUDIO,
+            status: MediaObjectStatus.READY,
+          },
+          select: { id: true },
+        });
+        if (mediaObject === null) {
+          throw new ApplicationError(
+            ErrorCode.BAD_USER_INPUT,
+            'The audio response is not ready or does not belong to this student',
+            400,
+          );
+        }
+        await transaction.attemptAnswer.upsert({
+          where: { attemptId_questionId: { attemptId, questionId } },
+          create: {
+            attemptId,
+            questionId,
+            responseMediaObjectId,
+            savedAt: now,
+          },
+          update: {
+            responseMediaObjectId,
+            savedAt: now,
+            selectedOptionId: null,
+            textValue: null,
+          },
+        });
+      }
 
       return { expired: false };
     });
@@ -328,8 +667,14 @@ export class AttemptsService {
           orderBy: { questionId: 'asc' },
           select: {
             questionId: true,
+            responseMediaObjectId: true,
             savedAt: true,
             selectedOptionId: true,
+            selections: {
+              orderBy: { position: 'asc' },
+              select: { answerOptionId: true },
+            },
+            textValue: true,
           },
         },
         testVersion: {
@@ -352,7 +697,20 @@ export class AttemptsService {
                 },
               },
             },
-            test: { select: { id: true } },
+            sections: {
+              orderBy: { position: 'asc' },
+              include: {
+                translations: {
+                  where: { language },
+                  select: {
+                    content: true,
+                    instructions: true,
+                    title: true,
+                  },
+                },
+              },
+            },
+            test: { select: { id: true, skill: true } },
             translations: {
               where: { language },
               select: { title: true },
@@ -380,7 +738,10 @@ export class AttemptsService {
       }
 
       return {
+        answerLimit: question.answerLimit,
         id: question.id,
+        kind: question.kind,
+        maxSelections: question.maxSelections,
         options: question.options.map((option) => {
           const optionTranslation = option.translations[0];
 
@@ -396,11 +757,40 @@ export class AttemptsService {
         }),
         position: question.position,
         prompt: questionTranslation.prompt,
+        sectionId: question.sectionId,
+      };
+    });
+
+    const sections = attempt.testVersion.sections.map((section) => {
+      const translation = section.translations[0];
+      if (translation === undefined) {
+        throw unavailableTranslationError();
+      }
+      return {
+        content:
+          attempt.testVersion.test.skill === null ||
+          attempt.testVersion.test.skill === TestSkill.LISTENING
+            ? null
+            : translation.content,
+        id: section.id,
+        instructions: translation.instructions,
+        mediaObjectId: section.mediaObjectId,
+        position: section.position,
+        title: translation.title,
       };
     });
 
     return {
-      answers: attempt.answers,
+      answers: attempt.answers.map((answer) => ({
+        questionId: answer.questionId,
+        responseMediaObjectId: answer.responseMediaObjectId,
+        savedAt: answer.savedAt,
+        selectedOptionId: answer.selectedOptionId,
+        selectedOptionIds: answer.selections.map(
+          (selection) => selection.answerOptionId,
+        ),
+        textValue: answer.textValue,
+      })),
       attemptNumber: attempt.attemptNumber,
       expiresAt: attempt.expiresAt,
       id: attempt.id,
@@ -408,6 +798,8 @@ export class AttemptsService {
       questions,
       result: mapResult(attempt),
       serverTime,
+      sections,
+      skill: attempt.testVersion.test.skill,
       startedAt: attempt.startedAt,
       status: attempt.status,
       submittedAt: attempt.submittedAt,
@@ -460,6 +852,43 @@ export class AttemptsService {
       throw unavailableTranslationError();
     }
   }
+}
+
+async function ensureOptionsBelongToQuestion(
+  transaction: Prisma.TransactionClient,
+  questionId: string,
+  optionIds: readonly string[],
+): Promise<void> {
+  const count = await transaction.answerOption.count({
+    where: { id: { in: [...optionIds] }, questionId },
+  });
+  if (count !== optionIds.length) {
+    throw new ApplicationError(
+      ErrorCode.BAD_USER_INPUT,
+      'One or more selected options do not belong to this question',
+      400,
+    );
+  }
+}
+
+function invalidResponseShapeError(): ApplicationError {
+  return new ApplicationError(
+    ErrorCode.BAD_USER_INPUT,
+    'The saved response does not match this question type',
+    400,
+  );
+}
+
+function countWords(value: string): number {
+  return value.split(/\s+/u).filter(Boolean).length;
+}
+
+function normalizeObjectiveText(value: string): string {
+  return value.trim().toLocaleLowerCase('en').replace(/\s+/gu, ' ');
+}
+
+function sameStringSet(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
 async function submitAttemptTransactionally(

@@ -120,7 +120,7 @@ export class ResultsService {
       include: {
         testVersion: {
           include: {
-            test: { select: { id: true } },
+            test: { select: { id: true, skill: true } },
             translations: {
               where: { language },
               select: { title: true },
@@ -186,6 +186,7 @@ export class ResultsService {
           highestPercentage: highestByTestId.get(testId) ?? score.percentage,
           passed: score.passed,
           percentage: score.percentage,
+          skill: attempt.testVersion.test.skill,
           submittedAt: score.submittedAt,
           testId,
           title,

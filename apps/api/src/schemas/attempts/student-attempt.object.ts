@@ -1,4 +1,4 @@
-import { AttemptStatus, Language } from '@best/database';
+import { AttemptStatus, Language, TestSkill } from '@best/database';
 import {
   Field,
   Float,
@@ -10,13 +10,43 @@ import {
 
 import { StudentQuestionObject } from './student-question.object';
 
+@ObjectType('StudentTestSection')
+export class StudentTestSectionObject {
+  @Field(() => ID)
+  id!: string;
+
+  @Field(() => Int)
+  position!: number;
+
+  @Field(() => String)
+  title!: string;
+
+  @Field(() => String)
+  instructions!: string;
+
+  @Field(() => String, { nullable: true })
+  content!: string | null;
+
+  @Field(() => ID, { nullable: true })
+  mediaObjectId!: string | null;
+}
+
 @ObjectType('StudentSavedAnswer')
 export class StudentSavedAnswerObject {
   @Field(() => ID)
   questionId!: string;
 
-  @Field(() => ID)
-  selectedOptionId!: string;
+  @Field(() => ID, { nullable: true })
+  selectedOptionId!: string | null;
+
+  @Field(() => [ID])
+  selectedOptionIds!: string[];
+
+  @Field(() => String, { nullable: true })
+  textValue!: string | null;
+
+  @Field(() => ID, { nullable: true })
+  responseMediaObjectId!: string | null;
 
   @Field(() => GraphQLISODateTime)
   savedAt!: Date;
@@ -51,6 +81,9 @@ export class StudentAttemptObject {
   @Field(() => String)
   title!: string;
 
+  @Field(() => TestSkill, { nullable: true })
+  skill!: TestSkill | null;
+
   @Field(() => Language)
   language!: Language;
 
@@ -74,6 +107,9 @@ export class StudentAttemptObject {
 
   @Field(() => [StudentQuestionObject])
   questions!: StudentQuestionObject[];
+
+  @Field(() => [StudentTestSectionObject])
+  sections!: StudentTestSectionObject[];
 
   @Field(() => [StudentSavedAnswerObject])
   answers!: StudentSavedAnswerObject[];
