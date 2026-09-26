@@ -24,6 +24,18 @@ void test('derives the media type from an allowlisted MIME and extension', () =>
   assert.equal(upload.mediaType, MediaType.PDF);
   assert.equal(upload.mimeType, 'application/pdf');
   assert.equal(upload.originalName, 'Lesson.PDF');
+
+  const archive = validateMediaUpload(
+    {
+      mimeType: 'application/zip',
+      originalName: 'lesson-files.zip',
+      sizeBytes: 2_048,
+    },
+    CONFIGURED_MAX_BYTES,
+  );
+
+  assert.equal(archive.mediaType, MediaType.ARCHIVE);
+  assert.equal(archive.mimeType, 'application/zip');
 });
 
 void test('rejects unsafe names, extension mismatches, and oversized images', () => {
@@ -89,5 +101,17 @@ void test('matches trusted file signatures instead of filename text', () => {
       Buffer.from('not a pdf'),
     ),
     false,
+  );
+  assert.equal(
+    getMediaUploadPolicy('application/zip').signatureMatches(
+      Buffer.from([0x50, 0x4b, 0x03, 0x04]),
+    ),
+    true,
+  );
+  assert.equal(
+    getMediaUploadPolicy('application/x-zip-compressed').signatureMatches(
+      Buffer.from([0x50, 0x4b, 0x05, 0x06]),
+    ),
+    true,
   );
 });

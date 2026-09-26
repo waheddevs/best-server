@@ -30,6 +30,12 @@ export class SetLessonStatusInput {
   @Field(() => String, { nullable: true }) reason?: string;
 }
 
+@InputType('SetLessonArchivedInput')
+export class SetLessonArchivedInput {
+  @Field(() => ID) lessonId!: string;
+  @Field(() => Boolean) archived!: boolean;
+}
+
 @InputType('LessonAttendanceEntryInput')
 export class LessonAttendanceEntryInput {
   @Field(() => ID) studentId!: string;

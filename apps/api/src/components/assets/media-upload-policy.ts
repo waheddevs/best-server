@@ -24,6 +24,18 @@ const IMAGE_MAX_BYTES = 10 * MEBIBYTE;
 const GENERAL_MAX_BYTES = 50 * MEBIBYTE;
 
 const MEDIA_UPLOAD_POLICIES: Readonly<Record<string, MediaUploadPolicy>> = {
+  'application/zip': {
+    extensions: ['zip'],
+    maxBytes: GENERAL_MAX_BYTES,
+    mediaType: MediaType.ARCHIVE,
+    signatureMatches: isZip,
+  },
+  'application/x-zip-compressed': {
+    extensions: ['zip'],
+    maxBytes: GENERAL_MAX_BYTES,
+    mediaType: MediaType.ARCHIVE,
+    signatureMatches: isZip,
+  },
   'application/pdf': {
     extensions: ['pdf'],
     maxBytes: GENERAL_MAX_BYTES,
@@ -149,6 +161,14 @@ function isMp3(bytes: Uint8Array): boolean {
   return (
     startsWithAscii(bytes, 'ID3') ||
     (bytes[0] === 0xff && bytes[1] !== undefined && (bytes[1] & 0xe0) === 0xe0)
+  );
+}
+
+function isZip(bytes: Uint8Array): boolean {
+  return (
+    startsWithBytes(bytes, [0x50, 0x4b, 0x03, 0x04]) ||
+    startsWithBytes(bytes, [0x50, 0x4b, 0x05, 0x06]) ||
+    startsWithBytes(bytes, [0x50, 0x4b, 0x07, 0x08])
   );
 }
 

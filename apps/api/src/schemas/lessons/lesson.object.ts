@@ -1,5 +1,11 @@
 import { AttendanceStatus, Language, LessonStatus } from '@best/database';
-import { Field, GraphQLISODateTime, ID, ObjectType } from '@nestjs/graphql';
+import {
+  Field,
+  GraphQLISODateTime,
+  ID,
+  Int,
+  ObjectType,
+} from '@nestjs/graphql';
 
 @ObjectType('LessonTranslation')
 export class LessonTranslationObject {
@@ -13,9 +19,12 @@ export class LessonObject {
   @Field(() => ID) id!: string;
   @Field(() => ID) groupId!: string;
   @Field(() => LessonStatus) status!: LessonStatus;
+  @Field(() => Int) lessonNumber!: number;
   @Field(() => GraphQLISODateTime) startsAt!: Date;
   @Field(() => GraphQLISODateTime) endsAt!: Date;
   @Field(() => String, { nullable: true }) room!: string | null;
+  @Field(() => GraphQLISODateTime, { nullable: true })
+  archivedAt!: Date | null;
   @Field(() => [LessonTranslationObject])
   translations!: LessonTranslationObject[];
   @Field(() => GraphQLISODateTime) createdAt!: Date;

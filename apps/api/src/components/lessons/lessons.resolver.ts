@@ -16,6 +16,7 @@ import { LessonConnectionObject } from '../../schemas/lessons/lesson-connection.
 import {
   CreateLessonInput,
   RecordLessonAttendanceInput,
+  SetLessonArchivedInput,
   SetLessonStatusInput,
   UpdateLessonInput,
 } from '../../schemas/lessons/lesson.input';
@@ -149,6 +150,24 @@ export class LessonsResolver {
         input.lessonId,
         input.status,
         input.reason,
+        ctx.req.requestId,
+      ),
+    };
+  }
+
+  @Mutation(() => LessonPayloadObject, { name: 'setLessonArchived' })
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER)
+  async archived(
+    @AuthMember('id') id: string,
+    @Args('input') input: SetLessonArchivedInput,
+    @Context() ctx: ApiGraphqlContext,
+  ) {
+    return {
+      lesson: await this.service.setArchived(
+        id,
+        input.lessonId,
+        input.archived,
         ctx.req.requestId,
       ),
     };

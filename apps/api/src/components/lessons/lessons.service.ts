@@ -34,6 +34,7 @@ export class LessonsService {
     validateRange(from, to);
     const rows = await this.database.lesson.findMany({
       where: {
+        archivedAt: null,
         startsAt: { gte: from, lt: to },
         status: { not: LessonStatus.CANCELLED },
       },
@@ -62,6 +63,7 @@ export class LessonsService {
     });
     const lessons = await this.database.lesson.findMany({
       where: {
+        archivedAt: null,
         group: { room: { not: null } },
         startsAt: { gte: now },
         status: LessonStatus.SCHEDULED,
@@ -112,6 +114,7 @@ export class LessonsService {
     validateRange(from, to);
     const rows = await this.database.lesson.findMany({
       where: {
+        archivedAt: null,
         group: { teacherId },
         startsAt: { gte: from, lt: to },
         status: { not: LessonStatus.CANCELLED },
@@ -132,7 +135,11 @@ export class LessonsService {
     const groupId = parseUuid(groupIdInput, 'groupId');
     await this.requireGroup(teacherId, groupId);
     return this.getConnection(
-      { groupId, ...(status === undefined ? {} : { status }) },
+      {
+        archivedAt: null,
+        groupId,
+        ...(status === undefined ? {} : { status }),
+      },
       first,
       after,
     );
@@ -153,6 +160,7 @@ export class LessonsService {
     validateRange(from, to);
     const rows = await this.database.lesson.findMany({
       where: {
+        archivedAt: null,
         group: { memberships: { some: { studentId, endedAt: null } } },
         startsAt: { gte: from, lt: to },
         status: { in: [LessonStatus.SCHEDULED, LessonStatus.COMPLETED] },
@@ -170,6 +178,7 @@ export class LessonsService {
     const id = parseUuid(lessonIdInput, 'lessonId');
     const row = await this.database.lesson.findFirst({
       where: {
+        archivedAt: null,
         id,
         status: { in: [LessonStatus.SCHEDULED, LessonStatus.COMPLETED] },
         group: { memberships: { some: { studentId, endedAt: null } } },
@@ -215,11 +224,17 @@ export class LessonsService {
     await this.requireGroup(teacherId, groupId);
     await this.ensureNoConflict(teacherId, input.startsAt, input.endsAt);
     const row = await this.database.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${groupId}))`;
+      const sequence = await tx.lesson.aggregate({
+        where: { groupId },
+        _max: { lessonNumber: true },
+      });
       const lesson = await tx.lesson.create({
         data: {
           ...parseLesson(input),
           createdById: teacherId,
           groupId,
+          lessonNumber: (sequence._max.lessonNumber ?? 0) + 1,
           translations: {
             createMany: { data: parseTranslations(input.translations) },
           },
@@ -306,6 +321,38 @@ export class LessonsService {
           targetType: 'LESSON',
         },
       });
+      return lesson;
+    });
+    return mapLesson(row);
+  }
+
+  async setArchived(
+    teacherId: string,
+    lessonIdInput: string,
+    archived: boolean,
+    correlationId?: string,
+  ): Promise<LessonObject> {
+    const id = parseUuid(lessonIdInput, 'lessonId');
+    const existing = await this.database.lesson.findFirst({
+      where: { id, group: { teacherId } },
+      include,
+    });
+    if (existing === null) throw notFound();
+    if ((existing.archivedAt !== null) === archived) return mapLesson(existing);
+
+    const row = await this.database.$transaction(async (tx) => {
+      const lesson = await tx.lesson.update({
+        where: { id },
+        data: { archivedAt: archived ? new Date() : null },
+        include,
+      });
+      await audit(
+        tx,
+        teacherId,
+        archived ? 'LESSON_ARCHIVED' : 'LESSON_RESTORED',
+        lesson.id,
+        correlationId,
+      );
       return lesson;
     });
     return mapLesson(row);
@@ -403,12 +450,10 @@ export class LessonsService {
     const size = parsePageSize(first);
     const afterId = decodeCursor(after);
     const rows = await this.database.lesson.findMany({
-      where: {
-        ...where,
-        ...(afterId === undefined ? {} : { id: { gt: afterId } }),
-      },
+      where,
+      ...(afterId === undefined ? {} : { cursor: { id: afterId }, skip: 1 }),
       include,
-      orderBy: { id: 'asc' },
+      orderBy: [{ lessonNumber: 'desc' }, { id: 'desc' }],
       take: size + 1,
     });
     const hasNextPage = rows.length > size;
@@ -428,7 +473,7 @@ export class LessonsService {
   ): Promise<LessonRecord> {
     const id = parseUuid(idInput, 'lessonId');
     const row = await this.database.lesson.findFirst({
-      where: { id, group: { teacherId } },
+      where: { archivedAt: null, id, group: { teacherId } },
       include,
     });
     if (row === null) throw notFound();
@@ -454,6 +499,7 @@ export class LessonsService {
     validateRange(startsAt, endsAt);
     const count = await this.database.lesson.count({
       where: {
+        archivedAt: null,
         group: { teacherId },
         status: { in: [LessonStatus.DRAFT, LessonStatus.SCHEDULED] },
         startsAt: { lt: endsAt },
@@ -489,10 +535,12 @@ function parseTranslations(rows: CreateLessonInput['translations']) {
 }
 function mapLesson(row: LessonRecord): LessonObject {
   return {
+    archivedAt: row.archivedAt,
     createdAt: row.createdAt,
     endsAt: row.endsAt,
     groupId: row.groupId,
     id: row.id,
+    lessonNumber: row.lessonNumber,
     room: row.room,
     startsAt: row.startsAt,
     status: row.status,

@@ -1,4 +1,4 @@
-import { UserRole } from '@best/database';
+import { Language, UserRole } from '@best/database';
 import { UseGuards } from '@nestjs/common';
 import {
   Args,
@@ -35,10 +35,12 @@ export class MaterialsResolver {
   list(
     @AuthMember('id') id: string,
     @Args('groupId', { type: () => ID }) groupId: string,
+    @Args('language', { defaultValue: Language.EN, type: () => Language })
+    language: Language,
     @Args('first', { nullable: true, type: () => Int }) first?: number,
     @Args('after', { nullable: true }) after?: string,
   ) {
-    return this.service.list(id, groupId, first, after);
+    return this.service.list(id, groupId, language, first, after);
   }
   @Mutation(() => LessonMaterialPayloadObject, { name: 'createLessonMaterial' })
   @UseGuards(AuthGuard, RolesGuard)

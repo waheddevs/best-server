@@ -1,3 +1,4 @@
+import { LessonMaterialKind } from '@best/database';
 import {
   Field,
   GraphQLISODateTime,
@@ -5,6 +6,7 @@ import {
   Int,
   ObjectType,
 } from '@nestjs/graphql';
+import { MediaObjectObject } from '../assets/media-object.object';
 import { PageInfoObject } from '../pagination/page-info.object';
 @ObjectType('LessonMaterial')
 export class LessonMaterialObject {
@@ -12,6 +14,10 @@ export class LessonMaterialObject {
   @Field(() => ID) groupId!: string;
   @Field(() => ID, { nullable: true }) lessonId!: string | null;
   @Field(() => ID) libraryItemId!: string;
+  @Field(() => LessonMaterialKind) kind!: LessonMaterialKind;
+  @Field(() => String) title!: string;
+  @Field(() => String, { nullable: true }) description!: string | null;
+  @Field(() => MediaObjectObject) mediaObject!: MediaObjectObject;
   @Field(() => Int) position!: number;
   @Field(() => GraphQLISODateTime, { nullable: true }) archivedAt!: Date | null;
   @Field(() => GraphQLISODateTime) createdAt!: Date;

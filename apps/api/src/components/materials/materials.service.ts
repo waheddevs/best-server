@@ -1,4 +1,10 @@
-import { ContentStatus, Prisma } from '@best/database';
+import {
+  ContentStatus,
+  Language,
+  MediaMalwareStatus,
+  MediaObjectStatus,
+  Prisma,
+} from '@best/database';
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
 import { ErrorCode } from '../../libs/enums/error-code.enum';
@@ -15,12 +21,29 @@ import type {
   LessonMaterialObject,
 } from '../../schemas/materials/lesson-material.object';
 
+const materialInclude = {
+  libraryItem: {
+    include: {
+      attachments: {
+        include: { mediaObject: true },
+        orderBy: { position: 'asc' },
+      },
+      translations: { orderBy: { language: 'asc' } },
+    },
+  },
+} satisfies Prisma.LessonMaterialInclude;
+
+type MaterialRecord = Prisma.LessonMaterialGetPayload<{
+  include: typeof materialInclude;
+}>;
+
 @Injectable()
 export class MaterialsService {
   constructor(private readonly db: DatabaseService) {}
   async list(
     teacherId: string,
     groupIdInput: string,
+    language: Language,
     first?: number,
     after?: string,
   ): Promise<LessonMaterialConnectionObject> {
@@ -30,15 +53,33 @@ export class MaterialsService {
     const afterId = decodeCursor(after);
     const rows = await this.db.lessonMaterial.findMany({
       where: {
+        archivedAt: null,
         groupId,
-        ...(afterId === undefined ? {} : { id: { gt: afterId } }),
+        OR: [{ lessonId: null }, { lesson: { archivedAt: null } }],
+        libraryItem: {
+          attachments: {
+            some: {
+              mediaObject: {
+                malwareStatus: MediaMalwareStatus.CLEAN,
+                status: MediaObjectStatus.READY,
+              },
+            },
+          },
+          status: ContentStatus.ACTIVE,
+          translations: { some: {} },
+        },
       },
-      orderBy: { id: 'asc' },
+      ...(afterId === undefined ? {} : { cursor: { id: afterId }, skip: 1 }),
+      include: materialInclude,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: size + 1,
     });
     const hasNextPage = rows.length > size;
     const page = hasNextPage ? rows.slice(0, size) : rows;
-    const edges = page.map((node) => ({ cursor: encodeCursor(node.id), node }));
+    const edges = page.map((row) => ({
+      cursor: encodeCursor(row.id),
+      node: mapMaterial(row, language),
+    }));
     return {
       edges,
       pageInfo: { endCursor: edges.at(-1)?.cursor ?? null, hasNextPage },
@@ -73,12 +114,16 @@ export class MaterialsService {
     const id = parseUuid(materialIdInput, 'materialId');
     const existing = await this.db.lessonMaterial.findFirst({
       where: { id, group: { teacherId } },
+      include: materialInclude,
     });
     if (existing === null) throw notFound();
+    if ((existing.archivedAt !== null) === archived)
+      return mapMaterial(existing, Language.EN);
     return this.db.$transaction(async (tx) => {
       const row = await tx.lessonMaterial.update({
         where: { id },
         data: { archivedAt: archived ? new Date() : null },
+        include: materialInclude,
       });
       await audit(
         tx,
@@ -87,7 +132,7 @@ export class MaterialsService {
         id,
         correlationId,
       );
-      return row;
+      return mapMaterial(row, Language.EN);
     });
   }
   private async write(
@@ -125,7 +170,12 @@ export class MaterialsService {
       lessonId === null
         ? { id: null }
         : await this.db.lesson.findFirst({
-            where: { id: lessonId, groupId, group: { teacherId } },
+            where: {
+              archivedAt: null,
+              id: lessonId,
+              groupId,
+              group: { teacherId },
+            },
             select: { id: true },
           });
     if (item === null || lesson === null) throw notFound();
@@ -136,19 +186,23 @@ export class MaterialsService {
               data: {
                 createdById: teacherId,
                 groupId,
+                kind: input.kind,
                 lessonId,
                 libraryItemId,
                 position: input.position,
               },
+              include: materialInclude,
             })
           : await tx.lessonMaterial.update({
               where: { id, group: { teacherId } },
               data: {
                 groupId,
+                kind: input.kind,
                 lessonId,
                 libraryItemId,
                 position: input.position,
               },
+              include: materialInclude,
             });
       await audit(
         tx,
@@ -159,7 +213,7 @@ export class MaterialsService {
         row.id,
         correlationId,
       );
-      return row;
+      return mapMaterial(row, Language.EN);
     });
   }
   private async requireGroup(
@@ -167,11 +221,51 @@ export class MaterialsService {
     groupId: string,
   ): Promise<void> {
     if (
-      (await this.db.group.count({ where: { id: groupId, teacherId } })) !== 1
+      (await this.db.group.count({
+        where: { id: groupId, status: ContentStatus.ACTIVE, teacherId },
+      })) !== 1
     )
       throw notFound();
   }
 }
+
+function mapMaterial(
+  row: MaterialRecord,
+  language: Language,
+): LessonMaterialObject {
+  const translation =
+    row.libraryItem.translations.find((item) => item.language === language) ??
+    row.libraryItem.translations[0];
+  const attachment = row.libraryItem.attachments[0];
+  if (translation === undefined || attachment === undefined) throw notFound();
+  const media = attachment.mediaObject;
+  return {
+    archivedAt: row.archivedAt,
+    createdAt: row.createdAt,
+    description: translation.description,
+    groupId: row.groupId,
+    id: row.id,
+    kind: row.kind,
+    lessonId: row.lessonId,
+    libraryItemId: row.libraryItemId,
+    mediaObject: {
+      checksumSha256: media.checksumSha256,
+      id: media.id,
+      malwareScannedAt: media.malwareScannedAt,
+      malwareStatus: media.malwareStatus,
+      mediaType: media.mediaType,
+      mimeType: media.mimeType,
+      originalName: media.originalName,
+      sizeBytes: media.sizeBytes === null ? null : Number(media.sizeBytes),
+      status: media.status,
+      verifiedAt: media.verifiedAt,
+    },
+    position: row.position,
+    title: translation.title,
+    updatedAt: row.updatedAt,
+  };
+}
+
 async function audit(
   tx: Prisma.TransactionClient,
   actorId: string,
