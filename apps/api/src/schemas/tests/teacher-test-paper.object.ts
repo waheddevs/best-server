@@ -1,5 +1,11 @@
-import { TestSkill, TestVersionStatus } from '@best/database';
-import { Field, ID, Int, ObjectType } from '@nestjs/graphql';
+import { IeltsModule, TestSkill, TestVersionStatus } from '@best/database';
+import {
+  Field,
+  GraphQLISODateTime,
+  ID,
+  Int,
+  ObjectType,
+} from '@nestjs/graphql';
 
 @ObjectType('TeacherTestPaperSkill')
 export class TeacherTestPaperSkillObject {
@@ -33,17 +39,32 @@ export class TeacherTestPaperObject {
   @Field(() => ID)
   id!: string;
 
+  @Field(() => Int)
+  practiceNumber!: number;
+
   @Field(() => String)
   slug!: string;
 
   @Field(() => Int)
   academicYear!: number;
 
+  @Field(() => GraphQLISODateTime)
+  createdAt!: Date;
+
+  @Field(() => Int)
+  completedStudentCount!: number;
+
+  @Field(() => IeltsModule)
+  ieltsModule!: IeltsModule;
+
   @Field(() => String)
   title!: string;
 
   @Field(() => String)
   sourceLabel!: string;
+
+  @Field(() => Boolean)
+  isSaved!: boolean;
 
   @Field(() => [TeacherTestPaperSkillObject])
   skills!: TeacherTestPaperSkillObject[];

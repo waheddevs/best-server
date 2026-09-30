@@ -1,12 +1,27 @@
 import { Language, UserRole } from '@best/database';
 import { UseGuards } from '@nestjs/common';
-import { Args, ID, Int, Query, Resolver } from '@nestjs/graphql';
+import {
+  Args,
+  Context,
+  ID,
+  Int,
+  Mutation,
+  Query,
+  Resolver,
+} from '@nestjs/graphql';
 
+import type { ApiGraphqlContext } from '../../libs/types/authenticated-request.type';
+import { CreateTeacherPracticeTestInput } from '../../schemas/tests/create-teacher-practice-test.input';
 import { StudentTestConnectionObject } from '../../schemas/tests/student-test-connection.object';
 import { StudentTestObject } from '../../schemas/tests/student-test.object';
 import { StudentTestPaperConnectionObject } from '../../schemas/tests/student-test-paper-connection.object';
 import { StudentTestPaperObject } from '../../schemas/tests/student-test-paper.object';
+import { TeacherTestPaperPageObject } from '../../schemas/tests/teacher-test-paper-page.object';
+import { TeacherTestPaperDeletionPayloadObject } from '../../schemas/tests/teacher-test-paper-deletion-payload.object';
+import { TeacherTestPaperPayloadObject } from '../../schemas/tests/teacher-test-paper-payload.object';
 import { TeacherTestPaperObject } from '../../schemas/tests/teacher-test-paper.object';
+import { PracticeBookmarkPayloadObject } from '../../schemas/tests/practice-bookmark-payload.object';
+import { SetPracticeBookmarkInput } from '../../schemas/tests/set-practice-bookmark.input';
 import {
   AdminTestSummaryConnectionObject,
   AdminTestSummaryObject,
@@ -22,14 +37,79 @@ import { TestsService } from './tests.service';
 export class TestsResolver {
   constructor(private readonly testsService: TestsService) {}
 
-  @Query(() => [TeacherTestPaperObject], { name: 'teacherTestPapers' })
+  @Mutation(() => TeacherTestPaperPayloadObject, {
+    name: 'createTeacherPracticeTest',
+  })
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER)
+  async createTeacherPracticeTest(
+    @AuthMember('id') teacherId: string,
+    @Args('input') input: CreateTeacherPracticeTestInput,
+    @Context() context: ApiGraphqlContext,
+  ): Promise<TeacherTestPaperPayloadObject> {
+    return {
+      testPaper: await this.testsService.createTeacherPracticeTest(
+        teacherId,
+        input.groupId,
+        context.req.requestId,
+      ),
+    };
+  }
+
+  @Mutation(() => TeacherTestPaperDeletionPayloadObject, {
+    name: 'deleteTeacherPracticeTest',
+  })
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER)
+  deleteTeacherPracticeTest(
+    @AuthMember('id') teacherId: string,
+    @Args('testPaperId', { type: () => ID }) testPaperId: string,
+    @Context() context: ApiGraphqlContext,
+  ): Promise<TeacherTestPaperDeletionPayloadObject> {
+    return this.testsService.deleteTeacherPracticeTest(
+      teacherId,
+      testPaperId,
+      context.req.requestId,
+    );
+  }
+
+  @Mutation(() => PracticeBookmarkPayloadObject, {
+    name: 'setPracticeBookmark',
+  })
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER, UserRole.STUDENT)
+  setPracticeBookmark(
+    @AuthMember('id') userId: string,
+    @AuthMember('role') role: UserRole,
+    @Args('input') input: SetPracticeBookmarkInput,
+  ): Promise<PracticeBookmarkPayloadObject> {
+    return this.testsService.setPracticeBookmark(userId, role, input);
+  }
+
+  @Query(() => TeacherTestPaperPageObject, { name: 'teacherTestPapers' })
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.TEACHER)
   getTeacherTestPapers(
     @AuthMember('id') teacherId: string,
     @Args('groupId', { type: () => ID }) groupId: string,
-  ): Promise<TeacherTestPaperObject[]> {
-    return this.testsService.getTeacherTestPapers(teacherId, groupId);
+    @Args('page', { defaultValue: 1, type: () => Int }) page: number,
+  ): Promise<TeacherTestPaperPageObject> {
+    return this.testsService.getTeacherTestPapers(teacherId, groupId, page);
+  }
+
+  @Query(() => TeacherTestPaperObject, { name: 'teacherTestPaper' })
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER)
+  getTeacherTestPaper(
+    @AuthMember('id') teacherId: string,
+    @Args('groupId', { type: () => ID }) groupId: string,
+    @Args('practiceNumber', { type: () => Int }) practiceNumber: number,
+  ): Promise<TeacherTestPaperObject> {
+    return this.testsService.getTeacherTestPaper(
+      teacherId,
+      groupId,
+      practiceNumber,
+    );
   }
 
   @Query(() => StudentTestPaperConnectionObject, {
