@@ -281,6 +281,28 @@ export class AssetsService {
     }
   }
 
+  async createAuthorizedMediaDownloadIntent(
+    mediaObjectIdInput: string,
+  ): Promise<MediaDownloadIntentObject> {
+    const mediaObjectId = parseUuid(mediaObjectIdInput, 'mediaObjectId');
+    const mediaObject = await this.database.mediaObject.findFirst({
+      where: {
+        id: mediaObjectId,
+        malwareStatus: MediaMalwareStatus.CLEAN,
+        status: MediaObjectStatus.READY,
+      },
+      select: { objectKey: true },
+    });
+    if (mediaObject === null) {
+      throw mediaNotFoundError();
+    }
+    try {
+      return await this.storage.createDownloadIntent(mediaObject.objectKey);
+    } catch (error: unknown) {
+      throw storageUnavailableError(error);
+    }
+  }
+
   private async inspectUploadedObject(mediaObject: OwnedMediaObject) {
     try {
       return await this.storage.inspectObject(mediaObject.objectKey);

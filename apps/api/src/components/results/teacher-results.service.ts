@@ -2,6 +2,7 @@ import {
   AttemptStatus,
   ContentStatus,
   Language,
+  TestSkill,
   TestVersionStatus,
 } from '@best/database';
 import { Injectable } from '@nestjs/common';
@@ -17,9 +18,12 @@ import {
 } from '../../libs/pagination/cursor-pagination';
 import type { TeacherAttemptConnectionObject } from '../../schemas/results/teacher-attempt.object';
 import type { TeacherAttemptReviewObject } from '../../schemas/results/teacher-attempt-review.object';
+import type { TeacherSpeakingAttemptReviewObject } from '../../schemas/results/teacher-speaking-attempt-review.object';
+import type { SaveSpeakingAttemptReviewInput } from '../../schemas/results/save-speaking-attempt-review.input';
 import type { TeacherGroupProgressObject } from '../../schemas/results/teacher-group-progress.object';
 import type { TeacherStudentProgressConnectionObject } from '../../schemas/results/teacher-student-progress.object';
 import { TeacherStudentTestProgressStatus } from '../../schemas/results/teacher-student-test-progress.enum';
+import { AssetsService } from '../assets/assets.service';
 import type { TeacherStudentTestProgressConnectionObject } from '../../schemas/results/teacher-student-test-progress.object';
 
 import {
@@ -30,7 +34,200 @@ import {
 
 @Injectable()
 export class TeacherResultsService {
-  constructor(private readonly database: DatabaseService) {}
+  constructor(
+    private readonly database: DatabaseService,
+    private readonly assetsService: AssetsService,
+  ) {}
+
+  async saveSpeakingAttemptReview(
+    teacherId: string,
+    input: SaveSpeakingAttemptReviewInput,
+  ): Promise<void> {
+    const attemptId = parseUuid(input.attemptId, 'attemptId');
+    const scores = {
+      fluencyCoherence: input.fluencyCoherence,
+      grammaticalRangeAccuracy: input.grammaticalRangeAccuracy,
+      lexicalResource: input.lexicalResource,
+      pronunciation: input.pronunciation,
+    };
+    for (const value of [...Object.values(scores), input.practiceBand]) {
+      if (!isIeltsBand(value)) {
+        throw new ApplicationError(
+          ErrorCode.BAD_USER_INPUT,
+          'IELTS rubric scores must be half-band values from 0 to 9',
+          400,
+        );
+      }
+    }
+    const feedback = input.feedback?.trim() ?? null;
+    if (feedback !== null && feedback.length > 5000) {
+      throw new ApplicationError(
+        ErrorCode.BAD_USER_INPUT,
+        'Feedback cannot exceed 5000 characters',
+        400,
+      );
+    }
+    const now = new Date();
+    await this.database.$transaction(async (transaction) => {
+      const attempt = await transaction.attempt.findFirst({
+        where: {
+          groupMembership: { group: { teacherId } },
+          id: attemptId,
+          status: {
+            in: [AttemptStatus.SUBMITTED, AttemptStatus.REVIEW_REQUIRED],
+          },
+          testVersion: { test: { skill: TestSkill.SPEAKING } },
+        },
+        select: {
+          testVersion: {
+            select: {
+              passingPercentage: true,
+              _count: { select: { questions: true } },
+            },
+          },
+        },
+      });
+      if (attempt === null) {
+        throw notFound('Speaking attempt awaiting review');
+      }
+      await transaction.attemptReview.upsert({
+        where: { attemptId },
+        create: {
+          attemptId,
+          feedback,
+          practiceBand: input.practiceBand,
+          releasedAt: input.release ? now : null,
+          reviewedAt: now,
+          reviewerId: teacherId,
+          rubricScores: scores,
+          rubricVersion: 'ielts-speaking-v1',
+        },
+        update: {
+          feedback,
+          practiceBand: input.practiceBand,
+          releasedAt: input.release ? now : null,
+          reviewedAt: now,
+          reviewerId: teacherId,
+          rubricScores: scores,
+          rubricVersion: 'ielts-speaking-v1',
+        },
+      });
+      await transaction.attempt.update({
+        where: { id: attemptId },
+        data: input.release
+          ? {
+              correctAnswerCount: 0,
+              passed:
+                (input.practiceBand / 9) * 100 >=
+                attempt.testVersion.passingPercentage,
+              percentage: (input.practiceBand / 9) * 100,
+              scoringRuleVersion: 'manual-rubric-v1',
+              status: AttemptStatus.SCORED,
+              totalQuestionCount: attempt.testVersion._count.questions,
+            }
+          : { status: AttemptStatus.REVIEW_REQUIRED },
+      });
+      await transaction.auditLog.create({
+        data: {
+          action: input.release
+            ? 'SPEAKING_REVIEW_RELEASED'
+            : 'SPEAKING_REVIEW_SAVED',
+          actorId: teacherId,
+          newValues: { practiceBand: input.practiceBand, scores },
+          targetId: attemptId,
+          targetType: 'AttemptReview',
+        },
+      });
+    });
+  }
+
+  async getSpeakingAttemptReview(
+    teacherId: string,
+    attemptIdInput: string,
+    language: Language,
+  ): Promise<TeacherSpeakingAttemptReviewObject> {
+    const attemptId = parseUuid(attemptIdInput, 'attemptId');
+    const attempt = await this.database.attempt.findFirst({
+      where: {
+        groupMembership: { group: { teacherId } },
+        id: attemptId,
+        testVersion: { test: { skill: TestSkill.SPEAKING } },
+      },
+      include: {
+        answers: { select: { questionId: true, responseMediaObjectId: true } },
+        review: true,
+        student: { select: { displayName: true } },
+        testVersion: {
+          include: {
+            questions: {
+              include: {
+                section: { select: { position: true } },
+                translations: {
+                  where: { language },
+                  select: { prompt: true },
+                },
+              },
+              orderBy: { position: 'asc' },
+            },
+            translations: {
+              where: { language },
+              select: { title: true },
+            },
+          },
+        },
+      },
+    });
+    if (attempt === null) {
+      throw notFound('Speaking attempt');
+    }
+    const title = attempt.testVersion.translations[0]?.title;
+    if (title === undefined) {
+      throw translationNotAvailable();
+    }
+    const answerByQuestion = new Map(
+      attempt.answers.map((answer) => [answer.questionId, answer]),
+    );
+    const answers = await Promise.all(
+      attempt.testVersion.questions.map(async (question) => {
+        const prompt = question.translations[0]?.prompt;
+        if (prompt === undefined) {
+          throw translationNotAvailable();
+        }
+        if (question.section === null) {
+          throw new ApplicationError(
+            ErrorCode.INTERNAL_SERVER_ERROR,
+            'The Speaking question is missing its section',
+            500,
+          );
+        }
+        const mediaObjectId =
+          answerByQuestion.get(question.id)?.responseMediaObjectId ?? null;
+        const intent =
+          mediaObjectId === null
+            ? null
+            : await this.assetsService.createAuthorizedMediaDownloadIntent(
+                mediaObjectId,
+              );
+        return {
+          audioUrl: intent?.url ?? null,
+          audioUrlExpiresAt: intent?.expiresAt ?? null,
+          position: question.position,
+          prompt,
+          questionId: question.id,
+          responseMediaObjectId: mediaObjectId,
+          sectionPosition: question.section.position,
+        };
+      }),
+    );
+    return {
+      answers,
+      attemptId: attempt.id,
+      review: mapSpeakingReview(attempt.review),
+      status: attempt.status,
+      studentDisplayName: attempt.student.displayName,
+      title,
+    };
+  }
 
   async getGroupProgress(
     teacherId: string,
@@ -337,7 +534,7 @@ export class TeacherResultsService {
       include: {
         testVersion: {
           include: {
-            test: { select: { id: true } },
+            test: { select: { id: true, skill: true } },
             translations: {
               where: { language },
               select: { title: true },
@@ -364,6 +561,7 @@ export class TeacherResultsService {
           attemptNumber: attempt.attemptNumber,
           passed: attempt.passed,
           percentage: attempt.percentage?.toNumber() ?? null,
+          skill: attempt.testVersion.test.skill,
           startedAt: attempt.startedAt,
           status: attempt.status,
           submittedAt: attempt.submittedAt,
@@ -540,11 +738,77 @@ function translationNotAvailable(): ApplicationError {
   );
 }
 
+function isIeltsBand(value: number): boolean {
+  return (
+    Number.isFinite(value) && value >= 0 && value <= 9 && (value * 2) % 1 === 0
+  );
+}
+
+function mapSpeakingReview(
+  review: {
+    feedback: string | null;
+    practiceBand: { toNumber(): number };
+    releasedAt: Date | null;
+    reviewedAt: Date;
+    rubricScores: unknown;
+  } | null,
+) {
+  if (review === null) {
+    return null;
+  }
+  const scores = review.rubricScores;
+  if (!isRecord(scores)) {
+    throw new ApplicationError(
+      ErrorCode.INTERNAL_SERVER_ERROR,
+      'The Speaking review rubric is invalid',
+      500,
+    );
+  }
+  return {
+    feedback: review.feedback,
+    fluencyCoherence: requireRubricScore(scores, 'fluencyCoherence'),
+    grammaticalRangeAccuracy: requireRubricScore(
+      scores,
+      'grammaticalRangeAccuracy',
+    ),
+    lexicalResource: requireRubricScore(scores, 'lexicalResource'),
+    practiceBand: review.practiceBand.toNumber(),
+    pronunciation: requireRubricScore(scores, 'pronunciation'),
+    releasedAt: review.releasedAt,
+    reviewedAt: review.reviewedAt,
+  };
+}
+
+function requireRubricScore(
+  scores: Record<string, unknown>,
+  key: string,
+): number {
+  const value = scores[key];
+  if (typeof value !== 'number' || !isIeltsBand(value)) {
+    throw new ApplicationError(
+      ErrorCode.INTERNAL_SERVER_ERROR,
+      'The Speaking review rubric is invalid',
+      500,
+    );
+  }
+  return value;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 function resolveTestProgressStatus(
   attempts: readonly { readonly status: AttemptStatus }[],
   progress: ProgressMetrics,
 ): TeacherStudentTestProgressStatus {
-  if (attempts.some(({ status }) => status === AttemptStatus.SUBMITTED)) {
+  if (
+    attempts.some(
+      ({ status }) =>
+        status === AttemptStatus.SUBMITTED ||
+        status === AttemptStatus.REVIEW_REQUIRED,
+    )
+  ) {
     return TeacherStudentTestProgressStatus.AWAITING_SCORE;
   }
 

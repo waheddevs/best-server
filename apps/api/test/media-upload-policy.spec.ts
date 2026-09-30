@@ -114,4 +114,10 @@ void test('matches trusted file signatures instead of filename text', () => {
     ),
     true,
   );
+  assert.equal(
+    getMediaUploadPolicy('audio/webm').signatureMatches(
+      Buffer.from([0x1a, 0x45, 0xdf, 0xa3]),
+    ),
+    true,
+  );
 });

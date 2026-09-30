@@ -103,12 +103,12 @@ export class AdminResultsService {
           "completed_assignments" AS (
             SELECT DISTINCT "membership_id", "test_id"
             FROM "assignment_attempts"
-            WHERE "status" IN ('SUBMITTED', 'SCORED')
+            WHERE "status" IN ('SUBMITTED', 'REVIEW_REQUIRED', 'SCORED')
           ),
           "awaiting_assignments" AS (
             SELECT DISTINCT "membership_id", "test_id"
             FROM "assignment_attempts"
-            WHERE "status" = 'SUBMITTED'
+            WHERE "status" IN ('SUBMITTED', 'REVIEW_REQUIRED')
           ),
           "best_scores" AS (
             SELECT DISTINCT ON ("membership_id", "test_id")

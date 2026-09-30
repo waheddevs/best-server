@@ -3,6 +3,7 @@ import {
   type DownloadIntent,
   ObjectStorageClient,
   type StoredObjectMetadata,
+  type StoredObjectInput,
   type UploadIntent,
   type UploadIntentInput,
 } from '@best/storage';
@@ -31,6 +32,10 @@ export class S3AssetsStorageGateway
 
   inspectObject(key: string): Promise<StoredObjectMetadata> {
     return this.client.inspectObject(key);
+  }
+
+  writeObject(input: StoredObjectInput): Promise<void> {
+    return this.client.writeObject(input);
   }
 
   readObject(key: string, etag: string, maxBytes: number): Promise<Uint8Array> {

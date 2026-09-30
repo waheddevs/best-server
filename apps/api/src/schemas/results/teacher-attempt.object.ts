@@ -6,7 +6,7 @@ import {
   Int,
   ObjectType,
 } from '@nestjs/graphql';
-import { AttemptStatus } from '@best/database';
+import { AttemptStatus, TestSkill } from '@best/database';
 
 import { PageInfoObject } from '../pagination/page-info.object';
 
@@ -20,6 +20,9 @@ export class TeacherAttemptObject {
 
   @Field(() => String)
   title!: string;
+
+  @Field(() => TestSkill, { nullable: true })
+  skill!: TestSkill | null;
 
   @Field(() => Int)
   attemptNumber!: number;

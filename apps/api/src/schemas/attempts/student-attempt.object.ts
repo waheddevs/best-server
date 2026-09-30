@@ -1,4 +1,9 @@
-import { AttemptStatus, Language, TestSkill } from '@best/database';
+import {
+  AttemptStatus,
+  Language,
+  TestSectionBlockKind,
+  TestSkill,
+} from '@best/database';
 import {
   Field,
   Float,
@@ -9,6 +14,36 @@ import {
 } from '@nestjs/graphql';
 
 import { StudentQuestionObject } from './student-question.object';
+
+@ObjectType('StudentTestTableRow')
+export class StudentTestTableRowObject {
+  @Field(() => [String])
+  cells!: string[];
+}
+
+@ObjectType('StudentTestSectionBlock')
+export class StudentTestSectionBlockObject {
+  @Field(() => ID)
+  id!: string;
+
+  @Field(() => Int)
+  position!: number;
+
+  @Field(() => TestSectionBlockKind)
+  kind!: TestSectionBlockKind;
+
+  @Field(() => String, { nullable: true })
+  caption!: string | null;
+
+  @Field(() => [StudentTestTableRowObject])
+  tableHeaderRows!: StudentTestTableRowObject[];
+
+  @Field(() => [StudentTestTableRowObject])
+  tableRows!: StudentTestTableRowObject[];
+
+  @Field(() => [ID])
+  questionIds!: string[];
+}
 
 @ObjectType('StudentTestSection')
 export class StudentTestSectionObject {
@@ -29,6 +64,9 @@ export class StudentTestSectionObject {
 
   @Field(() => ID, { nullable: true })
   mediaObjectId!: string | null;
+
+  @Field(() => [StudentTestSectionBlockObject])
+  blocks!: StudentTestSectionBlockObject[];
 }
 
 @ObjectType('StudentSavedAnswer')
@@ -47,6 +85,18 @@ export class StudentSavedAnswerObject {
 
   @Field(() => ID, { nullable: true })
   responseMediaObjectId!: string | null;
+
+  @Field(() => GraphQLISODateTime)
+  savedAt!: Date;
+}
+
+@ObjectType('StudentAttemptSectionNote')
+export class StudentAttemptSectionNoteObject {
+  @Field(() => ID)
+  sectionId!: string;
+
+  @Field(() => String)
+  text!: string;
 
   @Field(() => GraphQLISODateTime)
   savedAt!: Date;
@@ -113,6 +163,9 @@ export class StudentAttemptObject {
 
   @Field(() => [StudentSavedAnswerObject])
   answers!: StudentSavedAnswerObject[];
+
+  @Field(() => [StudentAttemptSectionNoteObject])
+  notes!: StudentAttemptSectionNoteObject[];
 
   @Field(() => StudentAttemptResultObject, { nullable: true })
   result!: StudentAttemptResultObject | null;

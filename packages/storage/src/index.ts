@@ -5,6 +5,7 @@ export { StorageInputError } from './storage-input.error';
 export type {
   DownloadIntent,
   StoredObjectMetadata,
+  StoredObjectInput,
   UploadIntent,
   UploadIntentInput,
 } from './object-storage-client';

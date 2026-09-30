@@ -14,6 +14,12 @@ export class SaveAttemptAnswerPayloadObject {
   attempt!: StudentAttemptObject;
 }
 
+@ObjectType('SaveAttemptSectionNotePayload')
+export class SaveAttemptSectionNotePayloadObject {
+  @Field(() => StudentAttemptObject)
+  attempt!: StudentAttemptObject;
+}
+
 @ObjectType('SubmitTestAttemptPayload')
 export class SubmitTestAttemptPayloadObject {
   @Field(() => StudentAttemptObject)

@@ -1,15 +1,18 @@
 import { Language, UserRole } from '@best/database';
 import { UseGuards } from '@nestjs/common';
-import { Args, ID, Int, Query, Resolver } from '@nestjs/graphql';
+import { Args, ID, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
 
 import { StudentResultConnectionObject } from '../../schemas/results/student-result-connection.object';
 import { StudentProgressObject } from '../../schemas/results/student-progress.object';
+import { StudentSpeakingResultObject } from '../../schemas/results/student-speaking-result.object';
 import { AdminAcademicOverviewObject } from '../../schemas/results/admin-academic-overview.object';
 import { AdminGroupProgressConnectionObject } from '../../schemas/results/admin-group-progress.object';
 import { AdminStudentResultConnectionObject } from '../../schemas/results/admin-student-result.object';
 import { AdminStudentConnectionObject } from '../../schemas/results/admin-student.object';
 import { TeacherAttemptConnectionObject } from '../../schemas/results/teacher-attempt.object';
 import { TeacherAttemptReviewObject } from '../../schemas/results/teacher-attempt-review.object';
+import { TeacherSpeakingAttemptReviewObject } from '../../schemas/results/teacher-speaking-attempt-review.object';
+import { SaveSpeakingAttemptReviewInput } from '../../schemas/results/save-speaking-attempt-review.input';
 import { TeacherGroupProgressObject } from '../../schemas/results/teacher-group-progress.object';
 import { TeacherStudentProgressConnectionObject } from '../../schemas/results/teacher-student-progress.object';
 import { TeacherStudentTestProgressConnectionObject } from '../../schemas/results/teacher-student-test-progress.object';
@@ -85,6 +88,24 @@ export class ResultsResolver {
     @AuthMember('id') studentId: string,
   ): Promise<StudentProgressObject> {
     return this.resultsService.getStudentProgress(studentId);
+  }
+
+  @Query(() => StudentSpeakingResultObject, {
+    name: 'studentSpeakingResult',
+    nullable: true,
+  })
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.STUDENT)
+  getStudentSpeakingResult(
+    @AuthMember('id') studentId: string,
+    @Args('attemptId', { type: () => ID }) attemptId: string,
+    @Args('language', { type: () => Language }) language: Language,
+  ): Promise<StudentSpeakingResultObject | null> {
+    return this.resultsService.getStudentSpeakingResult(
+      studentId,
+      attemptId,
+      language,
+    );
   }
 
   @Query(() => TeacherGroupProgressObject, { name: 'teacherGroupProgress' })
@@ -173,6 +194,44 @@ export class ResultsResolver {
     return this.teacherResultsService.getAttemptReview(
       teacherId,
       attemptId,
+      language,
+    );
+  }
+
+  @Query(() => TeacherSpeakingAttemptReviewObject, {
+    name: 'teacherSpeakingAttemptReview',
+  })
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER)
+  getTeacherSpeakingAttemptReview(
+    @AuthMember('id') teacherId: string,
+    @Args('attemptId', { type: () => ID }) attemptId: string,
+    @Args('language', { type: () => Language }) language: Language,
+  ): Promise<TeacherSpeakingAttemptReviewObject> {
+    return this.teacherResultsService.getSpeakingAttemptReview(
+      teacherId,
+      attemptId,
+      language,
+    );
+  }
+
+  @Mutation(() => TeacherSpeakingAttemptReviewObject, {
+    name: 'saveSpeakingAttemptReview',
+  })
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER)
+  async saveSpeakingAttemptReview(
+    @AuthMember('id') teacherId: string,
+    @Args('input') input: SaveSpeakingAttemptReviewInput,
+    @Args('language', { type: () => Language }) language: Language,
+  ): Promise<TeacherSpeakingAttemptReviewObject> {
+    await this.teacherResultsService.saveSpeakingAttemptReview(
+      teacherId,
+      input,
+    );
+    return this.teacherResultsService.getSpeakingAttemptReview(
+      teacherId,
+      input.attemptId,
       language,
     );
   }

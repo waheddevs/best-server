@@ -57,6 +57,24 @@ export class ScoringService {
     }
 
     if (attempt.testVersion.scoringRuleVersion === 'manual-rubric-v1') {
+      await this.database.$transaction(async (transaction) => {
+        const update = await transaction.attempt.updateMany({
+          where: { id: attemptId, status: AttemptStatus.SUBMITTED },
+          data: { status: AttemptStatus.REVIEW_REQUIRED },
+        });
+        if (update.count === 0) {
+          return;
+        }
+        await transaction.auditLog.create({
+          data: {
+            action: 'TEST_ATTEMPT_REVIEW_REQUIRED',
+            correlationId: correlationId ?? null,
+            newValues: { scoringRuleVersion: 'manual-rubric-v1' },
+            targetId: attemptId,
+            targetType: 'Attempt',
+          },
+        });
+      });
       return;
     }
 
@@ -100,9 +118,10 @@ export class ScoringService {
               passingPercentage: attempt.testVersion.passingPercentage,
               questions: attempt.testVersion.questions.map((question) => {
                 const answer = answerByQuestion.get(question.id);
-                const selectedOptionIds = answer?.selections.map(
-                  ({ answerOptionId }) => answerOptionId,
-                ) ??
+                const selectedOptionIds =
+                  answer?.selections.map(
+                    ({ answerOptionId }) => answerOptionId,
+                  ) ??
                   (answer?.selectedOptionId === null ||
                   answer?.selectedOptionId === undefined
                     ? []

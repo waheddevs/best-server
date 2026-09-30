@@ -34,6 +34,9 @@ export class StudentResultObject {
   @Field(() => Float)
   percentage!: number;
 
+  @Field(() => Float, { nullable: true })
+  practiceBand!: number | null;
+
   @Field(() => Float)
   highestPercentage!: number;
 

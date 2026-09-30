@@ -4,6 +4,7 @@ import {
   Language,
   Prisma,
   TestVersionStatus,
+  TestSkill,
 } from '@best/database';
 import { Injectable } from '@nestjs/common';
 
@@ -14,15 +15,70 @@ import {
   decodeCursor,
   encodeCursor,
   parsePageSize,
+  parseUuid,
 } from '../../libs/pagination/cursor-pagination';
 import type { StudentProgressObject } from '../../schemas/results/student-progress.object';
 import type { StudentResultConnectionObject } from '../../schemas/results/student-result-connection.object';
+import type { StudentSpeakingResultObject } from '../../schemas/results/student-speaking-result.object';
 
 import { calculateProgress } from './results-progress';
 
 @Injectable()
 export class ResultsService {
   constructor(private readonly database: DatabaseService) {}
+
+  async getStudentSpeakingResult(
+    studentId: string,
+    attemptId: string,
+    language: Language,
+  ): Promise<StudentSpeakingResultObject | null> {
+    const attempt = await this.database.attempt.findFirst({
+      where: {
+        id: parseUuid(attemptId, 'attemptId'),
+        status: AttemptStatus.SCORED,
+        studentId,
+        testVersion: { test: { skill: TestSkill.SPEAKING } },
+      },
+      select: {
+        id: true,
+        review: true,
+        testVersion: {
+          select: {
+            translations: {
+              where: { language },
+              select: { title: true },
+            },
+          },
+        },
+      },
+    });
+    if (attempt?.review?.releasedAt == null) {
+      return null;
+    }
+    const title = attempt.testVersion.translations[0]?.title;
+    if (title === undefined) {
+      throw new ApplicationError(
+        ErrorCode.TRANSLATION_NOT_AVAILABLE,
+        'The requested result translation is not available',
+        400,
+      );
+    }
+    const scores = attempt.review.rubricScores;
+    if (!isRecord(scores)) {
+      throw invalidSpeakingReview();
+    }
+    return {
+      attemptId: attempt.id,
+      feedback: attempt.review.feedback,
+      fluencyCoherence: rubricScore(scores, 'fluencyCoherence'),
+      grammaticalRangeAccuracy: rubricScore(scores, 'grammaticalRangeAccuracy'),
+      lexicalResource: rubricScore(scores, 'lexicalResource'),
+      practiceBand: attempt.review.practiceBand.toNumber(),
+      pronunciation: rubricScore(scores, 'pronunciation'),
+      releasedAt: attempt.review.releasedAt,
+      title,
+    };
+  }
 
   async getStudentProgress(studentId: string): Promise<StudentProgressObject> {
     const membership = await this.database.groupMembership.findFirst({
@@ -118,6 +174,7 @@ export class ResultsService {
       orderBy: { id: 'asc' },
       take: pageSize + 1,
       include: {
+        review: { select: { practiceBand: true, releasedAt: true } },
         testVersion: {
           include: {
             test: { select: { id: true, skill: true } },
@@ -186,6 +243,9 @@ export class ResultsService {
           highestPercentage: highestByTestId.get(testId) ?? score.percentage,
           passed: score.passed,
           percentage: score.percentage,
+          practiceBand: attempt.review?.releasedAt
+            ? attempt.review.practiceBand.toNumber()
+            : null,
           skill: attempt.testVersion.test.skill,
           submittedAt: score.submittedAt,
           testId,
@@ -203,6 +263,26 @@ export class ResultsService {
       },
     };
   }
+}
+
+function rubricScore(scores: Record<string, unknown>, key: string): number {
+  const value = scores[key];
+  if (typeof value !== 'number') {
+    throw invalidSpeakingReview();
+  }
+  return value;
+}
+
+function invalidSpeakingReview(): ApplicationError {
+  return new ApplicationError(
+    ErrorCode.INTERNAL_SERVER_ERROR,
+    'The released Speaking review is invalid',
+    500,
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function emptyStudentProgress(group?: {

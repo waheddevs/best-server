@@ -39,6 +39,12 @@ export interface StoredObjectMetadata {
   readonly lastModified: Date | undefined;
 }
 
+export interface StoredObjectInput {
+  readonly bytes: Uint8Array;
+  readonly contentType: string;
+  readonly key: string;
+}
+
 const CONTENT_TYPE_PATTERN =
   /^[a-z0-9][a-z0-9!#$&^_.+-]*\/[a-z0-9][a-z0-9!#$&^_.+-]*$/;
 
@@ -122,6 +128,35 @@ export class ObjectStorageClient {
       expiresAt: new Date(Date.now() + expiresIn * 1_000),
       url,
     };
+  }
+
+  async writeObject({
+    bytes,
+    contentType,
+    key,
+  }: StoredObjectInput): Promise<void> {
+    assertStorageKey(key);
+    assertContentType(contentType);
+
+    if (
+      bytes.byteLength < 1 ||
+      bytes.byteLength > this.environment.maxUploadBytes
+    ) {
+      throw new StorageInputError(
+        'Stored object size exceeds the configured maximum',
+      );
+    }
+
+    await this.client.send(
+      new PutObjectCommand({
+        Body: bytes,
+        Bucket: this.environment.bucket,
+        ContentLength: bytes.byteLength,
+        ContentType: contentType,
+        IfNoneMatch: '*',
+        Key: key,
+      }),
+    );
   }
 
   async inspectObject(key: string): Promise<StoredObjectMetadata> {

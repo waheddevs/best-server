@@ -9,6 +9,7 @@ import {
   OutboxEventType,
   Prisma,
   QuestionKind,
+  TestSectionBlockKind,
   TestSkill,
   TestVersionStatus,
 } from '@best/database';
@@ -19,14 +20,156 @@ import { ErrorCode } from '../../libs/enums/error-code.enum';
 import { ApplicationError } from '../../libs/errors/application.error';
 import { parseUuid } from '../../libs/pagination/cursor-pagination';
 import type { SaveAttemptAnswerInput } from '../../schemas/attempts/save-attempt-answer.input';
+import type { SaveAttemptSectionNoteInput } from '../../schemas/attempts/save-attempt-section-note.input';
 import type { StartTestAttemptInput } from '../../schemas/attempts/start-test-attempt.input';
 import type { StudentAttemptObject } from '../../schemas/attempts/student-attempt.object';
 import type { StudentReleasedAttemptResultObject } from '../../schemas/attempts/student-released-attempt-result.object';
 import type { SubmitTestAttemptInput } from '../../schemas/attempts/submit-test-attempt.input';
+import type { CreateAttemptAudioUploadInput } from '../../schemas/attempts/create-attempt-audio-upload.input';
+import type { ConfirmAttemptAudioUploadInput } from '../../schemas/attempts/confirm-attempt-audio-upload.input';
+import type { MediaObjectObject } from '../../schemas/assets/media-object.object';
+import type { MediaDownloadIntentObject } from '../../schemas/assets/media-download-intent.object';
+import type { MediaUploadIntentObject } from '../../schemas/assets/media-upload-intent.object';
+import { AssetsService } from '../assets/assets.service';
 
 @Injectable()
 export class AttemptsService {
-  constructor(private readonly database: DatabaseService) {}
+  constructor(
+    private readonly database: DatabaseService,
+    private readonly assetsService: AssetsService,
+  ) {}
+
+  async createStudentAttemptMediaDownloadIntent(
+    studentId: string,
+    attemptIdInput: string,
+    mediaObjectIdInput: string,
+  ): Promise<MediaDownloadIntentObject> {
+    const attemptId = parseUuid(attemptIdInput, 'attemptId');
+    const mediaObjectId = parseUuid(mediaObjectIdInput, 'mediaObjectId');
+    const attempt = await this.database.attempt.findFirst({
+      where: {
+        id: attemptId,
+        studentId,
+        testVersion: {
+          sections: {
+            some: {
+              OR: [{ mediaObjectId }, { blocks: { some: { mediaObjectId } } }],
+            },
+          },
+        },
+      },
+      select: { id: true },
+    });
+    if (attempt === null) {
+      throw inaccessibleAttemptError();
+    }
+    return this.assetsService.createAuthorizedMediaDownloadIntent(
+      mediaObjectId,
+    );
+  }
+
+  async createAttemptAudioUploadIntent(
+    studentId: string,
+    input: CreateAttemptAudioUploadInput,
+  ): Promise<MediaUploadIntentObject> {
+    await this.assertWritableAudioQuestion(
+      studentId,
+      parseUuid(input.attemptId, 'attemptId'),
+      parseUuid(input.questionId, 'questionId'),
+    );
+    return this.assetsService.createMediaUploadIntent(studentId, {
+      mimeType: input.mimeType,
+      originalName: input.originalName,
+      sizeBytes: input.sizeBytes,
+    });
+  }
+
+  async confirmAttemptAudioUpload(
+    studentId: string,
+    input: ConfirmAttemptAudioUploadInput,
+  ): Promise<MediaObjectObject> {
+    await this.assertWritableAudioQuestion(
+      studentId,
+      parseUuid(input.attemptId, 'attemptId'),
+      parseUuid(input.questionId, 'questionId'),
+    );
+    const mediaObject = await this.assetsService.confirmMediaUpload(
+      studentId,
+      input.mediaObjectId,
+    );
+    if (mediaObject.mediaType !== MediaType.AUDIO) {
+      throw new ApplicationError(
+        ErrorCode.BAD_USER_INPUT,
+        'Only an audio file can be used as a Speaking response',
+        400,
+      );
+    }
+    return mediaObject;
+  }
+
+  async saveAttemptSectionNote(
+    studentId: string,
+    input: SaveAttemptSectionNoteInput,
+    language: Language,
+  ): Promise<StudentAttemptObject> {
+    const attemptId = parseUuid(input.attemptId, 'attemptId');
+    const sectionId = parseUuid(input.sectionId, 'sectionId');
+    const text = input.text.trim();
+    if (text.length > 4000) {
+      throw new ApplicationError(
+        ErrorCode.BAD_USER_INPUT,
+        'The note cannot exceed 4000 characters',
+        400,
+      );
+    }
+    const now = new Date();
+    await this.database.$transaction(async (transaction) => {
+      const attempt = await transaction.attempt.findFirst({
+        where: { id: attemptId, studentId },
+        select: {
+          expiresAt: true,
+          status: true,
+          testVersionId: true,
+        },
+      });
+      if (attempt === null) {
+        throw inaccessibleAttemptError();
+      }
+      if (
+        attempt.status !== AttemptStatus.IN_PROGRESS ||
+        (attempt.expiresAt !== null && attempt.expiresAt <= now)
+      ) {
+        throw new ApplicationError(
+          ErrorCode.ATTEMPT_NOT_ACTIVE,
+          'Notes can only be changed on an active attempt',
+          409,
+        );
+      }
+      const section = await transaction.testSection.findFirst({
+        where: { id: sectionId, testVersionId: attempt.testVersionId },
+        select: { id: true },
+      });
+      if (section === null) {
+        throw new ApplicationError(
+          ErrorCode.BAD_USER_INPUT,
+          'The section does not belong to this attempt',
+          400,
+        );
+      }
+      if (text.length === 0) {
+        await transaction.attemptSectionNote.deleteMany({
+          where: { attemptId, sectionId },
+        });
+      } else {
+        await transaction.attemptSectionNote.upsert({
+          where: { attemptId_sectionId: { attemptId, sectionId } },
+          create: { attemptId, savedAt: now, sectionId, text },
+          update: { savedAt: now, text },
+        });
+      }
+    });
+    return this.loadStudentAttempt(studentId, attemptId, language);
+  }
 
   async getStudentReleasedAttemptResult(
     studentId: string,
@@ -93,6 +236,27 @@ export class AttemptsService {
             sections: {
               orderBy: { position: 'asc' },
               include: {
+                blocks: {
+                  where: {
+                    kind: {
+                      in: [
+                        TestSectionBlockKind.TABLE,
+                        TestSectionBlockKind.QUESTION_GROUP,
+                      ],
+                    },
+                  },
+                  orderBy: { position: 'asc' },
+                  include: {
+                    questions: {
+                      orderBy: { position: 'asc' },
+                      select: { questionId: true },
+                    },
+                    translations: {
+                      where: { language: Language.EN },
+                      select: { caption: true },
+                    },
+                  },
+                },
                 translations: {
                   where: { language: Language.EN },
                   select: { content: true, title: true },
@@ -158,20 +322,28 @@ export class AttemptsService {
         throw unavailableTranslationError();
       }
       const response = answerByQuestion.get(question.id);
-      const correctOptions = question.options.filter((option) => option.isCorrect);
+      const correctOptions = question.options.filter(
+        (option) => option.isCorrect,
+      );
       const correctOptionIds = correctOptions.map((option) => option.id).sort();
       const selectedOptionIds = [
         ...(response?.selectedOptionId ? [response.selectedOptionId] : []),
-        ...(response?.selections.map((selection) => selection.answerOptionId) ?? []),
+        ...(response?.selections.map((selection) => selection.answerOptionId) ??
+          []),
       ].sort();
       const correctAnswer =
         question.acceptedAnswers.length > 0
           ? question.acceptedAnswers.map((answer) => answer.normalizedValue)
-          : correctOptions.map((option) => option.translations[0]?.text ?? option.id);
+          : correctOptions.map(
+              (option) => option.translations[0]?.text ?? option.id,
+            );
       const studentAnswer = response?.textValue
         ? [response.textValue]
         : response?.selectedOption
-          ? [response.selectedOption.translations[0]?.text ?? response.selectedOption.id]
+          ? [
+              response.selectedOption.translations[0]?.text ??
+                response.selectedOption.id,
+            ]
           : (response?.selections.map(
               (selection) =>
                 selection.answerOption.translations[0]?.text ??
@@ -335,7 +507,9 @@ export class AttemptsService {
         ) {
           throw invalidResponseShapeError();
         }
-        await ensureOptionsBelongToQuestion(transaction, questionId, [selectedOptionId]);
+        await ensureOptionsBelongToQuestion(transaction, questionId, [
+          selectedOptionId,
+        ]);
         await transaction.attemptAnswer.upsert({
           where: { attemptId_questionId: { attemptId, questionId } },
           create: { attemptId, questionId, selectedOptionId, savedAt: now },
@@ -490,7 +664,19 @@ export class AttemptsService {
     await this.database.$transaction(async (transaction) => {
       const attempt = await transaction.attempt.findFirst({
         where: { id: attemptId, studentId },
-        select: { id: true, status: true },
+        select: {
+          id: true,
+          expiresAt: true,
+          status: true,
+          _count: { select: { answers: true } },
+          testVersion: {
+            select: {
+              _count: { select: { questions: true } },
+              availabilityEndsAt: true,
+              test: { select: { skill: true } },
+            },
+          },
+        },
       });
 
       if (attempt === null) {
@@ -498,10 +684,28 @@ export class AttemptsService {
       }
 
       if (attempt.status === AttemptStatus.IN_PROGRESS) {
+        const deadlinePassed =
+          attempt.expiresAt !== null && attempt.expiresAt <= now;
+        if (
+          !deadlinePassed &&
+          attempt.testVersion.test.skill === TestSkill.SPEAKING &&
+          attempt._count.answers < attempt.testVersion._count.questions
+        ) {
+          throw new ApplicationError(
+            ErrorCode.BAD_USER_INPUT,
+            'Every Speaking question must have a recorded response before submission',
+            400,
+          );
+        }
         await submitAttemptTransactionally(
           transaction,
           attemptId,
-          AttemptSubmissionReason.MANUAL,
+          deadlinePassed
+            ? attempt.testVersion.availabilityEndsAt !== null &&
+              attempt.testVersion.availabilityEndsAt <= now
+              ? AttemptSubmissionReason.AVAILABILITY_ENDED
+              : AttemptSubmissionReason.DURATION_EXPIRED
+            : AttemptSubmissionReason.MANUAL,
           now,
           correlationId,
         );
@@ -663,6 +867,7 @@ export class AttemptsService {
     const attempt = await this.database.attempt.findFirst({
       where: { id: attemptId, studentId },
       include: {
+        sectionNotes: { orderBy: { savedAt: 'asc' } },
         answers: {
           orderBy: { questionId: 'asc' },
           select: {
@@ -700,6 +905,27 @@ export class AttemptsService {
             sections: {
               orderBy: { position: 'asc' },
               include: {
+                blocks: {
+                  where: {
+                    kind: {
+                      in: [
+                        TestSectionBlockKind.TABLE,
+                        TestSectionBlockKind.QUESTION_GROUP,
+                      ],
+                    },
+                  },
+                  orderBy: { position: 'asc' },
+                  include: {
+                    questions: {
+                      orderBy: { position: 'asc' },
+                      select: { questionId: true },
+                    },
+                    translations: {
+                      where: { language },
+                      select: { caption: true },
+                    },
+                  },
+                },
                 translations: {
                   where: { language },
                   select: {
@@ -767,6 +993,18 @@ export class AttemptsService {
         throw unavailableTranslationError();
       }
       return {
+        blocks: section.blocks.map((block) => {
+          const table = mapStudentTablePayload(block.tablePayload);
+          return {
+            caption: block.translations[0]?.caption ?? null,
+            id: block.id,
+            kind: block.kind,
+            position: block.position,
+            questionIds: block.questions.map(({ questionId }) => questionId),
+            tableHeaderRows: table.headerRows.map((cells) => ({ cells })),
+            tableRows: table.rows.map((cells) => ({ cells })),
+          };
+        }),
         content:
           attempt.testVersion.test.skill === null ||
           attempt.testVersion.test.skill === TestSkill.LISTENING
@@ -795,6 +1033,11 @@ export class AttemptsService {
       expiresAt: attempt.expiresAt,
       id: attempt.id,
       language,
+      notes: attempt.sectionNotes.map((note) => ({
+        savedAt: note.savedAt,
+        sectionId: note.sectionId,
+        text: note.text,
+      })),
       questions,
       result: mapResult(attempt),
       serverTime,
@@ -852,6 +1095,57 @@ export class AttemptsService {
       throw unavailableTranslationError();
     }
   }
+
+  private async assertWritableAudioQuestion(
+    studentId: string,
+    attemptId: string,
+    questionId: string,
+  ): Promise<void> {
+    const now = new Date();
+    const attempt = await this.database.attempt.findFirst({
+      where: {
+        OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+        id: attemptId,
+        status: AttemptStatus.IN_PROGRESS,
+        studentId,
+        testVersion: {
+          questions: {
+            some: { id: questionId, kind: QuestionKind.AUDIO_RESPONSE },
+          },
+        },
+      },
+      select: { id: true },
+    });
+    if (attempt === null) {
+      throw new ApplicationError(
+        ErrorCode.ATTEMPT_NOT_ACTIVE,
+        'The audio response does not belong to an active attempt',
+        409,
+      );
+    }
+  }
+}
+
+function mapStudentTablePayload(value: Prisma.JsonValue | null): {
+  headerRows: string[][];
+  rows: string[][];
+} {
+  if (value === null || Array.isArray(value) || typeof value !== 'object')
+    return { headerRows: [], rows: [] };
+  return {
+    headerRows: parseStudentTableRows(value.headerRows),
+    rows: parseStudentTableRows(value.rows),
+  };
+}
+
+function parseStudentTableRows(
+  value: Prisma.JsonValue | undefined,
+): string[][] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(
+    (row): row is string[] =>
+      Array.isArray(row) && row.every((cell) => typeof cell === 'string'),
+  );
 }
 
 async function ensureOptionsBelongToQuestion(
@@ -887,8 +1181,14 @@ function normalizeObjectiveText(value: string): string {
   return value.trim().toLocaleLowerCase('en').replace(/\s+/gu, ' ');
 }
 
-function sameStringSet(left: readonly string[], right: readonly string[]): boolean {
-  return left.length === right.length && left.every((value, index) => value === right[index]);
+function sameStringSet(
+  left: readonly string[],
+  right: readonly string[],
+): boolean {
+  return (
+    left.length === right.length &&
+    left.every((value, index) => value === right[index])
+  );
 }
 
 async function submitAttemptTransactionally(

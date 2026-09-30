@@ -43,12 +43,16 @@ export function calculateProgress(
 
     if (
       attempt.status === AttemptStatus.SUBMITTED ||
+      attempt.status === AttemptStatus.REVIEW_REQUIRED ||
       attempt.status === AttemptStatus.SCORED
     ) {
       completedKeys.add(attempt.assignmentKey);
     }
 
-    if (attempt.status === AttemptStatus.SUBMITTED) {
+    if (
+      attempt.status === AttemptStatus.SUBMITTED ||
+      attempt.status === AttemptStatus.REVIEW_REQUIRED
+    ) {
       awaitingScoreKeys.add(attempt.assignmentKey);
     }
 

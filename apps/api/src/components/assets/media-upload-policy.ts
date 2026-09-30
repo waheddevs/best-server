@@ -54,6 +54,13 @@ const MEDIA_UPLOAD_POLICIES: Readonly<Record<string, MediaUploadPolicy>> = {
     mediaType: MediaType.AUDIO,
     signatureMatches: (bytes) => startsWithAscii(bytes, 'OggS'),
   },
+  'audio/webm': {
+    extensions: ['webm'],
+    maxBytes: GENERAL_MAX_BYTES,
+    mediaType: MediaType.AUDIO,
+    signatureMatches: (bytes) =>
+      startsWithBytes(bytes, [0x1a, 0x45, 0xdf, 0xa3]),
+  },
   'audio/wav': {
     extensions: ['wav'],
     maxBytes: GENERAL_MAX_BYTES,
