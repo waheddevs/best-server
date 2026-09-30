@@ -8,6 +8,7 @@ export {
   FinanceAdjustmentKind,
   GroupCategory,
   GroupMembershipStatus,
+  IeltsModule,
   ImportExtractionMethod,
   ImportExtractionStatus,
   ImportRightsStatus,
@@ -32,6 +33,7 @@ export {
   SubmissionStatus,
   TeacherTaskKind,
   TeacherTaskStatus,
+  TestSectionBlockKind,
   TransferRequestStatus,
   TestSkill,
   UserRole,
@@ -40,3 +42,15 @@ export {
 } from './generated/enums';
 export { createDatabaseClient, DatabaseClient } from './database-client';
 export { Prisma } from './generated/client';
+export {
+  EASYIELTS_SOURCE_SYSTEM,
+  normalizeEasyIeltsCatalog,
+  stableEasyIeltsUuid,
+} from './easyielts-import';
+export type {
+  EasyIeltsSourceValue,
+  NormalizedEasyIeltsCatalog,
+  NormalizedEasyIeltsQuestion,
+  NormalizedEasyIeltsSection,
+  NormalizedEasyIeltsTest,
+} from './easyielts-import';
