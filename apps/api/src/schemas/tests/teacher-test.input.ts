@@ -1,4 +1,9 @@
-import { Language } from '@best/database';
+import {
+  Language,
+  QuestionKind,
+  TestSectionBlockKind,
+  TestSkill,
+} from '@best/database';
 import { Field, GraphQLISODateTime, ID, InputType, Int } from '@nestjs/graphql';
 
 @InputType('TestTranslationInput')
@@ -20,6 +25,45 @@ export class QuestionTranslationInput {
 
   @Field(() => String)
   prompt!: string;
+
+  @Field(() => String, { nullable: true })
+  rationale?: string;
+}
+
+@InputType('TestSectionTranslationInput')
+export class TestSectionTranslationInput {
+  @Field(() => Language)
+  language!: Language;
+
+  @Field(() => String)
+  title!: string;
+
+  @Field(() => String)
+  instructions!: string;
+
+  @Field(() => String, { nullable: true })
+  content?: string;
+}
+
+@InputType('TestSectionBlockTranslationInput')
+export class TestSectionBlockTranslationInput {
+  @Field(() => Language)
+  language!: Language;
+
+  @Field(() => String, { nullable: true })
+  text?: string;
+
+  @Field(() => String, { nullable: true })
+  altText?: string;
+
+  @Field(() => String, { nullable: true })
+  caption?: string;
+}
+
+@InputType('TestTableRowInput')
+export class TestTableRowInput {
+  @Field(() => [String])
+  cells!: string[];
 }
 
 @InputType('AnswerOptionTranslationInput')
@@ -67,6 +111,15 @@ export class CreateTestDraftInput {
   translations!: TestTranslationInput[];
 }
 
+@InputType('CreateTestPaperSkillDraftInput')
+export class CreateTestPaperSkillDraftInput {
+  @Field(() => ID)
+  testPaperId!: string;
+
+  @Field(() => TestSkill)
+  skill!: TestSkill;
+}
+
 @InputType('UpdateTestDraftSettingsInput')
 export class UpdateTestDraftSettingsInput {
   @Field(() => ID)
@@ -110,6 +163,21 @@ export class CreateTestQuestionInput {
 
   @Field(() => [AnswerOptionDraftInput])
   options!: AnswerOptionDraftInput[];
+
+  @Field(() => ID, { nullable: true })
+  sectionId?: string;
+
+  @Field(() => QuestionKind, { nullable: true })
+  kind?: QuestionKind;
+
+  @Field(() => Int, { nullable: true })
+  answerLimit?: number;
+
+  @Field(() => Int, { nullable: true })
+  maxSelections?: number;
+
+  @Field(() => [String], { nullable: true })
+  acceptedAnswers?: string[];
 }
 
 @InputType('UpdateTestQuestionInput')
@@ -122,6 +190,141 @@ export class UpdateTestQuestionInput {
 
   @Field(() => [AnswerOptionDraftInput])
   options!: AnswerOptionDraftInput[];
+
+  @Field(() => ID, { nullable: true })
+  sectionId?: string;
+
+  @Field(() => QuestionKind, { nullable: true })
+  kind?: QuestionKind;
+
+  @Field(() => Int, { nullable: true })
+  answerLimit?: number;
+
+  @Field(() => Int, { nullable: true })
+  maxSelections?: number;
+
+  @Field(() => [String], { nullable: true })
+  acceptedAnswers?: string[];
+}
+
+@InputType('CreateTestSectionInput')
+export class CreateTestSectionInput {
+  @Field(() => ID)
+  testVersionId!: string;
+
+  @Field(() => [TestSectionTranslationInput])
+  translations!: TestSectionTranslationInput[];
+
+  @Field(() => ID, { nullable: true })
+  mediaObjectId?: string;
+
+  @Field(() => Int, { nullable: true })
+  suggestedMinutes?: number;
+
+  @Field(() => Int, { nullable: true })
+  minimumWords?: number;
+
+  @Field(() => Int, { nullable: true })
+  preparationSeconds?: number;
+
+  @Field(() => Int, { nullable: true })
+  responseSeconds?: number;
+}
+
+@InputType('UpdateTestSectionInput')
+export class UpdateTestSectionInput {
+  @Field(() => ID)
+  testSectionId!: string;
+
+  @Field(() => [TestSectionTranslationInput])
+  translations!: TestSectionTranslationInput[];
+
+  @Field(() => ID, { nullable: true })
+  mediaObjectId?: string;
+
+  @Field(() => Int, { nullable: true })
+  suggestedMinutes?: number;
+
+  @Field(() => Int, { nullable: true })
+  minimumWords?: number;
+
+  @Field(() => Int, { nullable: true })
+  preparationSeconds?: number;
+
+  @Field(() => Int, { nullable: true })
+  responseSeconds?: number;
+}
+
+@InputType('ReorderTestSectionsInput')
+export class ReorderTestSectionsInput {
+  @Field(() => ID)
+  testVersionId!: string;
+
+  @Field(() => [ID])
+  testSectionIds!: string[];
+}
+
+@InputType('CreateTestSectionBlockInput')
+export class CreateTestSectionBlockInput {
+  @Field(() => ID)
+  testSectionId!: string;
+
+  @Field(() => TestSectionBlockKind)
+  kind!: TestSectionBlockKind;
+
+  @Field(() => ID, { nullable: true })
+  mediaObjectId?: string;
+
+  @Field(() => Int, { nullable: true })
+  headingLevel?: number;
+
+  @Field(() => [TestSectionBlockTranslationInput])
+  translations!: TestSectionBlockTranslationInput[];
+
+  @Field(() => [TestTableRowInput], { nullable: true })
+  tableHeaderRows?: TestTableRowInput[];
+
+  @Field(() => [TestTableRowInput], { nullable: true })
+  tableRows?: TestTableRowInput[];
+
+  @Field(() => [ID], { nullable: true })
+  questionIds?: string[];
+}
+
+@InputType('UpdateTestSectionBlockInput')
+export class UpdateTestSectionBlockInput {
+  @Field(() => ID)
+  testSectionBlockId!: string;
+
+  @Field(() => TestSectionBlockKind)
+  kind!: TestSectionBlockKind;
+
+  @Field(() => ID, { nullable: true })
+  mediaObjectId?: string;
+
+  @Field(() => Int, { nullable: true })
+  headingLevel?: number;
+
+  @Field(() => [TestSectionBlockTranslationInput])
+  translations!: TestSectionBlockTranslationInput[];
+
+  @Field(() => [TestTableRowInput], { nullable: true })
+  tableHeaderRows?: TestTableRowInput[];
+
+  @Field(() => [TestTableRowInput], { nullable: true })
+  tableRows?: TestTableRowInput[];
+
+  @Field(() => [ID], { nullable: true })
+  questionIds?: string[];
+}
+
+@InputType('ReorderTestSectionBlocksInput')
+export class ReorderTestSectionBlocksInput {
+  @Field(() => ID)
+  testSectionId!: string;
+
+  @Field(() => [ID])
+  testSectionBlockIds!: string[];
 }
 
 @InputType('ReorderTestQuestionsInput')

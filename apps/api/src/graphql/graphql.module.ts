@@ -18,6 +18,7 @@ import {
   UserStatus,
   TransferRequestStatus,
   IntakeStatus,
+  IeltsModule,
   PublicContentStatus,
   PublicCourseAccent,
   PublicCourseCategory,
@@ -26,6 +27,7 @@ import {
   SubmissionStatus,
   TeacherTaskKind,
   TeacherTaskStatus,
+  TestSectionBlockKind,
   TestSkill,
   TestVersionStatus,
 } from '@best/database';
@@ -65,12 +67,13 @@ registerEnumType(PublicEventTimelineStatus, {
   name: 'PublicEventTimelineStatus',
 });
 registerEnumType(IntakeStatus, { name: 'IntakeStatus' });
+registerEnumType(IeltsModule, { name: 'IeltsModule' });
 registerEnumType(TeacherTaskKind, { name: 'TeacherTaskKind' });
 registerEnumType(TeacherTaskStatus, { name: 'TeacherTaskStatus' });
 registerEnumType(TestVersionStatus, { name: 'TestVersionStatus' });
 registerEnumType(TestSkill, { name: 'TestSkill' });
 registerEnumType(QuestionKind, { name: 'QuestionKind' });
-
+registerEnumType(TestSectionBlockKind, { name: 'TestSectionBlockKind' });
 const SCHEMA_PATH = resolve(
   __dirname,
   '../../../../packages/graphql/schema.graphql',

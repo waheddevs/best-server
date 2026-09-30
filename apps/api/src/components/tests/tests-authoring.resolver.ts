@@ -11,6 +11,8 @@ import {
 } from '@nestjs/graphql';
 
 import type { ApiGraphqlContext } from '../../libs/types/authenticated-request.type';
+import { GenerateListeningAudioInput } from '../../schemas/tests/generate-listening-audio.input';
+import { GenerateListeningAudioPayloadObject } from '../../schemas/tests/generated-listening-audio.object';
 import {
   AttemptGrantConnectionObject,
   TeacherTestConnectionObject,
@@ -20,16 +22,24 @@ import {
   CreateTestCategoryInput,
   CreateTestDraftInput,
   CreateTestQuestionInput,
+  CreateTestPaperSkillDraftInput,
+  CreateTestSectionBlockInput,
+  CreateTestSectionInput,
   GrantAdditionalTestAttemptInput,
   ReplaceTestDraftTranslationsInput,
   ReorderTestQuestionsInput,
+  ReorderTestSectionBlocksInput,
+  ReorderTestSectionsInput,
   SetTestArchivedInput,
   TestVersionIdInput,
   UpdateTestCategoryInput,
   UpdateTestDraftSettingsInput,
   UpdateTestQuestionInput,
+  UpdateTestSectionBlockInput,
+  UpdateTestSectionInput,
 } from '../../schemas/tests/teacher-test.input';
 import {
+  TeacherTestDraftValidationObject,
   TeacherTestVersionObject,
   TestCategoryObject,
 } from '../../schemas/tests/teacher-test.object';
@@ -101,6 +111,18 @@ export class TestsAuthoringResolver {
     return this.authoring.getVersion(teacherId, testVersionId);
   }
 
+  @Query(() => TeacherTestDraftValidationObject, {
+    name: 'validateTeacherTestDraft',
+  })
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER)
+  validateDraft(
+    @AuthMember('id') teacherId: string,
+    @Args('testVersionId', { type: () => ID }) testVersionId: string,
+  ): Promise<TeacherTestDraftValidationObject> {
+    return this.authoring.validateDraft(teacherId, testVersionId);
+  }
+
   @Query(() => AttemptGrantConnectionObject, { name: 'teacherAttemptGrants' })
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.TEACHER)
@@ -166,6 +188,25 @@ export class TestsAuthoringResolver {
   }
 
   @Mutation(() => TeacherTestVersionPayloadObject, {
+    name: 'createTestPaperSkillDraft',
+  })
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER)
+  async createPaperSkillDraft(
+    @AuthMember('id') teacherId: string,
+    @Args('input') input: CreateTestPaperSkillDraftInput,
+    @Context() context: ApiGraphqlContext,
+  ): Promise<TeacherTestVersionPayloadObject> {
+    return {
+      testVersion: await this.authoring.createPaperSkillDraft(
+        teacherId,
+        input,
+        context.req.requestId,
+      ),
+    };
+  }
+
+  @Mutation(() => TeacherTestVersionPayloadObject, {
     name: 'updateTestDraftSettings',
   })
   @UseGuards(AuthGuard, RolesGuard)
@@ -198,6 +239,184 @@ export class TestsAuthoringResolver {
       testVersion: await this.authoring.replaceTranslations(
         teacherId,
         input,
+        context.req.requestId,
+      ),
+    };
+  }
+
+  @Mutation(() => TeacherTestVersionPayloadObject, {
+    name: 'createTestSection',
+  })
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER)
+  async createSection(
+    @AuthMember('id') teacherId: string,
+    @Args('input') input: CreateTestSectionInput,
+    @Context() context: ApiGraphqlContext,
+  ): Promise<TeacherTestVersionPayloadObject> {
+    return {
+      testVersion: await this.authoring.createSection(
+        teacherId,
+        input,
+        context.req.requestId,
+      ),
+    };
+  }
+
+  @Mutation(() => TeacherTestVersionPayloadObject, {
+    name: 'updateTestSection',
+  })
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER)
+  async updateSection(
+    @AuthMember('id') teacherId: string,
+    @Args('input') input: UpdateTestSectionInput,
+    @Context() context: ApiGraphqlContext,
+  ): Promise<TeacherTestVersionPayloadObject> {
+    return {
+      testVersion: await this.authoring.updateSection(
+        teacherId,
+        input,
+        context.req.requestId,
+      ),
+    };
+  }
+
+  @Mutation(() => GenerateListeningAudioPayloadObject, {
+    name: 'generateListeningAudio',
+  })
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER)
+  async generateListeningAudio(
+    @AuthMember('id') teacherId: string,
+    @Args('input') input: GenerateListeningAudioInput,
+    @Context() context: ApiGraphqlContext,
+  ): Promise<GenerateListeningAudioPayloadObject> {
+    return {
+      audio: await this.authoring.generateListeningAudio(
+        teacherId,
+        input,
+        context.req.requestId,
+      ),
+    };
+  }
+
+  @Mutation(() => TeacherTestVersionPayloadObject, {
+    name: 'reorderTestSections',
+  })
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER)
+  async reorderSections(
+    @AuthMember('id') teacherId: string,
+    @Args('input') input: ReorderTestSectionsInput,
+    @Context() context: ApiGraphqlContext,
+  ): Promise<TeacherTestVersionPayloadObject> {
+    return {
+      testVersion: await this.authoring.reorderSections(
+        teacherId,
+        input.testVersionId,
+        input.testSectionIds,
+        context.req.requestId,
+      ),
+    };
+  }
+
+  @Mutation(() => TeacherTestVersionPayloadObject, {
+    name: 'deleteTestDraftSection',
+  })
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER)
+  async deleteSection(
+    @AuthMember('id') teacherId: string,
+    @Args('input') input: TestVersionIdInput,
+    @Args('testSectionId', { type: () => ID }) testSectionId: string,
+    @Context() context: ApiGraphqlContext,
+  ): Promise<TeacherTestVersionPayloadObject> {
+    return {
+      testVersion: await this.authoring.deleteSection(
+        teacherId,
+        input.testVersionId,
+        testSectionId,
+        context.req.requestId,
+      ),
+    };
+  }
+
+  @Mutation(() => TeacherTestVersionPayloadObject, {
+    name: 'createTestSectionBlock',
+  })
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER)
+  async createSectionBlock(
+    @AuthMember('id') teacherId: string,
+    @Args('input') input: CreateTestSectionBlockInput,
+    @Context() context: ApiGraphqlContext,
+  ): Promise<TeacherTestVersionPayloadObject> {
+    return {
+      testVersion: await this.authoring.createSectionBlock(
+        teacherId,
+        input,
+        context.req.requestId,
+      ),
+    };
+  }
+
+  @Mutation(() => TeacherTestVersionPayloadObject, {
+    name: 'updateTestSectionBlock',
+  })
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER)
+  async updateSectionBlock(
+    @AuthMember('id') teacherId: string,
+    @Args('input') input: UpdateTestSectionBlockInput,
+    @Context() context: ApiGraphqlContext,
+  ): Promise<TeacherTestVersionPayloadObject> {
+    return {
+      testVersion: await this.authoring.updateSectionBlock(
+        teacherId,
+        input,
+        context.req.requestId,
+      ),
+    };
+  }
+
+  @Mutation(() => TeacherTestVersionPayloadObject, {
+    name: 'reorderTestSectionBlocks',
+  })
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER)
+  async reorderSectionBlocks(
+    @AuthMember('id') teacherId: string,
+    @Args('input') input: ReorderTestSectionBlocksInput,
+    @Context() context: ApiGraphqlContext,
+  ): Promise<TeacherTestVersionPayloadObject> {
+    return {
+      testVersion: await this.authoring.reorderSectionBlocks(
+        teacherId,
+        input.testSectionId,
+        input.testSectionBlockIds,
+        context.req.requestId,
+      ),
+    };
+  }
+
+  @Mutation(() => TeacherTestVersionPayloadObject, {
+    name: 'deleteTestSectionBlock',
+  })
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER)
+  async deleteSectionBlock(
+    @AuthMember('id') teacherId: string,
+    @Args('testSectionId', { type: () => ID }) testSectionId: string,
+    @Args('testSectionBlockId', { type: () => ID })
+    testSectionBlockId: string,
+    @Context() context: ApiGraphqlContext,
+  ): Promise<TeacherTestVersionPayloadObject> {
+    return {
+      testVersion: await this.authoring.deleteSectionBlock(
+        teacherId,
+        testSectionId,
+        testSectionBlockId,
         context.req.requestId,
       ),
     };

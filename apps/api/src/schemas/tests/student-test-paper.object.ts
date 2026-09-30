@@ -1,4 +1,4 @@
-import { AttemptStatus, TestSkill } from '@best/database';
+import { AttemptStatus, IeltsModule, TestSkill } from '@best/database';
 import { Field, ID, Int, ObjectType } from '@nestjs/graphql';
 
 @ObjectType('StudentTestPaperSkill')
@@ -42,11 +42,17 @@ export class StudentTestPaperObject {
   @Field(() => Int)
   academicYear!: number;
 
+  @Field(() => IeltsModule)
+  ieltsModule!: IeltsModule;
+
   @Field(() => String)
   title!: string;
 
   @Field(() => String)
   sourceLabel!: string;
+
+  @Field(() => Boolean)
+  isSaved!: boolean;
 
   @Field(() => [StudentTestPaperSkillObject])
   skills!: StudentTestPaperSkillObject[];

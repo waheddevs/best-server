@@ -1,4 +1,10 @@
-import { ContentStatus, Language, TestVersionStatus } from '@best/database';
+import {
+  ContentStatus,
+  Language,
+  QuestionKind,
+  TestSectionBlockKind,
+  TestVersionStatus,
+} from '@best/database';
 import {
   Field,
   GraphQLISODateTime,
@@ -25,12 +31,94 @@ export class TeacherTestTranslationObject {
   description!: string | null;
 }
 
+@ObjectType('TeacherTestSectionTranslation')
+export class TeacherTestSectionTranslationObject {
+  @Field(() => Language)
+  language!: Language;
+  @Field(() => String)
+  title!: string;
+  @Field(() => String)
+  instructions!: string;
+  @Field(() => String, { nullable: true })
+  content!: string | null;
+}
+
+@ObjectType('TeacherTestSectionBlockTranslation')
+export class TeacherTestSectionBlockTranslationObject {
+  @Field(() => Language)
+  language!: Language;
+  @Field(() => String, { nullable: true })
+  text!: string | null;
+  @Field(() => String, { nullable: true })
+  altText!: string | null;
+  @Field(() => String, { nullable: true })
+  caption!: string | null;
+}
+
+@ObjectType('TeacherTestTableRow')
+export class TeacherTestTableRowObject {
+  @Field(() => [String])
+  cells!: string[];
+}
+
+@ObjectType('TeacherTestSectionBlock')
+export class TeacherTestSectionBlockObject {
+  @Field(() => ID)
+  id!: string;
+  @Field(() => Int)
+  position!: number;
+  @Field(() => TestSectionBlockKind)
+  kind!: TestSectionBlockKind;
+  @Field(() => ID, { nullable: true })
+  mediaObjectId!: string | null;
+  @Field(() => Int, { nullable: true })
+  mediaWidthPixels!: number | null;
+  @Field(() => Int, { nullable: true })
+  mediaHeightPixels!: number | null;
+  @Field(() => Int, { nullable: true })
+  mediaDurationSeconds!: number | null;
+  @Field(() => Int, { nullable: true })
+  headingLevel!: number | null;
+  @Field(() => [TeacherTestTableRowObject])
+  tableHeaderRows!: TeacherTestTableRowObject[];
+  @Field(() => [TeacherTestTableRowObject])
+  tableRows!: TeacherTestTableRowObject[];
+  @Field(() => [ID])
+  questionIds!: string[];
+  @Field(() => [TeacherTestSectionBlockTranslationObject])
+  translations!: TeacherTestSectionBlockTranslationObject[];
+}
+
+@ObjectType('TeacherTestSection')
+export class TeacherTestSectionObject {
+  @Field(() => ID)
+  id!: string;
+  @Field(() => Int)
+  position!: number;
+  @Field(() => ID, { nullable: true })
+  mediaObjectId!: string | null;
+  @Field(() => Int, { nullable: true })
+  suggestedMinutes!: number | null;
+  @Field(() => Int, { nullable: true })
+  minimumWords!: number | null;
+  @Field(() => Int, { nullable: true })
+  preparationSeconds!: number | null;
+  @Field(() => Int, { nullable: true })
+  responseSeconds!: number | null;
+  @Field(() => [TeacherTestSectionTranslationObject])
+  translations!: TeacherTestSectionTranslationObject[];
+  @Field(() => [TeacherTestSectionBlockObject])
+  blocks!: TeacherTestSectionBlockObject[];
+}
+
 @ObjectType('TeacherQuestionTranslation')
 export class TeacherQuestionTranslationObject {
   @Field(() => Language)
   language!: Language;
   @Field(() => String)
   prompt!: string;
+  @Field(() => String, { nullable: true })
+  rationale!: string | null;
 }
 
 @ObjectType('TeacherAnswerOptionTranslation')
@@ -59,6 +147,18 @@ export class TeacherTestQuestionObject {
   id!: string;
   @Field(() => Int)
   position!: number;
+  @Field(() => ID, { nullable: true })
+  sectionId!: string | null;
+  @Field(() => Int, { nullable: true })
+  sectionPosition!: number | null;
+  @Field(() => QuestionKind)
+  kind!: QuestionKind;
+  @Field(() => Int, { nullable: true })
+  answerLimit!: number | null;
+  @Field(() => Int, { nullable: true })
+  maxSelections!: number | null;
+  @Field(() => [String])
+  acceptedAnswers!: string[];
   @Field(() => [TeacherQuestionTranslationObject])
   translations!: TeacherQuestionTranslationObject[];
   @Field(() => [TeacherAnswerOptionObject])
@@ -93,8 +193,30 @@ export class TeacherTestVersionObject {
   publishedAt!: Date | null;
   @Field(() => [TeacherTestTranslationObject])
   translations!: TeacherTestTranslationObject[];
+  @Field(() => [TeacherTestSectionObject])
+  sections!: TeacherTestSectionObject[];
   @Field(() => [TeacherTestQuestionObject])
   questions!: TeacherTestQuestionObject[];
+}
+
+@ObjectType('TeacherTestDraftValidationIssue')
+export class TeacherTestDraftValidationIssueObject {
+  @Field(() => String)
+  code!: string;
+  @Field(() => String)
+  severity!: 'ERROR';
+  @Field(() => String)
+  path!: string;
+  @Field(() => String)
+  message!: string;
+}
+
+@ObjectType('TeacherTestDraftValidation')
+export class TeacherTestDraftValidationObject {
+  @Field(() => Boolean)
+  isPublishable!: boolean;
+  @Field(() => [TeacherTestDraftValidationIssueObject])
+  issues!: TeacherTestDraftValidationIssueObject[];
 }
 
 @ObjectType('TeacherTest')
