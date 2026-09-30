@@ -222,7 +222,6 @@ export class LessonsService {
   ): Promise<LessonObject> {
     const groupId = parseUuid(input.groupId, 'groupId');
     await this.requireGroup(teacherId, groupId);
-    await this.ensureNoConflict(teacherId, input.startsAt, input.endsAt);
     const row = await this.database.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${groupId}))`;
       const sequence = await tx.lesson.aggregate({
@@ -257,12 +256,6 @@ export class LessonsService {
       throw conflict('A completed lesson cannot be edited');
     const groupId = parseUuid(input.groupId, 'groupId');
     await this.requireGroup(teacherId, groupId);
-    await this.ensureNoConflict(
-      teacherId,
-      input.startsAt,
-      input.endsAt,
-      existing.id,
-    );
     const row = await this.database.$transaction(async (tx) => {
       await tx.lessonTranslation.deleteMany({
         where: { lessonId: existing.id },
@@ -489,26 +482,6 @@ export class LessonsService {
       })) !== 1
     )
       throw notFound();
-  }
-  private async ensureNoConflict(
-    teacherId: string,
-    startsAt: Date,
-    endsAt: Date,
-    excludeId?: string,
-  ): Promise<void> {
-    validateRange(startsAt, endsAt);
-    const count = await this.database.lesson.count({
-      where: {
-        archivedAt: null,
-        group: { teacherId },
-        status: { in: [LessonStatus.DRAFT, LessonStatus.SCHEDULED] },
-        startsAt: { lt: endsAt },
-        endsAt: { gt: startsAt },
-        ...(excludeId === undefined ? {} : { id: { not: excludeId } }),
-      },
-    });
-    if (count > 0)
-      throw conflict('The teacher already has a lesson during this time');
   }
 }
 

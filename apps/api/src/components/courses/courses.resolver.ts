@@ -22,6 +22,7 @@ import { CoursesService } from './courses.service';
 @Resolver()
 export class CoursesResolver {
   constructor(private readonly service: CoursesService) {}
+
   @Query(() => PublicCourseConnectionObject, { name: 'publicCourses' }) list(
     @Args('language', { type: () => Language }) language: Language,
     @Args('first', { nullable: true, type: () => Int }) first?: number,
@@ -29,12 +30,14 @@ export class CoursesResolver {
   ) {
     return this.service.list(language, first, after);
   }
+
   @Query(() => PublicCourseObject, { name: 'publicCourse' }) one(
     @Args('slug') slug: string,
     @Args('language', { type: () => Language }) language: Language,
   ) {
     return this.service.one(slug, language);
   }
+
   @Query(() => PublicCourseConnectionObject, { name: 'adminCourses' })
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
@@ -45,6 +48,7 @@ export class CoursesResolver {
   ) {
     return this.service.list(language, first, after, true);
   }
+
   @Query(() => PublicCourseObject, { name: 'adminCourse' })
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
@@ -54,6 +58,7 @@ export class CoursesResolver {
   ) {
     return this.service.one(slug, language, true);
   }
+
   @Mutation(() => PublicCoursePayloadObject, { name: 'createCourseDraft' })
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
@@ -64,6 +69,7 @@ export class CoursesResolver {
   ) {
     return { course: await this.service.create(id, input, ctx.req.requestId) };
   }
+
   @Mutation(() => PublicCoursePayloadObject, { name: 'updateCourseDraft' })
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
@@ -81,6 +87,7 @@ export class CoursesResolver {
       ),
     };
   }
+
   @Mutation(() => PublicCoursePayloadObject, { name: 'setCourseStatus' })
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
