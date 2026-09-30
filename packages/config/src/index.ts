@@ -5,12 +5,14 @@ export {
   loadInfrastructureEnvironment,
   loadMalwareScannerEnvironment,
   loadObjectStorageEnvironment,
+  loadTextToSpeechEnvironment,
   loadWorkerEnvironment,
   parseApiEnvironment,
   parseAuthEnvironment,
   parseInfrastructureEnvironment,
   parseMalwareScannerEnvironment,
   parseObjectStorageEnvironment,
+  parseTextToSpeechEnvironment,
   parseWorkerEnvironment,
 } from './environment';
 
@@ -21,5 +23,6 @@ export type {
   MalwareScannerEnvironment,
   NodeEnvironment,
   ObjectStorageEnvironment,
+  TextToSpeechEnvironment,
   WorkerEnvironment,
 } from './environment';

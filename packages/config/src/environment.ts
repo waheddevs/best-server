@@ -64,6 +64,13 @@ export interface MalwareScannerEnvironment {
   scanTimeoutMilliseconds: number;
 }
 
+export interface TextToSpeechEnvironment {
+  defaultVoice: string;
+  maxTranscriptCharacters: number;
+  modelDtype: 'fp32' | 'fp16' | 'q8' | 'q4' | 'q4f16';
+  modelId: string;
+}
+
 type EnvironmentSource = Readonly<Record<string, string | undefined>>;
 type PostgresConnectionParts = Omit<
   InfrastructureEnvironment['postgres'],
@@ -77,6 +84,9 @@ const DEFAULT_MAX_UPLOAD_BYTES = 52_428_800;
 const DEFAULT_MALWARE_SCANNER_CONNECT_TIMEOUT_MILLISECONDS = 5_000;
 const DEFAULT_MALWARE_SCANNER_SCAN_TIMEOUT_MILLISECONDS = 60_000;
 const DEFAULT_NODE_ENVIRONMENT: NodeEnvironment = 'development';
+const DEFAULT_TTS_MAX_TRANSCRIPT_CHARACTERS = 8_000;
+const DEFAULT_TTS_MODEL_DTYPE: TextToSpeechEnvironment['modelDtype'] = 'q8';
+const DEFAULT_TTS_MODEL_ID = 'onnx-community/Kokoro-82M-v1.0-ONNX';
 const DEFAULT_UPLOAD_URL_TTL_SECONDS = 300;
 const MINIMUM_ACCESS_TOKEN_SECRET_LENGTH = 32;
 const MINIMUM_STORAGE_SECRET_LENGTH = 16;
@@ -267,7 +277,7 @@ export function parseObjectStorageEnvironment(
       3_600,
       DEFAULT_DOWNLOAD_URL_TTL_SECONDS,
     ),
-    endpoint: parseHttpEndpoint(source.S3_ENDPOINT),
+    endpoint: parseHttpEndpoint(source.S3_ENDPOINT, 'S3_ENDPOINT'),
     forcePathStyle: parseBoolean(
       source.S3_FORCE_PATH_STYLE,
       'S3_FORCE_PATH_STYLE',
@@ -313,6 +323,71 @@ export function parseMalwareScannerEnvironment(
       DEFAULT_MALWARE_SCANNER_SCAN_TIMEOUT_MILLISECONDS,
     ),
   };
+}
+
+export function parseTextToSpeechEnvironment(
+  source: EnvironmentSource,
+): TextToSpeechEnvironment {
+  const voice = parseRequiredString(
+    source.TTS_DEFAULT_VOICE ?? 'bf_emma',
+    'TTS_DEFAULT_VOICE',
+  );
+
+  if (!/^[a-z][a-z0-9_-]{1,79}$/i.test(voice)) {
+    throw new EnvironmentValidationError(
+      'TTS_DEFAULT_VOICE',
+      'expected a provider voice identifier between 2 and 80 characters',
+    );
+  }
+
+  const modelId = parseRequiredString(
+    source.TTS_MODEL_ID ?? DEFAULT_TTS_MODEL_ID,
+    'TTS_MODEL_ID',
+  );
+
+  if (
+    !/^[a-z0-9][a-z0-9._-]{0,79}\/[a-z0-9][a-z0-9._-]{0,119}$/i.test(modelId)
+  ) {
+    throw new EnvironmentValidationError(
+      'TTS_MODEL_ID',
+      'expected a Hugging Face organization/model identifier',
+    );
+  }
+
+  const modelDtype = parseTextToSpeechDtype(source.TTS_MODEL_DTYPE);
+
+  return {
+    defaultVoice: voice,
+    maxTranscriptCharacters: parseIntegerInRange(
+      source.TTS_MAX_TRANSCRIPT_CHARACTERS,
+      'TTS_MAX_TRANSCRIPT_CHARACTERS',
+      1,
+      100_000,
+      DEFAULT_TTS_MAX_TRANSCRIPT_CHARACTERS,
+    ),
+    modelDtype,
+    modelId,
+  };
+}
+
+function parseTextToSpeechDtype(
+  value: string | undefined,
+): TextToSpeechEnvironment['modelDtype'] {
+  const dtype = value?.trim().toLowerCase() ?? DEFAULT_TTS_MODEL_DTYPE;
+
+  switch (dtype) {
+    case 'fp32':
+    case 'fp16':
+    case 'q8':
+    case 'q4':
+    case 'q4f16':
+      return dtype;
+    default:
+      throw new EnvironmentValidationError(
+        'TTS_MODEL_DTYPE',
+        'expected fp32, fp16, q8, q4, or q4f16',
+      );
+  }
 }
 
 function buildPostgresUrl({
@@ -361,6 +436,11 @@ export function loadObjectStorageEnvironment(): ObjectStorageEnvironment {
 export function loadMalwareScannerEnvironment(): MalwareScannerEnvironment {
   loadLocalEnvironmentFile();
   return parseMalwareScannerEnvironment(process.env);
+}
+
+export function loadTextToSpeechEnvironment(): TextToSpeechEnvironment {
+  loadLocalEnvironmentFile();
+  return parseTextToSpeechEnvironment(process.env);
 }
 
 function loadLocalEnvironmentFile(): void {
@@ -517,8 +597,11 @@ function parseBucketName(value: string | undefined): string {
   return bucket;
 }
 
-function parseHttpEndpoint(value: string | undefined): string {
-  const endpoint = parseRequiredString(value, 'S3_ENDPOINT');
+function parseHttpEndpoint(
+  value: string | undefined,
+  variableName: string,
+): string {
+  const endpoint = parseRequiredString(value, variableName);
 
   try {
     const url = new URL(endpoint);
@@ -536,7 +619,7 @@ function parseHttpEndpoint(value: string | undefined): string {
     return url.toString().replace(/\/$/, '');
   } catch {
     throw new EnvironmentValidationError(
-      'S3_ENDPOINT',
+      variableName,
       'expected an HTTP or HTTPS URL without credentials, query, or fragment',
     );
   }

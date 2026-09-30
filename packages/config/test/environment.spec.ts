@@ -8,6 +8,7 @@ import {
   parseInfrastructureEnvironment,
   parseMalwareScannerEnvironment,
   parseObjectStorageEnvironment,
+  parseTextToSpeechEnvironment,
   parseWorkerEnvironment,
 } from '../src/environment';
 
@@ -275,6 +276,44 @@ void test('malware scanner environment rejects unsafe endpoints and timeouts', (
           CLAMAV_PORT: '3310',
           ...invalidSource,
         }),
+      EnvironmentValidationError,
+    );
+  }
+});
+
+void test('text-to-speech environment uses bounded Kokoro defaults', () => {
+  assert.deepEqual(parseTextToSpeechEnvironment({}), {
+    defaultVoice: 'bf_emma',
+    maxTranscriptCharacters: 8_000,
+    modelDtype: 'q8',
+    modelId: 'onnx-community/Kokoro-82M-v1.0-ONNX',
+  });
+
+  assert.deepEqual(
+    parseTextToSpeechEnvironment({
+      TTS_DEFAULT_VOICE: 'af_heart',
+      TTS_MAX_TRANSCRIPT_CHARACTERS: '12000',
+      TTS_MODEL_DTYPE: 'q4',
+      TTS_MODEL_ID: 'reserved/Kokoro-Test-ONNX',
+    }),
+    {
+      defaultVoice: 'af_heart',
+      maxTranscriptCharacters: 12_000,
+      modelDtype: 'q4',
+      modelId: 'reserved/Kokoro-Test-ONNX',
+    },
+  );
+});
+
+void test('text-to-speech environment rejects unsafe provider settings', () => {
+  for (const invalidSource of [
+    { TTS_DEFAULT_VOICE: '../voice' },
+    { TTS_MAX_TRANSCRIPT_CHARACTERS: '0' },
+    { TTS_MODEL_DTYPE: 'int8' },
+    { TTS_MODEL_ID: '../local-model' },
+  ]) {
+    assert.throws(
+      () => parseTextToSpeechEnvironment(invalidSource),
       EnvironmentValidationError,
     );
   }

@@ -118,8 +118,9 @@ yarn infra:up
 ```
 
 The current local stack contains PostgreSQL, Redis, SeaweedFS, ClamAV, and a
-loopback-only Mailpit development inbox. See
-`infrastructure/docker/README.md` for operational details.
+loopback-only Mailpit development inbox. Teacher Listening previews use the
+API's in-process Kokoro model. See `infrastructure/docker/README.md` for
+operational details.
 
 ## First local Admin and email-code testing
 

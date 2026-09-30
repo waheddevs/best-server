@@ -1,7 +1,7 @@
 # Local infrastructure
 
-The reviewed Compose stack provides PostgreSQL, Redis, SeaweedFS, ClamAV, and Mailpit
-for local development. These services:
+The reviewed Compose stack provides PostgreSQL, Redis, SeaweedFS, ClamAV, and
+Mailpit for local development. These services:
 
 - use explicit supported image versions;
 - persist data in named volumes;
@@ -58,3 +58,19 @@ login codes to `127.0.0.1:1025`, and its inbox is available at
 `http://localhost:8025`. Both ports bind to host loopback only. Mailpit does not
 deliver messages to the internet and must not be used as production email
 infrastructure; production SMTP values must point to the selected real provider.
+
+## Listening text-to-speech
+
+Teacher Listening audio previews are generated inside the API process by the
+pinned `kokoro-js` package. No separate text-to-speech container or port is
+required. `TTS_MODEL_ID`, `TTS_MODEL_DTYPE`, `TTS_DEFAULT_VOICE`, and the
+bounded transcript setting are documented in the root `.env.example`.
+
+The model is downloaded from Hugging Face on the first generation request and
+cached locally by Transformers.js. The first request is therefore slower and
+requires network access; later requests reuse the cached model and the loaded
+API-process singleton.
+
+Generated WAV files are validated by the API and written to private object
+storage. Generation alone creates an owner-only preview; the normal Teacher
+section save attaches a confirmed preview to the draft.
