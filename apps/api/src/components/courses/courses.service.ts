@@ -23,6 +23,7 @@ import type {
   PublicCourseConnectionObject,
   PublicCourseObject,
 } from '../../schemas/courses/course.object';
+
 const include = {
   contentItems: {
     include: { translations: { orderBy: { language: 'asc' } } },
@@ -34,10 +35,13 @@ const include = {
   },
   translations: { orderBy: { language: 'asc' } },
 } satisfies Prisma.PublicCourseInclude;
+
 type Course = Prisma.PublicCourseGetPayload<{ include: typeof include }>;
+
 @Injectable()
 export class CoursesService {
   constructor(private readonly db: DatabaseService) {}
+  
   async list(
     language: Language,
     first?: number,
@@ -67,6 +71,7 @@ export class CoursesService {
       pageInfo: { endCursor: edges.at(-1)?.cursor ?? null, hasNextPage },
     };
   }
+
   async one(
     slug: string,
     language: Language,
@@ -83,6 +88,7 @@ export class CoursesService {
     if (row === null) throw notFound();
     return map(row, language);
   }
+
   async create(
     adminId: string,
     input: UpsertCourseInput,
@@ -101,6 +107,7 @@ export class CoursesService {
       return map(row, input.translations[0]?.language ?? Language.UZ);
     });
   }
+  
   async update(
     adminId: string,
     idInput: string,
@@ -125,6 +132,7 @@ export class CoursesService {
       return map(row, input.translations[0]?.language ?? Language.UZ);
     });
   }
+  
   async setStatus(
     adminId: string,
     idInput: string,
@@ -168,6 +176,7 @@ export class CoursesService {
     });
     return map(row, row.translations[0]?.language ?? Language.UZ);
   }
+
   async register(input: RegisterForCourseInput) {
     consent(input.consent);
     const course = await this.db.publicCourse.findFirst({
@@ -205,6 +214,7 @@ export class CoursesService {
       throw error;
     }
   }
+
   private async values(adminId: string, input: UpsertCourseInput) {
     const coverMediaId =
       input.coverMediaId === undefined
@@ -226,6 +236,7 @@ export class CoursesService {
     return { coverMediaId, slug: parseSlug(input.slug) };
   }
 }
+
 function translations(input: UpsertCourseInput) {
   if (
     input.translations.length < 1 ||
@@ -240,6 +251,7 @@ function translations(input: UpsertCourseInput) {
     title: required(x.title, 240),
   }));
 }
+
 function map(row: Course, language: Language): PublicCourseObject {
   const t = row.translations.find((x) => x.language === language);
   if (t === undefined) throw notFound();
@@ -290,6 +302,7 @@ function map(row: Course, language: Language): PublicCourseObject {
     }),
   };
 }
+
 function content(
   row: Course,
   language: Language,
@@ -302,32 +315,38 @@ function content(
     )
     .filter((value): value is string => value !== undefined);
 }
+
 function consent(value: boolean) {
   if (!value) throw bad('Consent is required');
 }
+
 function emailValue(value: string | undefined) {
   const email = clean(value, 320)?.toLowerCase() ?? null;
   if (email !== null && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
     throw bad('email is invalid');
   return email;
 }
+
 function parseSlug(value: string) {
   const slug = value.trim().toLowerCase();
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || slug.length > 160)
     throw bad('slug is invalid');
   return slug;
 }
+
 function required(value: string, max: number) {
   const text = value.trim();
   if (text.length === 0 || text.length > max)
     throw bad('Required text is invalid');
   return text;
 }
+
 function clean(value: string | undefined, max: number) {
   const text = value?.trim() ?? '';
   if (text.length > max) throw bad('Text is too long');
   return text.length === 0 ? null : text;
 }
+
 async function audit(
   tx: Prisma.TransactionClient,
   actorId: string,
@@ -348,6 +367,7 @@ async function audit(
 function bad(message: string) {
   return new ApplicationError(ErrorCode.BAD_USER_INPUT, message, 400);
 }
+
 function notFound() {
   return new ApplicationError(
     ErrorCode.NOT_FOUND,
