@@ -8,6 +8,13 @@ The first connected paper is named `BEST LC Academic Test 1`. Product copy,
 slugs, API fields, and persisted titles must not use the word `Mock`. The paper
 contains four skill tests: Listening, Reading, Writing, and Speaking.
 
+The Teacher practice catalog contains 48 paper slots. Speaking content may span
+the full catalog, while the approved Writing inventory is intentionally bounded
+to practice papers 1 through 10. Each of those ten papers owns one published
+Writing test with two original Academic tasks; papers 11 through 48 do not
+fabricate empty Writing versions. The idempotent local seed creates only missing
+Writing skills and preserves existing published versions.
+
 All passages, scripts, prompts, visuals, questions, and answer keys are original
 BEST LC practice content. IELTS is referenced only to describe the public test
 format. The active test API never exposes correct answers, evidence offsets, or

@@ -82,6 +82,12 @@ and Admins. Extend these existing domains instead of recreating them. Production
 hardening required by the active Student/Admin slices is in scope; unrelated
 platform-wide Step 9 expansion still requires separate review.
 
+The project owner cancelled provider-backed AI generation on 2026-09-28. Keep
+test authoring, import, validation, publication, delivery, scoring, and review
+fully deterministic. Do not add an AI provider SDK, credential, generation
+operation, assistant, evaluation, or background AI worker without a new
+explicit scope change and reviewed data design.
+
 Do not add product models or migrations until their data-design decisions have
 been documented and approved. Do not replace the selected SeaweedFS local
 provider, add an archived MinIO Community image, or accept a new provider
