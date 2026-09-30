@@ -115,6 +115,95 @@ question kind against `objective-v2` or `manual-rubric-v1`, requires paper-owned
 sections, and rejects released evidence offsets outside the immutable section
 content. The already deployed preceding migration is intentionally unchanged.
 
+## Teacher practice catalog migration
+
+`20260926010000_teacher_practice_catalog` adds the positive, group-scoped
+`practice_number` identity used by the Teacher Practices card catalog. Existing
+papers are backfilled deterministically by academic year, creation time, and
+UUID before the column becomes required. A unique index prevents two papers in
+the same group from receiving the same display number.
+
+Apply this additive migration before the API version that selects or orders by
+`practiceNumber`. Rollback deploys the previous API first and retains the
+unused column and constraints. See
+`TEACHER_PRACTICE_CATALOG_DATA_DESIGN.md` for pagination, ownership, fixture,
+and forward-migration decisions.
+
+`20260929010000_teacher_practice_soft_delete` replaces the legacy archive-state
+checks for `tests` and `test_papers` so `DELETED` rows, like `ARCHIVED` rows,
+must retain a non-null lifecycle timestamp. It backfills legacy deleted rows
+before adding the stricter constraints. Deploy it before enabling
+`deleteTeacherPracticeTest`; rollback deploys the prior API first and retains
+the stricter, backward-compatible constraints. See
+`TEACHER_PRACTICE_CATALOG_DATA_DESIGN.md` for ownership, cascade scope, retained
+history, and audit behavior.
+
+## IELTS Teacher authoring blocks migration
+
+`20260928010000_ielts_test_authoring_blocks` extends the existing immutable test
+version domain with ordered section blocks, localized block content, explicit
+question-group membership, skill-specific section timing/word metadata,
+Teacher-only question rationales, and intrinsic media dimensions/duration.
+Every change is additive; existing section content and media relations remain
+readable during the compatibility period.
+
+Deploy the migration before enabling the expanded Teacher authoring GraphQL
+contract. The API must keep published versions immutable, validate block shapes
+and same-section question membership, and exclude correct answers, rationales,
+and draft metadata from active Student operations. Rollback deploys the prior
+API/web first and retains the unused additive schema. See
+`IELTS_TEST_AUTHORING_DATA_DESIGN.md` for the full invariants and rollout order.
+
+`20260928020000_ielts_blocks_publish_immutability` is the forward-only follow-up
+that attaches the existing published-version immutability boundary to section
+blocks, block translations, and question-group membership. It is intentionally
+separate because the additive block migration had already been applied locally;
+applied migration history is never rewritten.
+
+`20260930010000_accepted_answer_display_value` adds the case-preserving
+`display_value` used by Teacher authoring surfaces while retaining
+`normalized_value` as the authoritative scoring key. Existing values are
+backfilled from matching primary-language evidence text when possible, with the
+normalized value as a safe fallback. Deploy this additive migration before the
+API version that selects `displayValue`; rollback deploys the previous API and
+retains the unused column.
+
+`20260930011000_accepted_answer_display_value_version_backfill` fills remaining
+fallback display values from a matching question position and normalized answer
+in another version of the same test, preferring published and newer versions.
+This keeps cloned drafts visually consistent even when their evidence offsets
+were not retained. Rollback leaves the corrected display values in place.
+
+## Teacher finance snapshot migration
+
+`20260929020000_teacher_finance_snapshots` adds a Teacher-owned, monthly
+read-only reporting projection used by both Teacher finance surfaces. Whole-UZS
+amounts, counts, year/month, and attendance are database-constrained; payment
+rate and debt remain derived by the API. The migration does not alter tuition
+charges, payments, allocations, or adjustments. See
+`TEACHER_FINANCE_SNAPSHOT_DATA_DESIGN.md` for ownership, seed, and rollback.
+
+## easyIELTS test import migration
+
+`20260928030000_easyielts_test_import` adds the required `IeltsModule` paper
+classification, backfills existing papers as `ACADEMIC`, and creates immutable
+group-scoped `test_import_sources` provenance. General Training imports use
+deterministic paper/test/version/section/question identities and never rewrite
+existing published Academic content. Apply this migration before running
+`import:easyielts-tests` or deploying API fields that select `ieltsModule`.
+
+Rollback deploys the previous API/importer first and retains the additive enum,
+column, and provenance table. See `EASYIELTS_TEST_IMPORT_DATA_DESIGN.md`.
+
+## Removed provider-backed generation lifecycle
+
+The historical `20260928040000_gemini_test_generation` and
+`20260928050000_gemini_single_skill_generation` migrations must remain in the
+immutable Prisma migration chain because they were applied before the feature
+was cancelled. `20260928060000_remove_ai_test_generation` drops the isolated
+request table and status enum. It does not remove ordinary Teacher-authored or
+imported drafts.
+
 ## Apply and inspect
 
 With PostgreSQL running and `DATABASE_URL` set in the untracked root `.env`:

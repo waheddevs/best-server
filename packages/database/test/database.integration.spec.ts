@@ -15,6 +15,8 @@ interface EducationFixture {
 interface PublishedTestFixture extends EducationFixture {
   correctOptionId: string;
   questionId: string;
+  sectionBlockId: string;
+  sectionId: string;
   testVersionId: string;
   wrongOptionId: string;
 }
@@ -30,7 +32,7 @@ after(async () => {
   await pool.end();
 });
 
-void test('initial migration exposes the reviewed database surface', async () => {
+void test('reviewed migrations expose the current database surface', async () => {
   await withTransaction(async (client) => {
     const migrations = await client.query<{ migration_name: string }>(
       `SELECT "migration_name"
@@ -51,6 +53,30 @@ void test('initial migration exposes the reviewed database surface', async () =>
           '20260904020000_groups_memberships_transfers',
           '20260904030000_learning_public_notifications',
           '20260904040000_vocabulary_import_pilot',
+          '20260905090000_public_website_content',
+          '20260907010000_credential_email_code_login',
+          '20260915010000_teacher_group_category',
+          '20260915020000_teacher_group_soft_delete',
+          '20260915021000_teacher_group_deleted_archive_constraint',
+          '20260916010000_group_membership_participation_status',
+          '20260916020000_credential_refresh_sessions',
+          '20260923010000_teacher_student_soft_delete',
+          '20260923020000_teacher_lesson_plans',
+          '20260923030000_media_archive_type',
+          '20260923040000_best_lc_academic_tests',
+          '20260923041000_best_lc_academic_publish_rules',
+          '20260926010000_teacher_practice_catalog',
+          '20260927010000_speaking_attempt_persistence',
+          '20260928010000_ielts_test_authoring_blocks',
+          '20260928020000_ielts_blocks_publish_immutability',
+          '20260928030000_easyielts_test_import',
+          '20260928040000_gemini_test_generation',
+          '20260928050000_gemini_single_skill_generation',
+          '20260928060000_remove_ai_test_generation',
+          '20260929010000_teacher_practice_soft_delete',
+          '20260929020000_teacher_finance_snapshots',
+          '20260930010000_accepted_answer_display_value',
+          '20260930011000_accepted_answer_display_value_version_backfill',
         ],
       ],
     );
@@ -74,14 +100,15 @@ void test('initial migration exposes the reviewed database surface', async () =>
        WHERE "trigger_schema" = 'public'`,
     );
 
-    assert.equal(migrations.rowCount, 11);
-    assert.equal(tables.rows[0]?.count, '51');
-    assert.equal(enums.rows[0]?.count, '31');
+    assert.equal(migrations.rowCount, 35);
+    assert.equal(tables.rows[0]?.count, '85');
+    assert.equal(enums.rows[0]?.count, '42');
     assert.deepEqual(
       new Set(triggers.rows.map(({ trigger_name }) => trigger_name)),
       new Set([
         'answer_option_translations_protect_published',
         'answer_options_protect_published',
+        'attempt_answer_selections_protect_submitted',
         'attempt_answers_protect_submitted',
         'attempts_protect_lifecycle',
         'audit_logs_append_only',
@@ -92,9 +119,16 @@ void test('initial migration exposes the reviewed database surface', async () =>
         'outbox_events_protect_source',
         'payments_append_only',
         'payments_require_ready_media',
+        'question_accepted_answers_protect_published',
+        'question_evidence_protect_published',
         'question_translations_protect_published',
         'questions_protect_published',
         'telegram_import_records_append_only',
+        'test_section_block_questions_protect_published',
+        'test_section_block_translations_protect_published',
+        'test_section_blocks_protect_published',
+        'test_section_translations_protect_published',
+        'test_sections_protect_published',
         'test_translations_protect_published',
         'test_versions_protect_published',
         'tuition_charges_append_only',
@@ -223,6 +257,18 @@ void test('published test content is complete and immutable', async () => {
           [fixture.questionId],
         ),
       /published question content is immutable/,
+    );
+    await expectDatabaseError(
+      client,
+      () =>
+        client.query(
+          `UPDATE "test_section_blocks"
+           SET "position" = 2,
+               "updated_at" = CURRENT_TIMESTAMP
+           WHERE "id" = $1`,
+          [fixture.sectionBlockId],
+        ),
+      /published test section content is immutable/,
     );
   });
 });
@@ -654,6 +700,8 @@ async function createPublishedTestFixture(
   const categoryId = randomUUID();
   const testId = randomUUID();
   const testVersionId = randomUUID();
+  const sectionId = randomUUID();
+  const sectionBlockId = randomUUID();
   const questionId = randomUUID();
   const correctOptionId = randomUUID();
   const wrongOptionId = randomUUID();
@@ -681,6 +729,30 @@ async function createPublishedTestFixture(
       ("id", "test_version_id", "language", "title")
      VALUES ($1, $2, 'UZ', 'Integration test')`,
     [randomUUID(), testVersionId],
+  );
+  await client.query(
+    `INSERT INTO "test_sections"
+      ("id", "test_version_id", "position", "updated_at")
+     VALUES ($1, $2, 1, CURRENT_TIMESTAMP)`,
+    [sectionId, testVersionId],
+  );
+  await client.query(
+    `INSERT INTO "test_section_translations"
+      ("id", "test_section_id", "language", "title", "instructions")
+     VALUES ($1, $2, 'UZ', 'Integration section', 'Read the section')`,
+    [randomUUID(), sectionId],
+  );
+  await client.query(
+    `INSERT INTO "test_section_blocks"
+      ("id", "test_section_id", "position", "kind", "updated_at")
+     VALUES ($1, $2, 1, 'RICH_TEXT', CURRENT_TIMESTAMP)`,
+    [sectionBlockId, sectionId],
+  );
+  await client.query(
+    `INSERT INTO "test_section_block_translations"
+      ("id", "test_section_block_id", "language", "text")
+     VALUES ($1, $2, 'UZ', 'Integration content')`,
+    [randomUUID(), sectionBlockId],
   );
   await client.query(
     `INSERT INTO "questions" ("id", "test_version_id", "position")
@@ -722,6 +794,8 @@ async function createPublishedTestFixture(
     ...education,
     correctOptionId,
     questionId,
+    sectionBlockId,
+    sectionId,
     testVersionId,
     wrongOptionId,
   };

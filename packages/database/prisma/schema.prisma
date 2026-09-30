@@ -44,6 +44,11 @@ enum TestSkill {
   SPEAKING
 }
 
+enum IeltsModule {
+  ACADEMIC
+  GENERAL_TRAINING
+}
+
 enum QuestionKind {
   SINGLE_CHOICE
   MULTIPLE_CHOICE
@@ -55,6 +60,15 @@ enum QuestionKind {
   AUDIO_RESPONSE
 }
 
+enum TestSectionBlockKind {
+  HEADING
+  RICH_TEXT
+  IMAGE
+  TABLE
+  AUDIO
+  QUESTION_GROUP
+}
+
 enum Language {
   UZ
   RU
@@ -64,6 +78,7 @@ enum Language {
 enum AttemptStatus {
   IN_PROGRESS
   SUBMITTED
+  REVIEW_REQUIRED
   SCORED
 }
 
@@ -303,6 +318,8 @@ model User {
   createdAssignments        Assignment[]               @relation("AssignmentCreator")
   teacherTasks              TeacherTask[]              @relation("TeacherTaskOwner")
   notifications             Notification[]
+  practiceBookmarks         PracticeBookmark[]
+  teacherFinanceSnapshots   TeacherFinanceSnapshot[]   @relation("TeacherFinanceSnapshotOwner")
 
   @@index([role, status])
   @@map("users")
@@ -399,6 +416,7 @@ model Group {
   memberships        GroupMembership[]
   tests              Test[]
   testPapers         TestPaper[]
+  testImportSources  TestImportSource[]
   libraryAccesses    LibraryGroupAccess[]
   tuitionRates       GroupTuitionRate[]
   tuitionOverrides   StudentTuitionOverride[]
@@ -473,22 +491,26 @@ model TestCategory {
 }
 
 model TestPaper {
-  id           String        @id @default(uuid()) @db.Uuid
-  groupId      String        @map("group_id") @db.Uuid
-  createdById  String        @map("created_by_id") @db.Uuid
-  slug         String        @db.VarChar(160)
-  academicYear Int           @map("academic_year")
-  title        String        @db.VarChar(240)
-  sourceLabel  String        @map("source_label") @db.Text
-  status       ContentStatus @default(ACTIVE)
-  archivedAt   DateTime?     @map("archived_at") @db.Timestamptz(3)
-  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
-  group        Group         @relation(fields: [groupId], references: [id], onDelete: Restrict)
-  createdBy    User          @relation("TestPaperCreator", fields: [createdById], references: [id], onDelete: Restrict)
-  tests        Test[]
+  id             String             @id @default(uuid()) @db.Uuid
+  groupId        String             @map("group_id") @db.Uuid
+  createdById    String             @map("created_by_id") @db.Uuid
+  practiceNumber Int                @map("practice_number")
+  ieltsModule    IeltsModule        @default(ACADEMIC) @map("ielts_module")
+  slug           String             @db.VarChar(160)
+  academicYear   Int                @map("academic_year")
+  title          String             @db.VarChar(240)
+  sourceLabel    String             @map("source_label") @db.Text
+  status         ContentStatus      @default(ACTIVE)
+  archivedAt     DateTime?          @map("archived_at") @db.Timestamptz(3)
+  createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+  group          Group              @relation(fields: [groupId], references: [id], onDelete: Restrict)
+  createdBy      User               @relation("TestPaperCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  tests          Test[]
+  bookmarks      PracticeBookmark[]
 
   @@unique([groupId, slug])
+  @@unique([groupId, practiceNumber])
   @@index([groupId, academicYear, status])
   @@map("test_papers")
 }
@@ -536,24 +558,48 @@ model TestVersion {
   questions            Question[]
   sections             TestSection[]
   attempts             Attempt[]
+  importSource         TestImportSource?
 
   @@unique([testId, version])
   @@index([status, availabilityStartsAt, availabilityEndsAt])
   @@map("test_versions")
 }
 
+model TestImportSource {
+  id            String      @id @default(uuid()) @db.Uuid
+  sourceSystem  String      @map("source_system") @db.VarChar(80)
+  externalId    String      @map("external_id") @db.VarChar(240)
+  sourcePath    String      @map("source_path") @db.Text
+  sourceSha256  String      @map("source_sha256") @db.Char(64)
+  targetGroupId String      @map("target_group_id") @db.Uuid
+  testVersionId String      @unique @map("test_version_id") @db.Uuid
+  importedAt    DateTime    @default(now()) @map("imported_at") @db.Timestamptz(3)
+  targetGroup   Group       @relation(fields: [targetGroupId], references: [id], onDelete: Restrict)
+  testVersion   TestVersion @relation(fields: [testVersionId], references: [id], onDelete: Restrict)
+
+  @@unique([sourceSystem, externalId, targetGroupId])
+  @@index([targetGroupId, importedAt])
+  @@map("test_import_sources")
+}
+
 model TestSection {
-  id            String                   @id @default(uuid()) @db.Uuid
-  testVersionId String                   @map("test_version_id") @db.Uuid
-  position      Int
-  mediaObjectId String?                  @map("media_object_id") @db.Uuid
-  createdAt     DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt     DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
-  testVersion   TestVersion              @relation(fields: [testVersionId], references: [id], onDelete: Cascade)
-  mediaObject   MediaObject?             @relation("TestSectionMedia", fields: [mediaObjectId], references: [id], onDelete: Restrict)
-  translations  TestSectionTranslation[]
-  questions     Question[]
-  evidence      QuestionEvidence[]
+  id                 String                   @id @default(uuid()) @db.Uuid
+  testVersionId      String                   @map("test_version_id") @db.Uuid
+  position           Int
+  mediaObjectId      String?                  @map("media_object_id") @db.Uuid
+  suggestedMinutes   Int?                     @map("suggested_minutes")
+  minimumWords       Int?                     @map("minimum_words")
+  preparationSeconds Int?                     @map("preparation_seconds")
+  responseSeconds    Int?                     @map("response_seconds")
+  createdAt          DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
+  testVersion        TestVersion              @relation(fields: [testVersionId], references: [id], onDelete: Cascade)
+  mediaObject        MediaObject?             @relation("TestSectionMedia", fields: [mediaObjectId], references: [id], onDelete: Restrict)
+  translations       TestSectionTranslation[]
+  blocks             TestSectionBlock[]
+  questions          Question[]
+  evidence           QuestionEvidence[]
+  attemptNotes       AttemptSectionNote[]
 
   @@unique([testVersionId, position])
   @@index([mediaObjectId])
@@ -573,6 +619,51 @@ model TestSectionTranslation {
   @@map("test_section_translations")
 }
 
+model TestSectionBlock {
+  id            String                        @id @default(uuid()) @db.Uuid
+  testSectionId String                        @map("test_section_id") @db.Uuid
+  position      Int
+  kind          TestSectionBlockKind
+  mediaObjectId String?                       @map("media_object_id") @db.Uuid
+  headingLevel  Int?                          @map("heading_level")
+  tablePayload  Json?                         @map("table_payload") @db.JsonB
+  createdAt     DateTime                      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime                      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  testSection   TestSection                   @relation(fields: [testSectionId], references: [id], onDelete: Cascade)
+  mediaObject   MediaObject?                  @relation("TestSectionBlockMedia", fields: [mediaObjectId], references: [id], onDelete: Restrict)
+  translations  TestSectionBlockTranslation[]
+  questions     TestSectionBlockQuestion[]
+
+  @@unique([testSectionId, position])
+  @@index([mediaObjectId])
+  @@map("test_section_blocks")
+}
+
+model TestSectionBlockTranslation {
+  id                 String           @id @default(uuid()) @db.Uuid
+  testSectionBlockId String           @map("test_section_block_id") @db.Uuid
+  language           Language
+  text               String?          @db.Text
+  altText            String?          @map("alt_text") @db.Text
+  caption            String?          @db.Text
+  testSectionBlock   TestSectionBlock @relation(fields: [testSectionBlockId], references: [id], onDelete: Cascade)
+
+  @@unique([testSectionBlockId, language])
+  @@map("test_section_block_translations")
+}
+
+model TestSectionBlockQuestion {
+  testSectionBlockId String           @map("test_section_block_id") @db.Uuid
+  questionId         String           @unique @map("question_id") @db.Uuid
+  position           Int
+  testSectionBlock   TestSectionBlock @relation(fields: [testSectionBlockId], references: [id], onDelete: Cascade)
+  question           Question         @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@id([testSectionBlockId, questionId])
+  @@unique([testSectionBlockId, position])
+  @@map("test_section_block_questions")
+}
+
 model TestTranslation {
   id            String      @id @default(uuid()) @db.Uuid
   testVersionId String      @map("test_version_id") @db.Uuid
@@ -586,21 +677,22 @@ model TestTranslation {
 }
 
 model Question {
-  id              String                   @id @default(uuid()) @db.Uuid
-  testVersionId   String                   @map("test_version_id") @db.Uuid
-  sectionId       String?                  @map("section_id") @db.Uuid
-  kind            QuestionKind             @default(SINGLE_CHOICE)
-  answerLimit     Int?                     @map("answer_limit")
-  maxSelections   Int?                     @map("max_selections")
+  id              String                     @id @default(uuid()) @db.Uuid
+  testVersionId   String                     @map("test_version_id") @db.Uuid
+  sectionId       String?                    @map("section_id") @db.Uuid
+  kind            QuestionKind               @default(SINGLE_CHOICE)
+  answerLimit     Int?                       @map("answer_limit")
+  maxSelections   Int?                       @map("max_selections")
   position        Int
-  createdAt       DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
-  testVersion     TestVersion              @relation(fields: [testVersionId], references: [id], onDelete: Cascade)
-  section         TestSection?             @relation(fields: [sectionId], references: [id], onDelete: Restrict)
+  createdAt       DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
+  testVersion     TestVersion                @relation(fields: [testVersionId], references: [id], onDelete: Cascade)
+  section         TestSection?               @relation(fields: [sectionId], references: [id], onDelete: Restrict)
   translations    QuestionTranslation[]
   options         AnswerOption[]
   answers         AttemptAnswer[]
   acceptedAnswers QuestionAcceptedAnswer[]
   evidence        QuestionEvidence?
+  sectionBlocks   TestSectionBlockQuestion[]
 
   @@unique([testVersionId, position])
   @@index([sectionId, position])
@@ -611,6 +703,7 @@ model QuestionAcceptedAnswer {
   id              String   @id @default(uuid()) @db.Uuid
   questionId      String   @map("question_id") @db.Uuid
   position        Int
+  displayValue    String   @map("display_value") @db.VarChar(500)
   normalizedValue String   @map("normalized_value") @db.VarChar(500)
   question        Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
@@ -637,6 +730,7 @@ model QuestionTranslation {
   questionId String   @map("question_id") @db.Uuid
   language   Language
   prompt     String   @db.Text
+  rationale  String?  @db.Text
   question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
   @@unique([questionId, language])
@@ -692,11 +786,39 @@ model Attempt {
   groupMembership    GroupMembership          @relation(fields: [groupMembershipId], references: [id], onDelete: Restrict)
   answers            AttemptAnswer[]
   review             AttemptReview?
+  sectionNotes       AttemptSectionNote[]
 
   @@unique([studentId, testVersionId, attemptNumber])
   @@index([testVersionId, status])
   @@index([groupMembershipId, submittedAt])
   @@map("attempts")
+}
+
+model AttemptSectionNote {
+  id        String      @id @default(uuid()) @db.Uuid
+  attemptId String      @map("attempt_id") @db.Uuid
+  sectionId String      @map("section_id") @db.Uuid
+  text      String      @db.Text
+  savedAt   DateTime    @default(now()) @map("saved_at") @db.Timestamptz(3)
+  attempt   Attempt     @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  section   TestSection @relation(fields: [sectionId], references: [id], onDelete: Restrict)
+
+  @@unique([attemptId, sectionId])
+  @@index([sectionId])
+  @@map("attempt_section_notes")
+}
+
+model PracticeBookmark {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  testPaperId String    @map("test_paper_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  testPaper   TestPaper @relation(fields: [testPaperId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, testPaperId])
+  @@index([testPaperId])
+  @@map("practice_bookmarks")
 }
 
 model AttemptAnswer {
@@ -849,6 +971,9 @@ model MediaObject {
   malwareEngineVersion    String?                @map("malware_engine_version") @db.VarChar(80)
   malwareSignatureVersion String?                @map("malware_signature_version") @db.VarChar(120)
   malwareThreatName       String?                @map("malware_threat_name") @db.VarChar(240)
+  widthPixels             Int?                   @map("width_pixels")
+  heightPixels            Int?                   @map("height_pixels")
+  durationSeconds         Int?                   @map("duration_seconds")
   createdAt               DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt               DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
   createdBy               User                   @relation("MediaObjectCreator", fields: [createdById], references: [id], onDelete: Restrict)
@@ -860,6 +985,7 @@ model MediaObject {
   submissionAttachments   AssignmentSubmission[]
   importSourceDocument    ImportSourceDocument?
   testSections            TestSection[]          @relation("TestSectionMedia")
+  testSectionBlocks       TestSectionBlock[]     @relation("TestSectionBlockMedia")
   attemptAnswerResponses  AttemptAnswer[]        @relation("AttemptAnswerMedia")
 
   @@index([createdById, mediaType])
@@ -1525,6 +1651,27 @@ model GroupTuitionRate {
 
   @@index([groupId, effectiveFrom])
   @@map("group_tuition_rates")
+}
+
+model TeacherFinanceSnapshot {
+  id                String   @id @default(uuid()) @db.Uuid
+  teacherId         String   @map("teacher_id") @db.Uuid
+  year              Int      @db.SmallInt
+  month             Int      @db.SmallInt
+  incomeUzs         BigInt   @map("income_uzs")
+  expectedAmountUzs BigInt   @map("expected_amount_uzs")
+  expensesUzs       BigInt   @map("expenses_uzs")
+  penaltiesUzs      BigInt   @map("penalties_uzs")
+  activeLearners    Int      @map("active_learners")
+  activeGroups      Int      @map("active_groups")
+  attendanceRate    Decimal  @map("attendance_rate") @db.Decimal(5, 2)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  teacher           User     @relation("TeacherFinanceSnapshotOwner", fields: [teacherId], references: [id], onDelete: Restrict)
+
+  @@unique([teacherId, year, month])
+  @@index([teacherId, year, month])
+  @@map("teacher_finance_snapshots")
 }
 
 model StudentTuitionOverride {
