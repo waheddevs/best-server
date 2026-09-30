@@ -425,6 +425,7 @@ type AttemptGrantPayload {
 
 enum AttemptStatus {
   IN_PROGRESS
+  REVIEW_REQUIRED
   SCORED
   SUBMITTED
 }
@@ -449,6 +450,12 @@ input CompleteTeacherTaskInput {
   taskId: ID!
 }
 
+input ConfirmAttemptAudioUploadInput {
+  attemptId: ID!
+  mediaObjectId: ID!
+  questionId: ID!
+}
+
 type ConfirmMediaUploadPayload {
   mediaObject: MediaObject!
 }
@@ -465,6 +472,14 @@ input CreateAssignmentInput {
   groupId: ID!
   lessonId: ID
   translations: [AssignmentTranslationInput!]!
+}
+
+input CreateAttemptAudioUploadInput {
+  attemptId: ID!
+  mimeType: String!
+  originalName: String!
+  questionId: ID!
+  sizeBytes: Int!
 }
 
 input CreateLessonInput {
@@ -531,6 +546,10 @@ input CreateTeacherGroupInput {
   timeZone: String
 }
 
+input CreateTeacherPracticeTestInput {
+  groupId: ID!
+}
+
 input CreateTestCategoryInput {
   name: String!
 }
@@ -542,10 +561,41 @@ input CreateTestDraftInput {
   translations: [TestTranslationInput!]!
 }
 
+input CreateTestPaperSkillDraftInput {
+  skill: TestSkill!
+  testPaperId: ID!
+}
+
 input CreateTestQuestionInput {
+  acceptedAnswers: [String!]
+  answerLimit: Int
+  kind: QuestionKind
+  maxSelections: Int
   options: [AnswerOptionDraftInput!]!
+  sectionId: ID
   testVersionId: ID!
   translations: [QuestionTranslationInput!]!
+}
+
+input CreateTestSectionBlockInput {
+  headingLevel: Int
+  kind: TestSectionBlockKind!
+  mediaObjectId: ID
+  questionIds: [ID!]
+  tableHeaderRows: [TestTableRowInput!]
+  tableRows: [TestTableRowInput!]
+  testSectionId: ID!
+  translations: [TestSectionBlockTranslationInput!]!
+}
+
+input CreateTestSectionInput {
+  mediaObjectId: ID
+  minimumWords: Int
+  preparationSeconds: Int
+  responseSeconds: Int
+  suggestedMinutes: Int
+  testVersionId: ID!
+  translations: [TestSectionTranslationInput!]!
 }
 
 type CredentialLoginChallengePayload {
@@ -571,6 +621,22 @@ scalar DateTime
 input EndGroupMembershipInput {
   membershipId: ID!
   reason: String!
+}
+
+input GenerateListeningAudioInput {
+  testSectionId: ID!
+  transcript: String!
+}
+
+type GenerateListeningAudioPayload {
+  audio: GeneratedListeningAudio!
+}
+
+type GeneratedListeningAudio {
+  durationSeconds: Int!
+  expiresAt: DateTime!
+  mediaObjectId: ID!
+  url: String!
 }
 
 input GrantAdditionalTestAttemptInput {
@@ -685,6 +751,11 @@ type GroupTransferRequestConnection {
 type GroupTransferRequestEdge {
   cursor: String!
   node: GroupTransferRequest!
+}
+
+enum IeltsModule {
+  ACADEMIC
+  GENERAL_TRAINING
 }
 
 enum IntakeStatus {
@@ -926,8 +997,10 @@ type Mutation {
   beginCredentialLogin(input: BeginCredentialLoginInput!): CredentialLoginChallengePayload!
   closeAssignment(input: AssignmentIdInput!): AssignmentPayload!
   completeTeacherTask(input: CompleteTeacherTaskInput!): TeacherTaskPayload!
+  confirmAttemptAudioUpload(input: ConfirmAttemptAudioUploadInput!): ConfirmMediaUploadPayload!
   confirmMediaUpload(input: MediaObjectReferenceInput!): ConfirmMediaUploadPayload!
   createAssignment(input: CreateAssignmentInput!): AssignmentPayload!
+  createAttemptAudioUploadIntent(input: CreateAttemptAudioUploadInput!): CreateMediaUploadIntentPayload!
   createCourseDraft(input: UpsertCourseInput!): PublicCoursePayload!
   createEventDraft(input: UpsertEventInput!): PublicEventPayload!
   createLesson(input: CreateLessonInput!): LessonPayload!
@@ -939,12 +1012,20 @@ type Mutation {
   createNextTestVersion(input: CreateNextTestVersionInput!): TeacherTestVersionPayload!
   createStudentLibraryDownloadIntent(input: CreateLibraryDownloadIntentInput!): LibraryDownloadIntentPayload!
   createTeacherGroup(input: CreateTeacherGroupInput!): GroupMutationPayload!
+  createTeacherPracticeTest(input: CreateTeacherPracticeTestInput!): TeacherTestPaperPayload!
   createTestCategory(input: CreateTestCategoryInput!): TestCategoryPayload!
   createTestDraft(input: CreateTestDraftInput!): TeacherTestPayload!
+  createTestPaperSkillDraft(input: CreateTestPaperSkillDraftInput!): TeacherTestVersionPayload!
   createTestQuestion(input: CreateTestQuestionInput!): TeacherTestVersionPayload!
+  createTestSection(input: CreateTestSectionInput!): TeacherTestVersionPayload!
+  createTestSectionBlock(input: CreateTestSectionBlockInput!): TeacherTestVersionPayload!
   deleteTeacherGroup(groupId: ID!): GroupMutationPayload!
+  deleteTeacherPracticeTest(testPaperId: ID!): TeacherTestPaperDeletionPayload!
   deleteTestDraftQuestion(input: TestVersionIdInput!, questionId: ID!): TeacherTestVersionPayload!
+  deleteTestDraftSection(input: TestVersionIdInput!, testSectionId: ID!): TeacherTestVersionPayload!
+  deleteTestSectionBlock(testSectionBlockId: ID!, testSectionId: ID!): TeacherTestVersionPayload!
   endGroupMembership(input: EndGroupMembershipInput!): MembershipMutationPayload!
+  generateListeningAudio(input: GenerateListeningAudioInput!): GenerateListeningAudioPayload!
   grantAdditionalTestAttempt(input: GrantAdditionalTestAttemptInput!): AttemptGrantPayload!
   markAllNotificationsRead: MarkAllNotificationsReadPayload!
   markNotificationRead(input: MarkNotificationReadInput!): NotificationPayload!
@@ -955,6 +1036,8 @@ type Mutation {
   registerForCourse(input: RegisterForCourseInput!): PublicSubmissionReceipt!
   registerForEvent(input: RegisterForEventInput!): PublicSubmissionReceipt!
   reorderTestQuestions(input: ReorderTestQuestionsInput!): TeacherTestVersionPayload!
+  reorderTestSectionBlocks(input: ReorderTestSectionBlocksInput!): TeacherTestVersionPayload!
+  reorderTestSections(input: ReorderTestSectionsInput!): TeacherTestVersionPayload!
   replaceTestDraftTranslations(input: ReplaceTestDraftTranslationsInput!): TeacherTestVersionPayload!
   requestStudentTransfer(input: RequestStudentTransferInput!): TransferRequestMutationPayload!
   resendCredentialLoginCode(input: ResendCredentialLoginCodeInput!): CredentialLoginChallengePayload!
@@ -962,6 +1045,8 @@ type Mutation {
   reviewStudentTransfer(input: ReviewStudentTransferInput!): TransferRequestMutationPayload!
   revokeCredentialSession(input: RevokeCredentialSessionInput!): Boolean!
   saveAttemptAnswer(input: SaveAttemptAnswerInput!, language: Language!): SaveAttemptAnswerPayload!
+  saveAttemptSectionNote(input: SaveAttemptSectionNoteInput!, language: Language!): SaveAttemptSectionNotePayload!
+  saveSpeakingAttemptReview(input: SaveSpeakingAttemptReviewInput!, language: Language!): TeacherSpeakingAttemptReview!
   setCourseStatus(input: SetPublicCourseStatusInput!): PublicCoursePayload!
   setEventStatus(input: SetPublicEventStatusInput!): PublicEventPayload!
   setGroupMembershipParticipationStatus(input: SetGroupMembershipParticipationStatusInput!): MembershipMutationPayload!
@@ -970,6 +1055,7 @@ type Mutation {
   setLessonStatus(input: SetLessonStatusInput!): LessonPayload!
   setLibraryCategoryArchived(input: SetLibraryCategoryArchivedInput!): LibraryCategoryPayload!
   setLibraryItemArchived(input: SetLibraryItemArchivedInput!): LibraryItemPayload!
+  setPracticeBookmark(input: SetPracticeBookmarkInput!): PracticeBookmarkPayload!
   setTeacherGroupArchived(input: SetTeacherGroupArchivedInput!): GroupMutationPayload!
   setTestArchived(input: SetTestArchivedInput!): TeacherTestPayload!
   startTestAttempt(input: StartTestAttemptInput!): StartTestAttemptPayload!
@@ -991,6 +1077,8 @@ type Mutation {
   updateTestCategory(input: UpdateTestCategoryInput!): TestCategoryPayload!
   updateTestDraftSettings(input: UpdateTestDraftSettingsInput!): TeacherTestVersionPayload!
   updateTestQuestion(input: UpdateTestQuestionInput!): TeacherTestVersionPayload!
+  updateTestSection(input: UpdateTestSectionInput!): TeacherTestVersionPayload!
+  updateTestSectionBlock(input: UpdateTestSectionBlockInput!): TeacherTestVersionPayload!
   verifyCredentialLogin(input: VerifyCredentialLoginInput!): CredentialLoginSuccessPayload!
 }
 
@@ -1018,9 +1106,23 @@ type NotificationPayload {
   notification: Notification!
 }
 
+type NumericPageInfo {
+  currentPage: Int!
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  pageSize: Int!
+  totalItems: Int!
+  totalPages: Int!
+}
+
 type PageInfo {
   endCursor: String
   hasNextPage: Boolean!
+}
+
+type PracticeBookmarkPayload {
+  saved: Boolean!
+  testPaperId: ID!
 }
 
 enum PublicContentStatus {
@@ -1261,6 +1363,7 @@ type Query {
   studentAssignment(assignmentId: ID!): Assignment!
   studentAssignments(after: String, first: Int, status: AssignmentStatus): AssignmentConnection!
   studentAttempt(attemptId: ID!, language: Language!): StudentAttempt!
+  studentAttemptMediaDownload(attemptId: ID!, mediaObjectId: ID!): MediaDownloadIntent!
   studentAvailableTests(after: String, first: Int, language: Language!): StudentTestConnection!
   studentCurrentGroup: StudentCurrentGroup
   studentLesson(lessonId: ID!): Lesson!
@@ -1270,6 +1373,7 @@ type Query {
   studentReleasedAttemptResult(attemptId: ID!): StudentReleasedAttemptResult!
   studentResults(after: String, first: Int, language: Language!): StudentResultConnection!
   studentSchedule(from: DateTime!, to: DateTime!): [Lesson!]!
+  studentSpeakingResult(attemptId: ID!, language: Language!): StudentSpeakingResult
   studentTest(language: Language!, testId: ID!): StudentTest!
   studentTestPaper(paperId: ID!): StudentTestPaper!
   studentTestPapers(after: String, first: Int): StudentTestPaperConnection!
@@ -1280,6 +1384,7 @@ type Query {
   teacherAttemptReview(attemptId: ID!, language: Language!): TeacherAttemptReview!
   teacherAttendance(lessonId: ID!): [LessonAttendance!]!
   teacherDashboard: TeacherDashboard!
+  teacherFinanceSnapshots(year: Int!): TeacherFinanceYear!
   teacherGroup(groupId: ID!): Group!
   teacherGroupAssignments(after: String, first: Int, groupId: ID!, status: AssignmentStatus): AssignmentConnection!
   teacherGroupLessons(after: String, first: Int, groupId: ID!, status: LessonStatus): LessonConnection!
@@ -1294,15 +1399,18 @@ type Query {
   teacherLibraryCategories(includeArchived: Boolean = false): [LibraryCategory!]!
   teacherLibraryItems(after: String, categoryId: ID, first: Int, includeArchived: Boolean = false): TeacherLibraryItemConnection!
   teacherSchedule(from: DateTime!, to: DateTime!): [Lesson!]!
+  teacherSpeakingAttemptReview(attemptId: ID!, language: Language!): TeacherSpeakingAttemptReview!
   teacherStudentAttempts(after: String, first: Int, groupId: ID!, language: Language!, studentId: ID!): TeacherAttemptConnection!
   teacherStudentTests(after: String, first: Int, groupId: ID!, language: Language!, studentId: ID!): TeacherStudentTestProgressConnection!
   teacherTasks(after: String, first: Int, kind: TeacherTaskKind, status: TeacherTaskStatus): TeacherTaskConnection!
   teacherTestCategories: [TestCategory!]!
   teacherTestDraft(testId: ID!): TeacherTestVersion!
-  teacherTestPapers(groupId: ID!): [TeacherTestPaper!]!
+  teacherTestPaper(groupId: ID!, practiceNumber: Int!): TeacherTestPaper!
+  teacherTestPapers(groupId: ID!, page: Int! = 1): TeacherTestPaperPage!
   teacherTestVersion(testVersionId: ID!): TeacherTestVersion!
   teacherTests(after: String, first: Int, groupId: ID, search: String, status: ContentStatus): TeacherTestConnection!
   teacherTransferRequests(after: String, first: Int, status: TransferRequestStatus): GroupTransferRequestConnection!
+  validateTeacherTestDraft(testVersionId: ID!): TeacherTestDraftValidation!
   viewer: Viewer!
 }
 
@@ -1320,6 +1428,7 @@ enum QuestionKind {
 input QuestionTranslationInput {
   language: Language!
   prompt: String!
+  rationale: String
 }
 
 input RecordLessonAttendanceInput {
@@ -1355,6 +1464,16 @@ input RegisterForEventInput {
 
 input ReorderTestQuestionsInput {
   questionIds: [ID!]!
+  testVersionId: ID!
+}
+
+input ReorderTestSectionBlocksInput {
+  testSectionBlockIds: [ID!]!
+  testSectionId: ID!
+}
+
+input ReorderTestSectionsInput {
+  testSectionIds: [ID!]!
   testVersionId: ID!
 }
 
@@ -1403,6 +1522,27 @@ type SaveAttemptAnswerPayload {
   attempt: StudentAttempt!
 }
 
+input SaveAttemptSectionNoteInput {
+  attemptId: ID!
+  sectionId: ID!
+  text: String!
+}
+
+type SaveAttemptSectionNotePayload {
+  attempt: StudentAttempt!
+}
+
+input SaveSpeakingAttemptReviewInput {
+  attemptId: ID!
+  feedback: String
+  fluencyCoherence: Float!
+  grammaticalRangeAccuracy: Float!
+  lexicalResource: Float!
+  practiceBand: Float!
+  pronunciation: Float!
+  release: Boolean!
+}
+
 input SetGroupMembershipParticipationStatusInput {
   membershipId: ID!
   reason: String!
@@ -1441,6 +1581,11 @@ input SetLibraryItemArchivedInput {
   libraryItemId: ID!
 }
 
+input SetPracticeBookmarkInput {
+  saved: Boolean!
+  testPaperId: ID!
+}
+
 input SetPublicCourseStatusInput {
   courseId: ID!
   reason: String
@@ -1464,6 +1609,17 @@ input SetTestArchivedInput {
   testId: ID!
 }
 
+type SpeakingRubricReview {
+  feedback: String
+  fluencyCoherence: Float!
+  grammaticalRangeAccuracy: Float!
+  lexicalResource: Float!
+  practiceBand: Float!
+  pronunciation: Float!
+  releasedAt: DateTime
+  reviewedAt: DateTime!
+}
+
 input StartTestAttemptInput {
   language: Language!
   testId: ID!
@@ -1485,6 +1641,7 @@ type StudentAttempt {
   expiresAt: DateTime
   id: ID!
   language: Language!
+  notes: [StudentAttemptSectionNote!]!
   questions: [StudentQuestion!]!
   result: StudentAttemptResult
   sections: [StudentTestSection!]!
@@ -1503,6 +1660,12 @@ type StudentAttemptResult {
   passed: Boolean!
   percentage: Float!
   totalQuestionCount: Int!
+}
+
+type StudentAttemptSectionNote {
+  savedAt: DateTime!
+  sectionId: ID!
+  text: String!
 }
 
 type StudentCurrentGroup {
@@ -1596,6 +1759,7 @@ type StudentResult {
   highestPercentage: Float!
   passed: Boolean!
   percentage: Float!
+  practiceBand: Float
   skill: TestSkill
   submittedAt: DateTime!
   testId: ID!
@@ -1620,6 +1784,18 @@ type StudentSavedAnswer {
   selectedOptionId: ID
   selectedOptionIds: [ID!]!
   textValue: String
+}
+
+type StudentSpeakingResult {
+  attemptId: ID!
+  feedback: String
+  fluencyCoherence: Float!
+  grammaticalRangeAccuracy: Float!
+  lexicalResource: Float!
+  practiceBand: Float!
+  pronunciation: Float!
+  releasedAt: DateTime!
+  title: String!
 }
 
 type StudentTest {
@@ -1650,6 +1826,8 @@ type StudentTestEdge {
 type StudentTestPaper {
   academicYear: Int!
   id: ID!
+  ieltsModule: IeltsModule!
+  isSaved: Boolean!
   skills: [StudentTestPaperSkill!]!
   slug: String!
   sourceLabel: String!
@@ -1679,12 +1857,27 @@ type StudentTestPaperSkill {
 }
 
 type StudentTestSection {
+  blocks: [StudentTestSectionBlock!]!
   content: String
   id: ID!
   instructions: String!
   mediaObjectId: ID
   position: Int!
   title: String!
+}
+
+type StudentTestSectionBlock {
+  caption: String
+  id: ID!
+  kind: TestSectionBlockKind!
+  position: Int!
+  questionIds: [ID!]!
+  tableHeaderRows: [StudentTestTableRow!]!
+  tableRows: [StudentTestTableRow!]!
+}
+
+type StudentTestTableRow {
+  cells: [String!]!
 }
 
 enum SubmissionStatus {
@@ -1756,6 +1949,7 @@ type TeacherAttempt {
   attemptNumber: Int!
   passed: Boolean
   percentage: Float
+  skill: TestSkill
   startedAt: DateTime!
   status: AttemptStatus!
   submittedAt: DateTime
@@ -1812,6 +2006,25 @@ type TeacherDashboard {
 
 input TeacherDeleteStudentInput {
   membershipId: ID!
+}
+
+type TeacherFinanceSnapshot {
+  activeGroups: Int!
+  activeLearners: Int!
+  attendanceRate: Float!
+  debtUzs: String!
+  expectedAmountUzs: String!
+  expensesUzs: String!
+  incomeUzs: String!
+  month: Int!
+  paymentRate: Float!
+  penaltiesUzs: String!
+  year: Int!
+}
+
+type TeacherFinanceYear {
+  snapshots: [TeacherFinanceSnapshot!]!
+  year: Int!
 }
 
 type TeacherGroupOverview {
@@ -1875,6 +2088,26 @@ type TeacherLibraryItemEdge {
 type TeacherQuestionTranslation {
   language: Language!
   prompt: String!
+  rationale: String
+}
+
+type TeacherSpeakingAnswerReview {
+  audioUrl: String
+  audioUrlExpiresAt: DateTime
+  position: Int!
+  prompt: String!
+  questionId: ID!
+  responseMediaObjectId: ID
+  sectionPosition: Int!
+}
+
+type TeacherSpeakingAttemptReview {
+  answers: [TeacherSpeakingAnswerReview!]!
+  attemptId: ID!
+  review: SpeakingRubricReview
+  status: AttemptStatus!
+  studentDisplayName: String!
+  title: String!
 }
 
 type TeacherStudentProgress {
@@ -1983,6 +2216,18 @@ type TeacherTestConnection {
   pageInfo: PageInfo!
 }
 
+type TeacherTestDraftValidation {
+  isPublishable: Boolean!
+  issues: [TeacherTestDraftValidationIssue!]!
+}
+
+type TeacherTestDraftValidationIssue {
+  code: String!
+  message: String!
+  path: String!
+  severity: String!
+}
+
 type TeacherTestEdge {
   cursor: String!
   node: TeacherTest!
@@ -1990,11 +2235,31 @@ type TeacherTestEdge {
 
 type TeacherTestPaper {
   academicYear: Int!
+  completedStudentCount: Int!
+  createdAt: DateTime!
   id: ID!
+  ieltsModule: IeltsModule!
+  isSaved: Boolean!
+  practiceNumber: Int!
   skills: [TeacherTestPaperSkill!]!
   slug: String!
   sourceLabel: String!
   title: String!
+}
+
+type TeacherTestPaperDeletionPayload {
+  deletedSkillCount: Int!
+  status: ContentStatus!
+  testPaperId: ID!
+}
+
+type TeacherTestPaperPage {
+  items: [TeacherTestPaper!]!
+  pageInfo: NumericPageInfo!
+}
+
+type TeacherTestPaperPayload {
+  testPaper: TeacherTestPaper!
 }
 
 type TeacherTestPaperSkill {
@@ -2013,10 +2278,61 @@ type TeacherTestPayload {
 }
 
 type TeacherTestQuestion {
+  acceptedAnswers: [String!]!
+  answerLimit: Int
   id: ID!
+  kind: QuestionKind!
+  maxSelections: Int
   options: [TeacherAnswerOption!]!
   position: Int!
+  sectionId: ID
+  sectionPosition: Int
   translations: [TeacherQuestionTranslation!]!
+}
+
+type TeacherTestSection {
+  blocks: [TeacherTestSectionBlock!]!
+  id: ID!
+  mediaObjectId: ID
+  minimumWords: Int
+  position: Int!
+  preparationSeconds: Int
+  responseSeconds: Int
+  suggestedMinutes: Int
+  translations: [TeacherTestSectionTranslation!]!
+}
+
+type TeacherTestSectionBlock {
+  headingLevel: Int
+  id: ID!
+  kind: TestSectionBlockKind!
+  mediaDurationSeconds: Int
+  mediaHeightPixels: Int
+  mediaObjectId: ID
+  mediaWidthPixels: Int
+  position: Int!
+  questionIds: [ID!]!
+  tableHeaderRows: [TeacherTestTableRow!]!
+  tableRows: [TeacherTestTableRow!]!
+  translations: [TeacherTestSectionBlockTranslation!]!
+}
+
+type TeacherTestSectionBlockTranslation {
+  altText: String
+  caption: String
+  language: Language!
+  text: String
+}
+
+type TeacherTestSectionTranslation {
+  content: String
+  instructions: String!
+  language: Language!
+  title: String!
+}
+
+type TeacherTestTableRow {
+  cells: [String!]!
 }
 
 type TeacherTestTranslation {
@@ -2036,6 +2352,7 @@ type TeacherTestVersion {
   publishedAt: DateTime
   questions: [TeacherTestQuestion!]!
   scoringRuleVersion: String!
+  sections: [TeacherTestSection!]!
   status: TestVersionStatus!
   testId: ID!
   translations: [TeacherTestTranslation!]!
@@ -2055,11 +2372,38 @@ type TestCategoryPayload {
   category: TestCategory!
 }
 
+enum TestSectionBlockKind {
+  AUDIO
+  HEADING
+  IMAGE
+  QUESTION_GROUP
+  RICH_TEXT
+  TABLE
+}
+
+input TestSectionBlockTranslationInput {
+  altText: String
+  caption: String
+  language: Language!
+  text: String
+}
+
+input TestSectionTranslationInput {
+  content: String
+  instructions: String!
+  language: Language!
+  title: String!
+}
+
 enum TestSkill {
   LISTENING
   READING
   SPEAKING
   WRITING
+}
+
+input TestTableRowInput {
+  cells: [String!]!
 }
 
 input TestTranslationInput {
@@ -2221,9 +2565,35 @@ input UpdateTestDraftSettingsInput {
 }
 
 input UpdateTestQuestionInput {
+  acceptedAnswers: [String!]
+  answerLimit: Int
+  kind: QuestionKind
+  maxSelections: Int
   options: [AnswerOptionDraftInput!]!
   questionId: ID!
+  sectionId: ID
   translations: [QuestionTranslationInput!]!
+}
+
+input UpdateTestSectionBlockInput {
+  headingLevel: Int
+  kind: TestSectionBlockKind!
+  mediaObjectId: ID
+  questionIds: [ID!]
+  tableHeaderRows: [TestTableRowInput!]
+  tableRows: [TestTableRowInput!]
+  testSectionBlockId: ID!
+  translations: [TestSectionBlockTranslationInput!]!
+}
+
+input UpdateTestSectionInput {
+  mediaObjectId: ID
+  minimumWords: Int
+  preparationSeconds: Int
+  responseSeconds: Int
+  suggestedMinutes: Int
+  testSectionId: ID!
+  translations: [TestSectionTranslationInput!]!
 }
 
 input UpsertCourseInput {

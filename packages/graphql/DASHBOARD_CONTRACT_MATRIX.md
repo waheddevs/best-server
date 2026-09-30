@@ -39,6 +39,7 @@ bearer token only after the code succeeds.
 | `/teacher/groups/[slug]/students`    | `teacherGroupRoster`, `teacherGroupRosterSummary`, `addStudentToGroup`, `setGroupMembershipParticipationStatus`, `endGroupMembership`, `requestStudentTransfer` |
 | `/teacher/groups/[slug]/materials`   | `teacherGroupMaterials`                                                                                                                                         |
 | `/teacher/groups/[slug]/assignments` | `teacherGroupAssignments`                                                                                                                                       |
+| `/teacher/groups/[slug]/tests`       | `teacherTestPapers`, `teacherTestPaper`, `createTeacherPracticeTest`, `teacherTestDraft`, `teacherTestVersion`, `createTestPaperSkillDraft`                     |
 | `/teacher/transfer-requests`         | `teacherTransferRequests`                                                                                                                                       |
 
 ## Operational Admin Workspace
@@ -70,6 +71,7 @@ bearer token only after the code succeeds.
 
 - Every operation above uses server-loaded roles and ownership/scope checks.
 - Correct answers never enter Student or Admin payloads.
+- Provider-backed AI generation and evaluation are not part of this contract.
 - Tuition ledger operations are read-only. Checkout, capture, refunds, payouts,
   and payroll are intentionally absent.
 - Parent/Guardian, Super Admin, chat, public signup/password reset,
