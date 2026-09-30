@@ -3,6 +3,7 @@ import { UseGuards } from '@nestjs/common';
 import { Args, ID, Int, Query, Resolver } from '@nestjs/graphql';
 
 import { TuitionLedgerConnectionObject } from '../../schemas/finance/tuition-ledger.object';
+import { TeacherFinanceYearObject } from '../../schemas/finance/teacher-finance.object';
 import { AuthMember } from '../auth/decorators/auth-member.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { AuthGuard } from '../auth/guards/auth.guard';
@@ -34,5 +35,15 @@ export class FinanceResolver {
     @Args('after', { nullable: true, type: () => String }) after?: string,
   ): Promise<TuitionLedgerConnectionObject> {
     return this.financeService.getAdminLedger(studentId, first, after);
+  }
+
+  @Query(() => TeacherFinanceYearObject, { name: 'teacherFinanceSnapshots' })
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER)
+  getTeacherFinanceSnapshots(
+    @AuthMember('id') teacherId: string,
+    @Args('year', { type: () => Int }) year: number,
+  ): Promise<TeacherFinanceYearObject> {
+    return this.financeService.getTeacherFinanceYear(teacherId, year);
   }
 }
