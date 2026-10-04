@@ -41,7 +41,7 @@ type Course = Prisma.PublicCourseGetPayload<{ include: typeof include }>;
 @Injectable()
 export class CoursesService {
   constructor(private readonly db: DatabaseService) {}
-  
+
   async list(
     language: Language,
     first?: number,
@@ -50,16 +50,16 @@ export class CoursesService {
   ): Promise<PublicCourseConnectionObject> {
     const size = parsePageSize(first);
     const afterId = decodeCursor(after);
-    const rows = await this.db.publicCourse.findMany({
+    const courseRows = await this.db.publicCourse.findMany({
       where: {
         ...(admin ? {} : { status: PublicContentStatus.PUBLISHED }),
         ...(afterId === undefined ? {} : { id: { gt: afterId } }),
         translations: { some: { language } },
       },
-      include,
       orderBy: { id: 'asc' },
       take: size + 1,
     });
+    const rows = await this.withRelations(courseRows);
     const hasNextPage = rows.length > size;
     const page = hasNextPage ? rows.slice(0, size) : rows;
     const edges = page.map((row) => ({
@@ -77,15 +77,15 @@ export class CoursesService {
     language: Language,
     admin = false,
   ): Promise<PublicCourseObject> {
-    const row = await this.db.publicCourse.findFirst({
+    const courseRow = await this.db.publicCourse.findFirst({
       where: {
         slug: parseSlug(slug),
         ...(admin ? {} : { status: PublicContentStatus.PUBLISHED }),
         translations: { some: { language } },
       },
-      include,
     });
-    if (row === null) throw notFound();
+    if (courseRow === null) throw notFound();
+    const row = await this.withRelationsForOne(courseRow);
     return map(row, language);
   }
 
@@ -95,19 +95,21 @@ export class CoursesService {
     correlationId?: string,
   ): Promise<PublicCourseObject> {
     const values = await this.values(adminId, input);
-    return this.db.$transaction(async (tx) => {
+    const id = await this.db.$transaction(async (tx) => {
       const row = await tx.publicCourse.create({
         data: {
           ...values,
           translations: { createMany: { data: translations(input) } },
         },
-        include,
+        select: { id: true },
       });
       await audit(tx, adminId, 'PUBLIC_COURSE_CREATED', row.id, correlationId);
-      return map(row, input.translations[0]?.language ?? Language.UZ);
+      return row.id;
     });
+    const row = await this.findWithRelations(id);
+    return map(row, input.translations[0]?.language ?? Language.UZ);
   }
-  
+
   async update(
     adminId: string,
     idInput: string,
@@ -118,21 +120,21 @@ export class CoursesService {
     if ((await this.db.publicCourse.count({ where: { id } })) !== 1)
       throw notFound();
     const values = await this.values(adminId, input);
-    return this.db.$transaction(async (tx) => {
+    await this.db.$transaction(async (tx) => {
       await tx.publicCourseTranslation.deleteMany({ where: { courseId: id } });
-      const row = await tx.publicCourse.update({
+      await tx.publicCourse.update({
         where: { id },
         data: {
           ...values,
           translations: { createMany: { data: translations(input) } },
         },
-        include,
       });
       await audit(tx, adminId, 'PUBLIC_COURSE_UPDATED', id, correlationId);
-      return map(row, input.translations[0]?.language ?? Language.UZ);
     });
+    const row = await this.findWithRelations(id);
+    return map(row, input.translations[0]?.language ?? Language.UZ);
   }
-  
+
   async setStatus(
     adminId: string,
     idInput: string,
@@ -149,8 +151,8 @@ export class CoursesService {
     if (status === PublicContentStatus.ARCHIVED && clean(reason, 1000) === null)
       throw bad('An archive reason is required');
     const now = new Date();
-    const row = await this.db.$transaction(async (tx) => {
-      const updated = await tx.publicCourse.update({
+    await this.db.$transaction(async (tx) => {
+      await tx.publicCourse.update({
         where: { id },
         data: {
           archivedAt: status === PublicContentStatus.ARCHIVED ? now : null,
@@ -160,7 +162,6 @@ export class CoursesService {
               : existing.publishedAt,
           status,
         },
-        include,
       });
       await tx.auditLog.create({
         data: {
@@ -172,8 +173,8 @@ export class CoursesService {
           targetType: 'PUBLIC_COURSE',
         },
       });
-      return updated;
     });
+    const row = await this.findWithRelations(id);
     return map(row, row.translations[0]?.language ?? Language.UZ);
   }
 
@@ -234,6 +235,76 @@ export class CoursesService {
       throw notFound();
     translations(input);
     return { coverMediaId, slug: parseSlug(input.slug) };
+  }
+
+  private async findWithRelations(id: string): Promise<Course> {
+    const row = await this.db.publicCourse.findUnique({ where: { id } });
+    if (row === null) throw notFound();
+    return this.withRelationsForOne(row);
+  }
+
+  private async withRelationsForOne(
+    row: Prisma.PublicCourseGetPayload<Record<string, never>>,
+  ): Promise<Course> {
+    const course = (await this.withRelations([row]))[0];
+    if (course === undefined) throw notFound();
+    return course;
+  }
+
+  private async withRelations(
+    rows: Prisma.PublicCourseGetPayload<Record<string, never>>[],
+  ): Promise<Course[]> {
+    if (rows.length === 0) return [];
+    const courseIds = rows.map((row) => row.id);
+    const courseTranslations = await this.db.publicCourseTranslation.findMany({
+      where: { courseId: { in: courseIds } },
+      orderBy: { language: 'asc' },
+    });
+    const contentItems = await this.db.publicCourseContentItem.findMany({
+      where: { courseId: { in: courseIds } },
+      orderBy: [{ kind: 'asc' }, { position: 'asc' }],
+    });
+    const contentTranslations =
+      contentItems.length === 0
+        ? []
+        : await this.db.publicCourseContentTranslation.findMany({
+            where: { itemId: { in: contentItems.map((item) => item.id) } },
+            orderBy: { language: 'asc' },
+          });
+    const tracks = await this.db.publicCourseTrack.findMany({
+      where: { courseId: { in: courseIds } },
+      orderBy: { position: 'asc' },
+    });
+    const trackTranslations =
+      tracks.length === 0
+        ? []
+        : await this.db.publicCourseTrackTranslation.findMany({
+            where: { trackId: { in: tracks.map((track) => track.id) } },
+            orderBy: { language: 'asc' },
+          });
+
+    return rows.map((row) => ({
+      ...row,
+      contentItems: contentItems
+        .filter((item) => item.courseId === row.id)
+        .map((item) => ({
+          ...item,
+          translations: contentTranslations.filter(
+            (translation) => translation.itemId === item.id,
+          ),
+        })),
+      tracks: tracks
+        .filter((track) => track.courseId === row.id)
+        .map((track) => ({
+          ...track,
+          translations: trackTranslations.filter(
+            (translation) => translation.trackId === track.id,
+          ),
+        })),
+      translations: courseTranslations.filter(
+        (translation) => translation.courseId === row.id,
+      ),
+    }));
   }
 }
 
