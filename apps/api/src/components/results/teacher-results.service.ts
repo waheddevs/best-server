@@ -2,6 +2,7 @@ import {
   AttemptStatus,
   ContentStatus,
   Language,
+  Prisma,
   TestSkill,
   TestVersionStatus,
 } from '@best/database';
@@ -17,9 +18,13 @@ import {
   parseUuid,
 } from '../../libs/pagination/cursor-pagination';
 import type { TeacherAttemptConnectionObject } from '../../schemas/results/teacher-attempt.object';
+import type { TeacherResultInboxConnectionObject } from '../../schemas/results/teacher-result-inbox.object';
+import type { TeacherObjectiveAttemptResultObject } from '../../schemas/results/teacher-objective-attempt-result.object';
 import type { TeacherAttemptReviewObject } from '../../schemas/results/teacher-attempt-review.object';
 import type { TeacherSpeakingAttemptReviewObject } from '../../schemas/results/teacher-speaking-attempt-review.object';
+import type { TeacherWritingAttemptReviewObject } from '../../schemas/results/writing-attempt-review.object';
 import type { SaveSpeakingAttemptReviewInput } from '../../schemas/results/save-speaking-attempt-review.input';
+import type { SaveWritingAttemptReviewInput } from '../../schemas/results/save-writing-attempt-review.input';
 import type { TeacherGroupProgressObject } from '../../schemas/results/teacher-group-progress.object';
 import type { TeacherStudentProgressConnectionObject } from '../../schemas/results/teacher-student-progress.object';
 import { TeacherStudentTestProgressStatus } from '../../schemas/results/teacher-student-test-progress.enum';
@@ -31,6 +36,12 @@ import {
   type ProgressAttempt,
   type ProgressMetrics,
 } from './results-progress';
+import {
+  parseWritingRubric,
+  validateWritingTaskScores,
+  writingPracticeBand,
+  writingTaskBand,
+} from './writing-review-rubric';
 
 @Injectable()
 export class TeacherResultsService {
@@ -38,6 +49,297 @@ export class TeacherResultsService {
     private readonly database: DatabaseService,
     private readonly assetsService: AssetsService,
   ) {}
+
+  async getResultAttemptSkill(
+    teacherId: string,
+    attemptIdInput: string,
+  ): Promise<TestSkill> {
+    const attemptId = parseUuid(attemptIdInput, 'attemptId');
+    const attempt = await this.database.attempt.findFirst({
+      where: {
+        id: attemptId,
+        groupMembership: { group: { teacherId } },
+        status: {
+          in: [
+            AttemptStatus.SUBMITTED,
+            AttemptStatus.REVIEW_REQUIRED,
+            AttemptStatus.SCORED,
+          ],
+        },
+      },
+      select: {
+        testVersion: { select: { test: { select: { skill: true } } } },
+      },
+    });
+    if (attempt?.testVersion.test.skill == null) throw notFound('Result');
+    return attempt.testVersion.test.skill;
+  }
+
+  async getObjectiveAttemptResult(
+    teacherId: string,
+    attemptIdInput: string,
+    language: Language,
+  ): Promise<TeacherObjectiveAttemptResultObject> {
+    const attemptId = parseUuid(attemptIdInput, 'attemptId');
+    const attempt = await this.database.attempt.findFirst({
+      where: {
+        id: attemptId,
+        status: AttemptStatus.SCORED,
+        groupMembership: { group: { teacherId } },
+        testVersion: {
+          test: { skill: { in: [TestSkill.LISTENING, TestSkill.READING] } },
+        },
+      },
+      include: {
+        answers: {
+          include: {
+            selectedOption: {
+              include: { translations: { where: { language } } },
+            },
+            selections: {
+              include: {
+                answerOption: {
+                  include: { translations: { where: { language } } },
+                },
+              },
+              orderBy: { position: 'asc' },
+            },
+          },
+        },
+        student: { select: { displayName: true } },
+        testVersion: {
+          include: {
+            test: { select: { skill: true } },
+            translations: { where: { language }, select: { title: true } },
+            questions: {
+              orderBy: { position: 'asc' },
+              include: {
+                acceptedAnswers: { orderBy: { position: 'asc' } },
+                options: {
+                  orderBy: { position: 'asc' },
+                  include: {
+                    translations: {
+                      where: { language },
+                      select: { text: true },
+                    },
+                  },
+                },
+                translations: { where: { language }, select: { prompt: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+    if (attempt === null) throw notFound('Objective result');
+    const title = attempt.testVersion.translations[0]?.title;
+    if (
+      title === undefined ||
+      attempt.percentage === null ||
+      attempt.correctAnswerCount === null ||
+      attempt.totalQuestionCount === null ||
+      attempt.testVersion.test.skill === null
+    ) {
+      throw translationNotAvailable();
+    }
+    const answerByQuestion = new Map(
+      attempt.answers.map((answer) => [answer.questionId, answer]),
+    );
+    const answers = attempt.testVersion.questions.map((question) => {
+      const prompt = question.translations[0]?.prompt;
+      if (prompt === undefined) throw translationNotAvailable();
+      const response = answerByQuestion.get(question.id);
+      const correctOptions = question.options.filter(
+        (option) => option.isCorrect,
+      );
+      const correctIds = correctOptions.map((option) => option.id).sort();
+      const selectedIds = [
+        ...(response?.selectedOptionId ? [response.selectedOptionId] : []),
+        ...(response?.selections.map((selection) => selection.answerOptionId) ??
+          []),
+      ].sort();
+      const correctAnswer =
+        question.acceptedAnswers.length > 0
+          ? question.acceptedAnswers.map((answer) => answer.displayValue)
+          : correctOptions.map(
+              (option) => option.translations[0]?.text ?? option.id,
+            );
+      const studentAnswer = response?.textValue
+        ? [response.textValue]
+        : response?.selectedOption
+          ? [
+              response.selectedOption.translations[0]?.text ??
+                response.selectedOption.id,
+            ]
+          : (response?.selections.map(
+              (selection) =>
+                selection.answerOption.translations[0]?.text ??
+                selection.answerOption.id,
+            ) ?? []);
+      const isCorrect =
+        question.acceptedAnswers.length > 0
+          ? question.acceptedAnswers.some(
+              (answer) =>
+                answer.normalizedValue ===
+                normalizeObjectiveText(response?.textValue ?? ''),
+            )
+          : correctIds.length === selectedIds.length &&
+            correctIds.every((id, index) => id === selectedIds[index]);
+      return {
+        correctAnswer,
+        isCorrect,
+        position: question.position,
+        prompt,
+        studentAnswer,
+      };
+    });
+    return {
+      answers,
+      attemptId: attempt.id,
+      correctAnswerCount: attempt.correctAnswerCount,
+      percentage: attempt.percentage.toNumber(),
+      skill: attempt.testVersion.test.skill,
+      studentDisplayName: attempt.student.displayName,
+      title,
+      totalQuestionCount: attempt.totalQuestionCount,
+    };
+  }
+
+  async getResultInbox(
+    teacherId: string,
+    language: Language,
+    groupIdInput: string | undefined,
+    paperIdInput: string | undefined,
+    skill: TestSkill | undefined,
+    status: AttemptStatus | undefined,
+    searchInput: string | undefined,
+    first: number | undefined,
+    after: string | undefined,
+  ): Promise<TeacherResultInboxConnectionObject> {
+    const groupId =
+      groupIdInput === undefined
+        ? undefined
+        : parseUuid(groupIdInput, 'groupId');
+    const paperId =
+      paperIdInput === undefined
+        ? undefined
+        : parseUuid(paperIdInput, 'paperId');
+    if (groupId !== undefined) await this.requireOwnedGroup(teacherId, groupId);
+    if (paperId !== undefined) {
+      const paper = await this.database.testPaper.findFirst({
+        where: { id: paperId, group: { teacherId } },
+        select: { id: true },
+      });
+      if (paper === null) throw notFound('Practice test');
+    }
+    const search = searchInput?.trim();
+    if (search !== undefined && search.length > 80) {
+      throw new ApplicationError(
+        ErrorCode.BAD_USER_INPUT,
+        'search is too long',
+        400,
+      );
+    }
+    const pageSize = parsePageSize(first);
+    const afterId = decodeCursor(after);
+    const where: Prisma.AttemptWhereInput = {
+      groupMembership: {
+        group: { teacherId, ...(groupId ? { id: groupId } : {}) },
+      },
+      ...(search
+        ? {
+            student: { displayName: { contains: search, mode: 'insensitive' } },
+          }
+        : {}),
+      status: status ?? {
+        in: [
+          AttemptStatus.SUBMITTED,
+          AttemptStatus.REVIEW_REQUIRED,
+          AttemptStatus.SCORED,
+        ],
+      },
+      submittedAt: { not: null },
+      testVersion: {
+        test: { ...(paperId ? { paperId } : {}), ...(skill ? { skill } : {}) },
+      },
+    };
+    const [attempts, pendingReviewCount] = await Promise.all([
+      this.database.attempt.findMany({
+        where,
+        include: {
+          groupMembership: {
+            include: { group: { select: { id: true, name: true } } },
+          },
+          review: { select: { practiceBand: true, releasedAt: true } },
+          student: { select: { displayName: true } },
+          testVersion: {
+            include: {
+              test: {
+                include: {
+                  paper: { select: { id: true, practiceNumber: true } },
+                },
+              },
+              translations: { where: { language }, select: { title: true } },
+            },
+          },
+        },
+        orderBy: [{ submittedAt: 'desc' }, { id: 'desc' }],
+        ...(afterId ? { cursor: { id: afterId }, skip: 1 } : {}),
+        take: pageSize + 1,
+      }),
+      skill === TestSkill.LISTENING || skill === TestSkill.READING
+        ? Promise.resolve(0)
+        : this.database.attempt.count({
+            where: {
+              ...where,
+              status: {
+                in: [AttemptStatus.SUBMITTED, AttemptStatus.REVIEW_REQUIRED],
+              },
+              testVersion: {
+                test: {
+                  ...(paperId ? { paperId } : {}),
+                  skill: skill ?? {
+                    in: [TestSkill.WRITING, TestSkill.SPEAKING],
+                  },
+                },
+              },
+            },
+          }),
+    ]);
+    const hasNextPage = attempts.length > pageSize;
+    const page = hasNextPage ? attempts.slice(0, pageSize) : attempts;
+    const edges = page.map((attempt) => {
+      const title = attempt.testVersion.translations[0]?.title;
+      if (title === undefined || attempt.submittedAt === null)
+        throw translationNotAvailable();
+      return {
+        cursor: encodeCursor(attempt.id),
+        node: {
+          attemptId: attempt.id,
+          attemptNumber: attempt.attemptNumber,
+          groupId: attempt.groupMembership.group.id,
+          groupName: attempt.groupMembership.group.name,
+          paperId: attempt.testVersion.test.paper?.id ?? null,
+          percentage: attempt.percentage?.toNumber() ?? null,
+          practiceBand: attempt.review?.practiceBand.toNumber() ?? null,
+          practiceNumber:
+            attempt.testVersion.test.paper?.practiceNumber ?? null,
+          releasedAt: attempt.review?.releasedAt ?? null,
+          skill: attempt.testVersion.test.skill,
+          status: attempt.status,
+          studentDisplayName: attempt.student.displayName,
+          studentId: attempt.studentId,
+          submittedAt: attempt.submittedAt,
+          title,
+        },
+      };
+    });
+    return {
+      edges,
+      pageInfo: { endCursor: edges.at(-1)?.cursor ?? null, hasNextPage },
+      pendingReviewCount,
+    };
+  }
 
   async saveSpeakingAttemptReview(
     teacherId: string,
@@ -112,21 +414,22 @@ export class TeacherResultsService {
           rubricVersion: 'ielts-speaking-v1',
         },
       });
-      await transaction.attempt.update({
-        where: { id: attemptId },
-        data: input.release
-          ? {
-              correctAnswerCount: 0,
-              passed:
-                (input.practiceBand / 9) * 100 >=
-                attempt.testVersion.passingPercentage,
-              percentage: (input.practiceBand / 9) * 100,
-              scoringRuleVersion: 'manual-rubric-v1',
-              status: AttemptStatus.SCORED,
-              totalQuestionCount: attempt.testVersion._count.questions,
-            }
-          : { status: AttemptStatus.REVIEW_REQUIRED },
-      });
+      if (input.release) {
+        await transaction.attempt.update({
+          where: { id: attemptId },
+          data: {
+            correctAnswerCount: 0,
+            passed:
+              (input.practiceBand / 9) * 100 >=
+              attempt.testVersion.passingPercentage,
+            percentage: (input.practiceBand / 9) * 100,
+            passingPercentage: attempt.testVersion.passingPercentage,
+            scoringRuleVersion: 'manual-rubric-v1',
+            status: AttemptStatus.SCORED,
+            totalQuestionCount: attempt.testVersion._count.questions,
+          },
+        });
+      }
       await transaction.auditLog.create({
         data: {
           action: input.release
@@ -151,6 +454,13 @@ export class TeacherResultsService {
       where: {
         groupMembership: { group: { teacherId } },
         id: attemptId,
+        status: {
+          in: [
+            AttemptStatus.SUBMITTED,
+            AttemptStatus.REVIEW_REQUIRED,
+            AttemptStatus.SCORED,
+          ],
+        },
         testVersion: { test: { skill: TestSkill.SPEAKING } },
       },
       include: {
@@ -223,6 +533,211 @@ export class TeacherResultsService {
       answers,
       attemptId: attempt.id,
       review: mapSpeakingReview(attempt.review),
+      status: attempt.status,
+      studentDisplayName: attempt.student.displayName,
+      title,
+    };
+  }
+
+  async saveWritingAttemptReview(
+    teacherId: string,
+    input: SaveWritingAttemptReviewInput,
+  ): Promise<void> {
+    const attemptId = parseUuid(input.attemptId, 'attemptId');
+    const task1 = {
+      taskAchievement: input.task1.taskAchievement,
+      coherenceCohesion: input.task1.coherenceCohesion,
+      lexicalResource: input.task1.lexicalResource,
+      grammaticalRangeAccuracy: input.task1.grammaticalRangeAccuracy,
+      feedback: input.task1.feedback?.trim() ?? null,
+    };
+    const task2 = {
+      taskAchievement: input.task2.taskAchievement,
+      coherenceCohesion: input.task2.coherenceCohesion,
+      lexicalResource: input.task2.lexicalResource,
+      grammaticalRangeAccuracy: input.task2.grammaticalRangeAccuracy,
+      feedback: input.task2.feedback?.trim() ?? null,
+    };
+    validateWritingTaskScores(task1);
+    validateWritingTaskScores(task2);
+    const feedback = input.feedback?.trim() ?? null;
+    if (feedback !== null && feedback.length > 5000) {
+      throw new ApplicationError(
+        ErrorCode.BAD_USER_INPUT,
+        'Feedback is too long',
+        400,
+      );
+    }
+    const practiceBand = writingPracticeBand(task1, task2);
+    const now = new Date();
+    try {
+      await this.database.$transaction(async (transaction) => {
+        const attempt = await transaction.attempt.findFirst({
+          where: {
+            groupMembership: { group: { teacherId } },
+            id: attemptId,
+            status: {
+              in: [AttemptStatus.SUBMITTED, AttemptStatus.REVIEW_REQUIRED],
+            },
+            testVersion: { test: { skill: TestSkill.WRITING } },
+          },
+          select: {
+            review: { select: { updatedAt: true } },
+            testVersion: {
+              select: {
+                passingPercentage: true,
+                _count: { select: { questions: true } },
+              },
+            },
+          },
+        });
+        if (attempt === null) throw notFound('Writing attempt awaiting review');
+        const previous = attempt.review;
+        if (previous === null) {
+          if (input.expectedUpdatedAt !== undefined) throw reviewConflict();
+          await transaction.attemptReview.create({
+            data: {
+              attemptId,
+              feedback,
+              practiceBand,
+              releasedAt: input.release ? now : null,
+              reviewedAt: now,
+              reviewerId: teacherId,
+              rubricScores: { task1, task2 },
+              rubricVersion: 'ielts-academic-writing-v1',
+            },
+          });
+        } else {
+          if (
+            input.expectedUpdatedAt?.getTime() !== previous.updatedAt.getTime()
+          ) {
+            throw reviewConflict();
+          }
+          const updated = await transaction.attemptReview.updateMany({
+            where: { attemptId, updatedAt: previous.updatedAt },
+            data: {
+              feedback,
+              practiceBand,
+              releasedAt: input.release ? now : null,
+              reviewedAt: now,
+              reviewerId: teacherId,
+              rubricScores: { task1, task2 },
+              rubricVersion: 'ielts-academic-writing-v1',
+            },
+          });
+          if (updated.count !== 1) throw reviewConflict();
+        }
+        if (input.release) {
+          await transaction.attempt.update({
+            where: { id: attemptId },
+            data: {
+              correctAnswerCount: 0,
+              passed:
+                (practiceBand / 9) * 100 >=
+                attempt.testVersion.passingPercentage,
+              percentage: (practiceBand / 9) * 100,
+              passingPercentage: attempt.testVersion.passingPercentage,
+              scoringRuleVersion: 'manual-rubric-v1',
+              status: AttemptStatus.SCORED,
+              totalQuestionCount: attempt.testVersion._count.questions,
+            },
+          });
+        }
+        await transaction.auditLog.create({
+          data: {
+            action: input.release
+              ? 'WRITING_REVIEW_RELEASED'
+              : 'WRITING_REVIEW_SAVED',
+            actorId: teacherId,
+            newValues: { practiceBand, task1, task2 },
+            targetId: attemptId,
+            targetType: 'AttemptReview',
+          },
+        });
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        (error.code === 'P2002' || error.code === 'P2034')
+      ) {
+        throw reviewConflict();
+      }
+      throw error;
+    }
+  }
+
+  async getWritingAttemptReview(
+    teacherId: string,
+    attemptIdInput: string,
+    language: Language,
+  ): Promise<TeacherWritingAttemptReviewObject> {
+    const attemptId = parseUuid(attemptIdInput, 'attemptId');
+    const attempt = await this.database.attempt.findFirst({
+      where: {
+        groupMembership: { group: { teacherId } },
+        id: attemptId,
+        status: {
+          in: [
+            AttemptStatus.SUBMITTED,
+            AttemptStatus.REVIEW_REQUIRED,
+            AttemptStatus.SCORED,
+          ],
+        },
+        testVersion: { test: { skill: TestSkill.WRITING } },
+      },
+      include: {
+        answers: { select: { questionId: true, textValue: true } },
+        review: true,
+        student: { select: { displayName: true } },
+        testVersion: {
+          include: {
+            questions: {
+              include: {
+                section: { select: { position: true } },
+                translations: { where: { language }, select: { prompt: true } },
+              },
+              orderBy: { position: 'asc' },
+            },
+            translations: { where: { language }, select: { title: true } },
+          },
+        },
+      },
+    });
+    if (attempt === null) throw notFound('Writing attempt');
+    const title = attempt.testVersion.translations[0]?.title;
+    if (title === undefined) throw translationNotAvailable();
+    const answerByQuestion = new Map(
+      attempt.answers.map((answer) => [answer.questionId, answer.textValue]),
+    );
+    const answers = attempt.testVersion.questions.map((question) => {
+      const prompt = question.translations[0]?.prompt;
+      if (prompt === undefined || question.section === null)
+        throw translationNotAvailable();
+      return {
+        questionId: question.id,
+        sectionPosition: question.section.position,
+        prompt,
+        textValue: answerByQuestion.get(question.id) ?? null,
+      };
+    });
+    const review = attempt.review;
+    const rubric =
+      review === null ? null : parseWritingRubric(review.rubricScores);
+    return {
+      answers,
+      attemptId: attempt.id,
+      review:
+        review === null || rubric === null
+          ? null
+          : {
+              feedback: review.feedback,
+              practiceBand: review.practiceBand.toNumber(),
+              releasedAt: review.releasedAt,
+              reviewedAt: review.reviewedAt,
+              updatedAt: review.updatedAt,
+              task1: { ...rubric.task1, band: writingTaskBand(rubric.task1) },
+              task2: { ...rubric.task2, band: writingTaskBand(rubric.task2) },
+            },
       status: attempt.status,
       studentDisplayName: attempt.student.displayName,
       title,
@@ -738,6 +1253,14 @@ function translationNotAvailable(): ApplicationError {
   );
 }
 
+function reviewConflict(): ApplicationError {
+  return new ApplicationError(
+    ErrorCode.CONFLICT,
+    'The Writing review changed in another session. Reload before saving.',
+    409,
+  );
+}
+
 function isIeltsBand(value: number): boolean {
   return (
     Number.isFinite(value) && value >= 0 && value <= 9 && (value * 2) % 1 === 0
@@ -796,6 +1319,10 @@ function requireRubricScore(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function normalizeObjectiveText(value: string): string {
+  return value.trim().toLocaleLowerCase('en').replace(/\s+/gu, ' ');
 }
 
 function resolveTestProgressStatus(

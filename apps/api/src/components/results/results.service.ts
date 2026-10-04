@@ -20,12 +20,83 @@ import {
 import type { StudentProgressObject } from '../../schemas/results/student-progress.object';
 import type { StudentResultConnectionObject } from '../../schemas/results/student-result-connection.object';
 import type { StudentSpeakingResultObject } from '../../schemas/results/student-speaking-result.object';
+import type { StudentWritingResultObject } from '../../schemas/results/student-writing-result.object';
 
 import { calculateProgress } from './results-progress';
+import { parseWritingRubric, writingTaskBand } from './writing-review-rubric';
 
 @Injectable()
 export class ResultsService {
   constructor(private readonly database: DatabaseService) {}
+
+  async getStudentWritingResult(
+    studentId: string,
+    attemptId: string,
+    language: Language,
+  ): Promise<StudentWritingResultObject | null> {
+    const attempt = await this.database.attempt.findFirst({
+      where: {
+        id: parseUuid(attemptId, 'attemptId'),
+        status: AttemptStatus.SCORED,
+        studentId,
+        testVersion: { test: { skill: TestSkill.WRITING } },
+      },
+      include: {
+        answers: { select: { questionId: true, textValue: true } },
+        review: true,
+        testVersion: {
+          include: {
+            questions: {
+              include: {
+                section: { select: { position: true } },
+                translations: { where: { language }, select: { prompt: true } },
+              },
+              orderBy: { position: 'asc' },
+            },
+            translations: { where: { language }, select: { title: true } },
+          },
+        },
+      },
+    });
+    if (attempt?.review?.releasedAt == null) return null;
+    const title = attempt.testVersion.translations[0]?.title;
+    if (title === undefined) {
+      throw new ApplicationError(
+        ErrorCode.TRANSLATION_NOT_AVAILABLE,
+        'The requested result translation is not available',
+        400,
+      );
+    }
+    const rubric = parseWritingRubric(attempt.review.rubricScores);
+    const answerByQuestion = new Map(
+      attempt.answers.map((answer) => [answer.questionId, answer.textValue]),
+    );
+    const answers = attempt.testVersion.questions.map((question) => {
+      const prompt = question.translations[0]?.prompt;
+      if (prompt === undefined || question.section === null) {
+        throw new ApplicationError(
+          ErrorCode.TRANSLATION_NOT_AVAILABLE,
+          'The requested result translation is not available',
+          400,
+        );
+      }
+      return {
+        sectionPosition: question.section.position,
+        prompt,
+        textValue: answerByQuestion.get(question.id) ?? null,
+      };
+    });
+    return {
+      answers,
+      attemptId: attempt.id,
+      feedback: attempt.review.feedback,
+      practiceBand: attempt.review.practiceBand.toNumber(),
+      releasedAt: attempt.review.releasedAt,
+      task1: { ...rubric.task1, band: writingTaskBand(rubric.task1) },
+      task2: { ...rubric.task2, band: writingTaskBand(rubric.task2) },
+      title,
+    };
+  }
 
   async getStudentSpeakingResult(
     studentId: string,
@@ -170,6 +241,20 @@ export class ResultsService {
         ...(afterId === undefined ? {} : { id: { gt: afterId } }),
         status: AttemptStatus.SCORED,
         studentId,
+        OR: [
+          {
+            testVersion: {
+              test: { skill: { in: [TestSkill.LISTENING, TestSkill.READING] } },
+            },
+          },
+          {
+            testVersion: {
+              test: { skill: { in: [TestSkill.WRITING, TestSkill.SPEAKING] } },
+            },
+            review: { releasedAt: { not: null } },
+          },
+          { testVersion: { test: { skill: null } } },
+        ],
       },
       orderBy: { id: 'asc' },
       take: pageSize + 1,
