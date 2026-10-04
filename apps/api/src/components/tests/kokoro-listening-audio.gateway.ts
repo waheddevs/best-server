@@ -14,6 +14,17 @@ const MAX_GENERATED_AUDIO_BYTES = 52_428_800;
 const MAX_SEGMENT_CHARACTERS = 220;
 const PAUSE_SECONDS = 0.2;
 const SPEECH_SPEED = 0.85;
+const DIALOGUE_VOICE_CANDIDATES = [
+  'bf_emma',
+  'af_heart',
+  'bm_george',
+  'am_adam',
+] as const;
+
+interface SpeechSegment {
+  text: string;
+  voice: string;
+}
 
 export class KokoroListeningAudioGateway extends ListeningAudioGateway {
   readonly maxTranscriptCharacters: number;
@@ -55,10 +66,14 @@ export class KokoroListeningAudioGateway extends ListeningAudioGateway {
       let sampleRate: number | undefined;
       let totalSamples = 0;
 
-      for (const segment of splitTranscript(transcript)) {
-        const generated = await textToSpeech.generate(segment, {
+      for (const segment of createSpeechSegments(
+        transcript,
+        textToSpeech.voices,
+        voice,
+      )) {
+        const generated = await textToSpeech.generate(segment.text, {
           speed: SPEECH_SPEED,
-          voice: voice as NonNullable<GenerateOptions['voice']>,
+          voice: segment.voice as NonNullable<GenerateOptions['voice']>,
         });
         const chunk = Float32Array.from(generated.audio);
 
@@ -145,6 +160,63 @@ export class KokoroListeningAudioGateway extends ListeningAudioGateway {
 
     return this.modelPromise;
   }
+}
+
+export function createSpeechSegments(
+  transcript: string,
+  availableVoices: Readonly<Record<string, unknown>>,
+  defaultVoice: string,
+): SpeechSegment[] {
+  const turns = parseDialogueTurns(transcript);
+  if (new Set(turns.map(({ speaker }) => speaker)).size < 2) {
+    return splitTranscript(transcript).map((text) => ({
+      text,
+      voice: defaultVoice,
+    }));
+  }
+
+  const voicePool = [defaultVoice, ...DIALOGUE_VOICE_CANDIDATES]
+    .filter((voice, index, voices) => voices.indexOf(voice) === index)
+    .filter((voice) => voice in availableVoices);
+  const speakerVoices = new Map<string, string>();
+
+  return turns.flatMap(({ speaker, text }) => {
+    const assignedVoice =
+      speakerVoices.get(speaker) ??
+      voicePool[speakerVoices.size % voicePool.length] ??
+      defaultVoice;
+    speakerVoices.set(speaker, assignedVoice);
+    return splitTranscript(text).map((segment) => ({
+      text: segment,
+      voice: assignedVoice,
+    }));
+  });
+}
+
+function parseDialogueTurns(
+  transcript: string,
+): { speaker: string; text: string }[] {
+  const turns: { speaker: string; text: string }[] = [];
+
+  for (const rawLine of transcript.split(/\r?\n/u)) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    const match = /^([\p{L}][\p{L}\p{N} .'-]{0,39}):\s*(.+)$/u.exec(line);
+
+    if (match?.[1] && match[2]) {
+      turns.push({
+        speaker: match[1].trim().toLocaleLowerCase('en'),
+        text: match[2].trim(),
+      });
+      continue;
+    }
+
+    const previous = turns.at(-1);
+    if (previous === undefined) return [];
+    previous.text = `${previous.text} ${line}`;
+  }
+
+  return turns;
 }
 
 function splitTranscript(transcript: string): string[] {
