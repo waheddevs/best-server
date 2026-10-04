@@ -1,4 +1,4 @@
-import { AttemptStatus } from '@best/database';
+import { AttemptStatus, TestSkill } from '@best/database';
 import { scoreObjective, scoreSingleChoice } from '@best/scoring';
 import { Injectable } from '@nestjs/common';
 
@@ -15,6 +15,9 @@ export class ScoringService {
     const attempt = await this.database.attempt.findUnique({
       where: { id: attemptId },
       include: {
+        groupMembership: {
+          select: { groupId: true, group: { select: { teacherId: true } } },
+        },
         answers: {
           select: {
             questionId: true,
@@ -25,6 +28,7 @@ export class ScoringService {
         },
         testVersion: {
           include: {
+            test: { select: { skill: true } },
             questions: {
               orderBy: { position: 'asc' },
               include: {
@@ -57,24 +61,29 @@ export class ScoringService {
     }
 
     if (attempt.testVersion.scoringRuleVersion === 'manual-rubric-v1') {
-      await this.database.$transaction(async (transaction) => {
-        const update = await transaction.attempt.updateMany({
-          where: { id: attemptId, status: AttemptStatus.SUBMITTED },
-          data: { status: AttemptStatus.REVIEW_REQUIRED },
-        });
-        if (update.count === 0) {
-          return;
-        }
-        await transaction.auditLog.create({
-          data: {
-            action: 'TEST_ATTEMPT_REVIEW_REQUIRED',
-            correlationId: correlationId ?? null,
-            newValues: { scoringRuleVersion: 'manual-rubric-v1' },
-            targetId: attemptId,
-            targetType: 'Attempt',
+      // SUBMITTED is the database-backed pending-review state. The original
+      // lifecycle constraint does not permit REVIEW_REQUIRED without a migration.
+      const skill = attempt.testVersion.test.skill;
+      if (skill === TestSkill.WRITING || skill === TestSkill.SPEAKING) {
+        const recipientId = attempt.groupMembership.group.teacherId;
+        const eventKey = `review-required:${attempt.id}`;
+        await this.database.notification.upsert({
+          where: { recipientId_eventKey: { recipientId, eventKey } },
+          create: {
+            recipientId,
+            eventKey,
+            kind: 'REVIEW_REQUIRED',
+            title: `${skill === TestSkill.WRITING ? 'Writing' : 'Speaking'} review required`,
+            body: 'A student submitted a test for your review.',
+            payload: {
+              attemptId: attempt.id,
+              groupId: attempt.groupMembership.groupId,
+              studentId: attempt.studentId,
+            },
           },
+          update: {},
         });
-      });
+      }
       return;
     }
 

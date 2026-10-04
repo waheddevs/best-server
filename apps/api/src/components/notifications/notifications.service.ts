@@ -324,15 +324,28 @@ function notificationObject(row: {
     typeof payload.taskId === 'string'
       ? payload.taskId
       : null;
+  const attemptId = notificationPayloadId(payload, 'attemptId');
+  const groupId = notificationPayloadId(payload, 'groupId');
+  const studentId = notificationPayloadId(payload, 'studentId');
   return {
     id: row.id,
     kind: row.kind,
     title: row.title,
     body: row.body,
     taskId,
+    attemptId,
+    groupId,
+    studentId,
     readAt: row.readAt,
     createdAt: row.createdAt,
   };
+}
+function notificationPayloadId(payload: unknown, key: string): string | null {
+  if (payload === null || typeof payload !== 'object' || Array.isArray(payload)) {
+    return null;
+  }
+  const value: unknown = Reflect.get(payload, key);
+  return typeof value === 'string' ? value : null;
 }
 function connection(
   rows: TeacherTaskObject[],

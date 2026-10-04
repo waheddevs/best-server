@@ -51,6 +51,9 @@ export class NotificationObject {
   @Field(() => ID) id!: string;
   @Field(() => String) kind!: string;
   @Field(() => ID, { nullable: true }) taskId!: string | null;
+  @Field(() => ID, { nullable: true }) attemptId!: string | null;
+  @Field(() => ID, { nullable: true }) groupId!: string | null;
+  @Field(() => ID, { nullable: true }) studentId!: string | null;
   @Field(() => String) title!: string;
   @Field(() => String, { nullable: true }) body!: string | null;
   @Field(() => GraphQLISODateTime, { nullable: true }) readAt!: Date | null;

@@ -20,6 +20,7 @@
     "import:teacher-payments": "node --experimental-strip-types prisma/import-teacher-payment-fixtures.ts",
     "seed:teacher-lessons": "node --experimental-strip-types prisma/seed-teacher-lesson-plans.ts",
     "seed:teacher-finance": "node --experimental-strip-types prisma/seed-teacher-finance.ts",
+    "seed:teacher-notifications": "node --experimental-strip-types prisma/seed-teacher-notifications.ts",
     "seed:academic-test": "node --experimental-strip-types prisma/seed-best-lc-academic-test.ts",
     "seed:public": "node --experimental-strip-types prisma/seed-public-content.ts",
     "import:easyielts-tests": "node --experimental-strip-types prisma/import-easyielts-tests.ts",

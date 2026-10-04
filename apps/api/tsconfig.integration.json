@@ -3,5 +3,5 @@
   "compilerOptions": {
     "outDir": "../../.tmp/api-integration"
   },
-  "include": ["src/**/*.ts", "test/graphql-student.integration.spec.ts"]
+  "include": ["src/**/*.ts", "test/graphql-student.integration.spec.ts", "test/debt-notification-reconciler.integration.spec.ts"]
 }

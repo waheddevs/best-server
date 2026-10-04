@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { after, before, test } from 'node:test';
 
@@ -11,6 +11,7 @@ import {
   type DatabaseClient,
   Language,
   OutboxEventType,
+  TestSkill,
   TestVersionStatus,
   UserRole,
 } from '@best/database';
@@ -137,11 +138,77 @@ void test('outbox relay scores submitted and expired fake attempts exactly once'
     },
   });
   assert.equal(auditCount, 2);
+
+  const manualTestId = randomUUID();
+  const manualPaperId = randomUUID();
+  const manualVersionId = randomUUID();
+  const manualAttemptId = randomUUID();
+  await database.testPaper.create({
+    data: {
+      id: manualPaperId,
+      groupId: fixture.groupId,
+      createdById: fixture.teacherId,
+      practiceNumber: 1,
+      slug: 'reserved-writing-review',
+      academicYear: 2026,
+      title: 'Reserved writing review',
+      sourceLabel: 'Integration test fixture',
+    },
+  });
+  await database.test.create({
+    data: {
+      id: manualTestId,
+      categoryId: fixture.categoryId,
+      groupId: fixture.groupId,
+      paperId: manualPaperId,
+      skill: TestSkill.WRITING,
+    },
+  });
+  await database.testVersion.create({
+    data: {
+      id: manualVersionId,
+      testId: manualTestId,
+      version: 1,
+      primaryLanguage: Language.EN,
+      scoringRuleVersion: 'manual-rubric-v1',
+      status: TestVersionStatus.PUBLISHED,
+      publishedAt: new Date(),
+    },
+  });
+  await database.attempt.create({
+    data: {
+      id: manualAttemptId,
+      attemptNumber: 1,
+      groupMembershipId: fixture.membershipId,
+      studentId: fixture.studentId,
+      testVersionId: manualVersionId,
+      status: AttemptStatus.SUBMITTED,
+      submissionReason: 'MANUAL',
+      submittedAt: new Date(),
+    },
+  });
+  await scoringService.scoreAttempt(manualAttemptId, randomUUID());
+  await scoringService.scoreAttempt(manualAttemptId, randomUUID());
+  const reviewNotifications = await database.notification.findMany({
+    where: { recipientId: fixture.teacherId, eventKey: `review-required:${manualAttemptId}` },
+  });
+  assert.equal(reviewNotifications.length, 1);
+  assert.equal(reviewNotifications[0]?.kind, 'REVIEW_REQUIRED');
+  assert.deepEqual(reviewNotifications[0]?.payload, {
+    attemptId: manualAttemptId,
+    groupId: fixture.groupId,
+    studentId: fixture.studentId,
+  });
 });
 
 async function createScoringFixture(databaseClient: DatabaseClient): Promise<{
+  categoryId: string;
   expiredAttemptId: string;
+  groupId: string;
+  membershipId: string;
+  studentId: string;
   submittedAttemptId: string;
+  teacherId: string;
 }> {
   const teacherId = randomUUID();
   const studentId = randomUUID();
@@ -301,7 +368,15 @@ async function createScoringFixture(databaseClient: DatabaseClient): Promise<{
     },
   });
 
-  return { expiredAttemptId, submittedAttemptId };
+  return {
+    categoryId,
+    expiredAttemptId,
+    groupId,
+    membershipId,
+    studentId,
+    submittedAttemptId,
+    teacherId,
+  };
 }
 
 async function waitForScoredAttempts(
@@ -329,40 +404,15 @@ async function waitForScoredAttempts(
 
 async function applyMigrations(connectionString: string): Promise<void> {
   const migrationPool = new Pool({ connectionString });
+  const root = resolve(__dirname, '../../../packages/database/prisma/migrations');
 
   try {
-    for (const migrationName of [
-      '20260901000000_initial_domain_schema',
-      '20260901010000_auth_identity_accounts',
-      '20260901020000_scoring_outbox',
-      '20260901030000_media_object_lifecycle',
-      '20260901031000_media_object_updated_at_default',
-      '20260901040000_media_malware_scan',
-      '20260901041000_fix_media_attachment_trigger',
-      '20260904010000_user_profiles',
-      '20260904020000_groups_memberships_transfers',
-      '20260904030000_learning_public_notifications',
-      '20260904040000_vocabulary_import_pilot',
-      '20260905090000_public_website_content',
-      '20260907010000_credential_email_code_login',
-      '20260915010000_teacher_group_category',
-      '20260915020000_teacher_group_soft_delete',
-      '20260915021000_teacher_group_deleted_archive_constraint',
-      '20260916010000_group_membership_participation_status',
-      '20260916020000_credential_refresh_sessions',
-      '20260923010000_teacher_student_soft_delete',
-      '20260923020000_teacher_lesson_plans',
-      '20260923030000_media_archive_type',
-      '20260923040000_best_lc_academic_tests',
-      '20260923041000_best_lc_academic_publish_rules',
-    ]) {
-      const sql = await readFile(
-        resolve(
-          __dirname,
-          `../../../packages/database/prisma/migrations/${migrationName}/migration.sql`,
-        ),
-        'utf8',
-      );
+    const migrations = (await readdir(root, { withFileTypes: true }))
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .sort();
+    for (const migrationName of migrations) {
+      const sql = await readFile(resolve(root, migrationName, 'migration.sql'), 'utf8');
       await migrationPool.query(sql);
     }
   } finally {
