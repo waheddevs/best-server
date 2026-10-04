@@ -32,15 +32,14 @@ bearer token only after the code succeeds.
 
 ## Teacher Workspace
 
-| Frontend route                       | Backend operations                                                                                                                                              |
-| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/teacher/groups`                    | `teacherGroups`, `createTeacherGroup`, `updateTeacherGroup`, `deleteTeacherGroup`                                                                               |
-| `/teacher/groups/[slug]`             | `teacherGroup`, `teacherGroupOverview`, `teacherGroupRosterSummary`                                                                                             |
-| `/teacher/groups/[slug]/students`    | `teacherGroupRoster`, `teacherGroupRosterSummary`, `addStudentToGroup`, `setGroupMembershipParticipationStatus`, `endGroupMembership`, `requestStudentTransfer` |
-| `/teacher/groups/[slug]/materials`   | `teacherGroupMaterials`                                                                                                                                         |
-| `/teacher/groups/[slug]/assignments` | `teacherGroupAssignments`                                                                                                                                       |
-| `/teacher/groups/[slug]/tests`       | `teacherTestPapers`, `teacherTestPaper`, `createTeacherPracticeTest`, `teacherTestDraft`, `teacherTestVersion`, `createTestPaperSkillDraft`                     |
-| `/teacher/transfer-requests`         | `teacherTransferRequests`                                                                                                                                       |
+| Frontend route                       | Backend operations                                                                                                                          |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/teacher/groups`                    | `teacherGroups`, `createTeacherGroup`, `updateTeacherGroup`, `deleteTeacherGroup`                                                           |
+| `/teacher/groups/[slug]`             | `teacherGroup`, `teacherGroupOverview`, `teacherGroupRosterSummary`                                                                         |
+| `/teacher/groups/[slug]/students`    | `teacherGroupRoster`, `teacherGroupRosterSummary`, `addStudentToGroup`, `setGroupMembershipParticipationStatus`, `endGroupMembership`       |
+| `/teacher/groups/[slug]/materials`   | `teacherGroupMaterials`                                                                                                                     |
+| `/teacher/groups/[slug]/assignments` | `teacherGroupAssignments`                                                                                                                   |
+| `/teacher/groups/[slug]/tests`       | `teacherTestPapers`, `teacherTestPaper`, `createTeacherPracticeTest`, `teacherTestDraft`, `teacherTestVersion`, `createTestPaperSkillDraft` |
 
 ## Operational Admin Workspace
 
@@ -61,7 +60,6 @@ bearer token only after the code succeeds.
 | `/admin/results`                                    | `adminAcademicOverview`, `adminGroupProgresses`, `adminStudentResults`                                          |
 | `/admin/library` and `/admin/library/[resourceId]`  | `adminLibraryItems`, `adminMediaObjects`, `adminSetLibraryItemArchived`, `adminRejectMediaObject`               |
 | `/admin/imports` and `/admin/imports/[jobId]`       | `adminMediaObjects`; the approved local-export vocabulary pilot remains offline and review-only                 |
-| `/admin/transfer-requests`                          | `adminTransferRequests`, `reviewStudentTransfer`                                                                |
 | `/admin/notifications`                              | `myNotifications`, `markNotificationRead`, `markAllNotificationsRead`                                           |
 | `/admin/audit`                                      | `adminAuditLogs`                                                                                                |
 | `/admin/reports`                                    | `adminOperationalOverview`, `adminAcademicOverview`, `adminGroupProgresses`                                     |

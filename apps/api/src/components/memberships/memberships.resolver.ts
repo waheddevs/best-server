@@ -1,4 +1,4 @@
-import { TransferRequestStatus, UserRole } from '@best/database';
+import { UserRole } from '@best/database';
 import { UseGuards } from '@nestjs/common';
 import {
   Args,
@@ -12,16 +12,10 @@ import {
 
 import type { ApiGraphqlContext } from '../../libs/types/authenticated-request.type';
 import { GroupRosterConnectionObject } from '../../schemas/groups/group-connection.object';
-import { GroupTransferRequestConnectionObject } from '../../schemas/groups/group-transfer.object';
-import {
-  MembershipMutationPayloadObject,
-  TransferRequestMutationPayloadObject,
-} from '../../schemas/groups/group-mutation-payload.object';
+import { MembershipMutationPayloadObject } from '../../schemas/groups/group-mutation-payload.object';
 import {
   AddStudentToGroupInput,
   EndGroupMembershipInput,
-  RequestStudentTransferInput,
-  ReviewStudentTransferInput,
   SetGroupMembershipParticipationStatusInput,
   TeacherCreateStudentInGroupInput,
   TeacherDeleteStudentInput,
@@ -37,24 +31,6 @@ import { MembershipsService } from './memberships.service';
 @Resolver()
 export class MembershipsResolver {
   constructor(private readonly membershipsService: MembershipsService) {}
-
-  @Query(() => GroupTransferRequestConnectionObject, {
-    name: 'adminTransferRequests',
-  })
-  @UseGuards(AuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
-  getAdminTransferRequests(
-    @Args('first', { nullable: true, type: () => Int }) first?: number,
-    @Args('after', { nullable: true }) after?: string,
-    @Args('status', { nullable: true, type: () => TransferRequestStatus })
-    status?: TransferRequestStatus,
-  ): Promise<GroupTransferRequestConnectionObject> {
-    return this.membershipsService.getAdminTransferRequests(
-      first,
-      after,
-      status,
-    );
-  }
 
   @Query(() => GroupRosterConnectionObject, { name: 'teacherGroupRoster' })
   @UseGuards(AuthGuard, RolesGuard)
@@ -88,26 +64,6 @@ export class MembershipsResolver {
     @Args('groupId', { type: () => ID }) groupId: string,
   ): Promise<TeacherGroupRosterSummaryObject> {
     return this.membershipsService.getTeacherRosterSummary(teacherId, groupId);
-  }
-
-  @Query(() => GroupTransferRequestConnectionObject, {
-    name: 'teacherTransferRequests',
-  })
-  @UseGuards(AuthGuard, RolesGuard)
-  @Roles(UserRole.TEACHER)
-  getTeacherTransferRequests(
-    @AuthMember('id') teacherId: string,
-    @Args('first', { nullable: true, type: () => Int }) first?: number,
-    @Args('after', { nullable: true }) after?: string,
-    @Args('status', { nullable: true, type: () => TransferRequestStatus })
-    status?: TransferRequestStatus,
-  ): Promise<GroupTransferRequestConnectionObject> {
-    return this.membershipsService.getTeacherTransferRequests(
-      teacherId,
-      first,
-      after,
-      status,
-    );
   }
 
   @Mutation(() => MembershipMutationPayloadObject, {
@@ -207,44 +163,6 @@ export class MembershipsResolver {
           input.reason,
           context.req.requestId,
         ),
-    };
-  }
-
-  @Mutation(() => TransferRequestMutationPayloadObject, {
-    name: 'requestStudentTransfer',
-  })
-  @UseGuards(AuthGuard, RolesGuard)
-  @Roles(UserRole.TEACHER)
-  async requestStudentTransfer(
-    @AuthMember('id') teacherId: string,
-    @Args('input') input: RequestStudentTransferInput,
-    @Context() context: ApiGraphqlContext,
-  ): Promise<TransferRequestMutationPayloadObject> {
-    return {
-      transferRequest: await this.membershipsService.requestStudentTransfer(
-        teacherId,
-        input,
-        context.req.requestId,
-      ),
-    };
-  }
-
-  @Mutation(() => TransferRequestMutationPayloadObject, {
-    name: 'reviewStudentTransfer',
-  })
-  @UseGuards(AuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
-  async reviewStudentTransfer(
-    @AuthMember('id') adminId: string,
-    @Args('input') input: ReviewStudentTransferInput,
-    @Context() context: ApiGraphqlContext,
-  ): Promise<TransferRequestMutationPayloadObject> {
-    return {
-      transferRequest: await this.membershipsService.reviewStudentTransfer(
-        adminId,
-        input,
-        context.req.requestId,
-      ),
     };
   }
 }

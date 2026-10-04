@@ -102,7 +102,7 @@ subject/branch metadata, and safe provisioning. Password changes, provider
 token management, browser session lists, refresh tokens, and account deletion
 are not silently implied by profile screens.
 
-### 8E — groups, memberships, and transfers
+### 8E — groups and memberships
 
 Purpose: replace Teacher group/roster previews and provide complete
 ownership-safe membership lifecycle behavior.
@@ -115,7 +115,6 @@ Planned queries:
 - `studentCurrentGroup`
 - `adminGroups(first, after, status, teacherId, search)`
 - `adminGroup(groupId)`
-- `teacherTransferRequests(first, after, status)`
 
 Planned mutations:
 
@@ -124,13 +123,10 @@ Planned mutations:
 - `setTeacherGroupArchived(input)`
 - `addStudentToGroup(input)`
 - `endGroupMembership(input)`
-- `requestStudentTransfer(input)`
-- `reviewStudentTransfer(input)`
 
 The data review must define group schedule/room fields, one-current-membership
-rules, transfer approval ownership, concurrent transfer protection, history
-retention, and the temporary removal of payment configuration from group
-creation. Membership and transfer writes must be transactional and audited.
+rules, history retention, and the temporary removal of payment configuration
+from group creation. Membership writes must be transactional and audited.
 
 ### 8F — Teacher test authoring and attempt grants
 
@@ -256,7 +252,7 @@ media references, consent, duplicate prevention, retention, anti-spam fields,
 and PII access. Public response types must never reveal internal review notes
 or whether a matching person already exists.
 
-### 8J — tasks, transfers, notifications, and dashboard read models
+### 8J — tasks, notifications, and dashboard read models
 
 Purpose: replace remaining Teacher dashboard preview data without creating a
 second source of truth.

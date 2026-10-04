@@ -21,9 +21,15 @@ first name, last name, phone, email, and password. Hash the password; validate
 the input, unique email, ownership, and 15-member cap; audit the transaction.
 This is not permission to provision Teacher accounts or use unrelated Admin APIs.
 
+The Transfer Requests product feature was removed on 2026-10-04. Do not expose
+Teacher/Admin transfer navigation, routes, GraphQL operations, review actions,
+or operational queue metrics. Preserve the historical Prisma model and applied
+migration until a separately reviewed data-retention migration authorizes their
+removal.
+
 Each group has a fixed maximum of 15 active learners. Teacher roster additions
-and approved transfers must reject a full destination group inside a transaction;
-all membership writers must enforce the same cap under concurrent requests.
+must reject a full group inside a transaction; all membership writers must
+enforce the same cap under concurrent requests.
 Seed fictional Teacher groups through the authenticated create-group GraphQL
 mutation, without adding learners or altering existing groups.
 An authenticated Teacher may soft-delete an owned group through GraphQL. The

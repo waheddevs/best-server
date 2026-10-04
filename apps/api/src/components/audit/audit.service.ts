@@ -4,7 +4,6 @@ import {
   MediaMalwareStatus,
   MediaObjectStatus,
   Prisma,
-  TransferRequestStatus,
   UserStatus,
 } from '@best/database';
 import { Injectable } from '@nestjs/common';
@@ -36,7 +35,6 @@ export class AuditService {
       exams,
       events,
       pendingMedia,
-      openTransfers,
       unreadNotifications,
     ] = await Promise.all([
       this.db.user.count({ where: { status: UserStatus.ACTIVE } }),
@@ -52,15 +50,11 @@ export class AuditService {
           ],
         },
       }),
-      this.db.groupTransferRequest.count({
-        where: { status: TransferRequestStatus.PENDING },
-      }),
       this.db.notification.count({ where: { readAt: null } }),
     ]);
     return {
       activeGroups,
       activeUsers,
-      openTransfers,
       pendingIntakes: contacts + exams + events,
       pendingMedia,
       unreadNotifications,

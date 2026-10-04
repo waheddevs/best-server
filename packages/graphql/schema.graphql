@@ -176,7 +176,6 @@ type AdminMediaObjectPayload {
 type AdminOperationalOverview {
   activeGroups: Int!
   activeUsers: Int!
-  openTransfers: Int!
   pendingIntakes: Int!
   pendingMedia: Int!
   unreadNotifications: Int!
@@ -728,31 +727,6 @@ enum GroupRosterStatus {
   PAUSED
 }
 
-type GroupTransferRequest {
-  createdAt: DateTime!
-  fromGroupId: ID!
-  fromGroupName: String!
-  id: ID!
-  reason: String!
-  reviewNote: String
-  reviewedAt: DateTime
-  status: TransferRequestStatus!
-  studentDisplayName: String!
-  studentId: ID!
-  toGroupId: ID!
-  toGroupName: String!
-}
-
-type GroupTransferRequestConnection {
-  edges: [GroupTransferRequestEdge!]!
-  pageInfo: PageInfo!
-}
-
-type GroupTransferRequestEdge {
-  cursor: String!
-  node: GroupTransferRequest!
-}
-
 enum IeltsModule {
   ACADEMIC
   GENERAL_TRAINING
@@ -1039,14 +1013,13 @@ type Mutation {
   reorderTestSectionBlocks(input: ReorderTestSectionBlocksInput!): TeacherTestVersionPayload!
   reorderTestSections(input: ReorderTestSectionsInput!): TeacherTestVersionPayload!
   replaceTestDraftTranslations(input: ReplaceTestDraftTranslationsInput!): TeacherTestVersionPayload!
-  requestStudentTransfer(input: RequestStudentTransferInput!): TransferRequestMutationPayload!
   resendCredentialLoginCode(input: ResendCredentialLoginCodeInput!): CredentialLoginChallengePayload!
   reviewAssignmentSubmission(input: ReviewAssignmentSubmissionInput!): AssignmentSubmissionPayload!
-  reviewStudentTransfer(input: ReviewStudentTransferInput!): TransferRequestMutationPayload!
   revokeCredentialSession(input: RevokeCredentialSessionInput!): Boolean!
   saveAttemptAnswer(input: SaveAttemptAnswerInput!, language: Language!): SaveAttemptAnswerPayload!
   saveAttemptSectionNote(input: SaveAttemptSectionNoteInput!, language: Language!): SaveAttemptSectionNotePayload!
   saveSpeakingAttemptReview(input: SaveSpeakingAttemptReviewInput!, language: Language!): TeacherSpeakingAttemptReview!
+  saveWritingAttemptReview(input: SaveWritingAttemptReviewInput!, language: Language!): TeacherWritingAttemptReview!
   setCourseStatus(input: SetPublicCourseStatusInput!): PublicCoursePayload!
   setEventStatus(input: SetPublicEventStatusInput!): PublicEventPayload!
   setGroupMembershipParticipationStatus(input: SetGroupMembershipParticipationStatusInput!): MembershipMutationPayload!
@@ -1083,11 +1056,14 @@ type Mutation {
 }
 
 type Notification {
+  attemptId: ID
   body: String
   createdAt: DateTime!
+  groupId: ID
   id: ID!
   kind: String!
   readAt: DateTime
+  studentId: ID
   taskId: ID
   title: String!
 }
@@ -1346,7 +1322,6 @@ type Query {
   adminStudents(after: String, first: Int): AdminStudentConnection!
   adminTest(language: Language!, testId: ID!): AdminTestSummary!
   adminTests(after: String, first: Int, language: Language!): AdminTestSummaryConnection!
-  adminTransferRequests(after: String, first: Int, status: TransferRequestStatus): GroupTransferRequestConnection!
   adminTuitionLedger(after: String, first: Int, studentId: ID): TuitionLedgerConnection!
   adminUser(userId: ID!): AdminUser!
   adminUsers(after: String, first: Int, role: UserRole, search: String, status: UserStatus): AdminUserConnection!
@@ -1378,6 +1353,7 @@ type Query {
   studentTestPaper(paperId: ID!): StudentTestPaper!
   studentTestPapers(after: String, first: Int): StudentTestPaperConnection!
   studentTuitionLedger(after: String, first: Int): TuitionLedgerConnection!
+  studentWritingResult(attemptId: ID!, language: Language!): StudentWritingResult
   teacherAssignment(assignmentId: ID!): Assignment!
   teacherAssignmentSubmissions(after: String, assignmentId: ID!, first: Int, status: SubmissionStatus): AssignmentSubmissionConnection!
   teacherAttemptGrants(after: String, first: Int, testId: ID!): AttemptGrantConnection!
@@ -1398,6 +1374,9 @@ type Query {
   teacherLesson(lessonId: ID!): Lesson!
   teacherLibraryCategories(includeArchived: Boolean = false): [LibraryCategory!]!
   teacherLibraryItems(after: String, categoryId: ID, first: Int, includeArchived: Boolean = false): TeacherLibraryItemConnection!
+  teacherObjectiveAttemptResult(attemptId: ID!, language: Language!): TeacherObjectiveAttemptResult!
+  teacherResultAttemptSkill(attemptId: ID!): TestSkill!
+  teacherResultInbox(after: String, first: Int, groupId: ID, language: Language!, paperId: ID, search: String, skill: TestSkill, status: AttemptStatus): TeacherResultInboxConnection!
   teacherSchedule(from: DateTime!, to: DateTime!): [Lesson!]!
   teacherSpeakingAttemptReview(attemptId: ID!, language: Language!): TeacherSpeakingAttemptReview!
   teacherStudentAttempts(after: String, first: Int, groupId: ID!, language: Language!, studentId: ID!): TeacherAttemptConnection!
@@ -1409,7 +1388,7 @@ type Query {
   teacherTestPapers(groupId: ID!, page: Int! = 1): TeacherTestPaperPage!
   teacherTestVersion(testVersionId: ID!): TeacherTestVersion!
   teacherTests(after: String, first: Int, groupId: ID, search: String, status: ContentStatus): TeacherTestConnection!
-  teacherTransferRequests(after: String, first: Int, status: TransferRequestStatus): GroupTransferRequestConnection!
+  teacherWritingAttemptReview(attemptId: ID!, language: Language!): TeacherWritingAttemptReview!
   validateTeacherTestDraft(testVersionId: ID!): TeacherTestDraftValidation!
   viewer: Viewer!
 }
@@ -1482,12 +1461,6 @@ input ReplaceTestDraftTranslationsInput {
   translations: [TestTranslationInput!]!
 }
 
-input RequestStudentTransferInput {
-  reason: String!
-  studentId: ID!
-  toGroupId: ID!
-}
-
 input ResendCredentialLoginCodeInput {
   challengeId: ID!
 }
@@ -1497,12 +1470,6 @@ input ReviewAssignmentSubmissionInput {
   score: Int
   status: SubmissionStatus!
   submissionId: ID!
-}
-
-input ReviewStudentTransferInput {
-  decision: TransferRequestStatus!
-  reviewNote: String!
-  transferRequestId: ID!
 }
 
 input RevokeCredentialSessionInput {
@@ -1541,6 +1508,15 @@ input SaveSpeakingAttemptReviewInput {
   practiceBand: Float!
   pronunciation: Float!
   release: Boolean!
+}
+
+input SaveWritingAttemptReviewInput {
+  attemptId: ID!
+  expectedUpdatedAt: DateTime
+  feedback: String
+  release: Boolean!
+  task1: WritingTaskRubricInput!
+  task2: WritingTaskRubricInput!
 }
 
 input SetGroupMembershipParticipationStatusInput {
@@ -1880,6 +1856,23 @@ type StudentTestTableRow {
   cells: [String!]!
 }
 
+type StudentWritingAnswer {
+  prompt: String!
+  sectionPosition: Int!
+  textValue: String
+}
+
+type StudentWritingResult {
+  answers: [StudentWritingAnswer!]!
+  attemptId: ID!
+  feedback: String
+  practiceBand: Float!
+  releasedAt: DateTime!
+  task1: WritingTaskRubric!
+  task2: WritingTaskRubric!
+  title: String!
+}
+
 enum SubmissionStatus {
   RETURNED
   REVIEWED
@@ -2085,10 +2078,58 @@ type TeacherLibraryItemEdge {
   node: TeacherLibraryItem!
 }
 
+type TeacherObjectiveAttemptResult {
+  answers: [TeacherObjectiveResultAnswer!]!
+  attemptId: ID!
+  correctAnswerCount: Int!
+  percentage: Float!
+  skill: TestSkill!
+  studentDisplayName: String!
+  title: String!
+  totalQuestionCount: Int!
+}
+
+type TeacherObjectiveResultAnswer {
+  correctAnswer: [String!]!
+  isCorrect: Boolean!
+  position: Int!
+  prompt: String!
+  studentAnswer: [String!]!
+}
+
 type TeacherQuestionTranslation {
   language: Language!
   prompt: String!
   rationale: String
+}
+
+type TeacherResultInboxConnection {
+  edges: [TeacherResultInboxEdge!]!
+  pageInfo: PageInfo!
+  pendingReviewCount: Int!
+}
+
+type TeacherResultInboxEdge {
+  cursor: String!
+  node: TeacherResultInboxItem!
+}
+
+type TeacherResultInboxItem {
+  attemptId: ID!
+  attemptNumber: Int!
+  groupId: ID!
+  groupName: String!
+  paperId: ID
+  percentage: Float
+  practiceBand: Float
+  practiceNumber: Int
+  releasedAt: DateTime
+  skill: TestSkill
+  status: AttemptStatus!
+  studentDisplayName: String!
+  studentId: ID!
+  submittedAt: DateTime!
+  title: String!
 }
 
 type TeacherSpeakingAnswerReview {
@@ -2363,6 +2404,22 @@ type TeacherTestVersionPayload {
   testVersion: TeacherTestVersion!
 }
 
+type TeacherWritingAnswerReview {
+  prompt: String!
+  questionId: ID!
+  sectionPosition: Int!
+  textValue: String
+}
+
+type TeacherWritingAttemptReview {
+  answers: [TeacherWritingAnswerReview!]!
+  attemptId: ID!
+  review: WritingRubricReview
+  status: AttemptStatus!
+  studentDisplayName: String!
+  title: String!
+}
+
 type TestCategory {
   id: ID!
   name: String!
@@ -2419,17 +2476,6 @@ input TestVersionIdInput {
 enum TestVersionStatus {
   DRAFT
   PUBLISHED
-}
-
-type TransferRequestMutationPayload {
-  transferRequest: GroupTransferRequest!
-}
-
-enum TransferRequestStatus {
-  APPROVED
-  CANCELLED
-  DECLINED
-  PENDING
 }
 
 type TuitionLedgerConnection {
@@ -2646,4 +2692,31 @@ type Viewer {
   displayName: String!
   id: ID!
   role: UserRole!
+}
+
+type WritingRubricReview {
+  feedback: String
+  practiceBand: Float!
+  releasedAt: DateTime
+  reviewedAt: DateTime!
+  task1: WritingTaskRubric!
+  task2: WritingTaskRubric!
+  updatedAt: DateTime!
+}
+
+type WritingTaskRubric {
+  band: Float!
+  coherenceCohesion: Float!
+  feedback: String
+  grammaticalRangeAccuracy: Float!
+  lexicalResource: Float!
+  taskAchievement: Float!
+}
+
+input WritingTaskRubricInput {
+  coherenceCohesion: Float!
+  feedback: String
+  grammaticalRangeAccuracy: Float!
+  lexicalResource: Float!
+  taskAchievement: Float!
 }

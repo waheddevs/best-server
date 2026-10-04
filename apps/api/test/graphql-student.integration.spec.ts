@@ -2238,70 +2238,6 @@ void test('Teacher group rejects a sixteenth active learner', async () => {
     }),
     15,
   );
-
-  const sourceGroup = await database.group.create({
-    data: {
-      category: 'CEFR',
-      name: `Reserved transfer source ${suffix}`,
-      slug: `reserved-transfer-source-${suffix}`,
-      teacherId,
-    },
-  });
-  const transferStudentId = studentIds[15];
-  assert.ok(transferStudentId);
-  await database.groupMembership.create({
-    data: { groupId: sourceGroup.id, studentId: transferStudentId },
-  });
-  const transferResult = await executeGraphql(
-    teacherToken,
-    `mutation Request($input: RequestStudentTransferInput!) {
-      requestStudentTransfer(input: $input) { transferRequest { id } }
-    }`,
-    {
-      input: {
-        reason: 'Reserved capacity check',
-        studentId: transferStudentId,
-        toGroupId: group.id,
-      },
-    },
-  );
-  const transferRequest = requireRecordField(
-    requireRecordField(transferResult, 'requestStudentTransfer'),
-    'transferRequest',
-  );
-  const rejectedTransfer = await executeGraphqlExpectingErrors(
-    adminToken,
-    `mutation Review($input: ReviewStudentTransferInput!) {
-      reviewStudentTransfer(input: $input) { transferRequest { id } }
-    }`,
-    {
-      input: {
-        decision: 'APPROVED',
-        reviewNote: 'Reserved capacity check',
-        transferRequestId: transferRequest.id,
-      },
-    },
-  );
-  assert.equal(
-    requireRecordField(
-      requireRecord(
-        requireArrayField(rejectedTransfer, 'errors')[0],
-        'transfer capacity error',
-      ),
-      'extensions',
-    ).code,
-    'CONFLICT',
-  );
-  assert.equal(
-    await database.groupMembership.count({
-      where: {
-        endedAt: null,
-        groupId: sourceGroup.id,
-        studentId: transferStudentId,
-      },
-    }),
-    1,
-  );
 });
 
 void test('Teacher creates a credential Student directly in an owned group', async () => {
@@ -2534,7 +2470,7 @@ void test('Teacher soft-deletes only an owned Student and preserves their record
   assert.ok(requireArrayField(repeated, 'errors').length > 0);
 });
 
-void test('Teacher group roster exposes persisted status summary, overview, pause, and transfer departure', async () => {
+void test('Teacher group roster exposes persisted status summary, overview, and pause', async () => {
   const database = requireApp().get(DatabaseService);
   const suffix = randomUUID().slice(0, 8);
   const rosterGroup = await database.group.create({
@@ -2542,14 +2478,6 @@ void test('Teacher group roster exposes persisted status summary, overview, paus
       category: 'IELTS',
       name: `Reserved roster ${suffix}`,
       slug: `reserved-roster-${suffix}`,
-      teacherId,
-    },
-  });
-  const destinationGroup = await database.group.create({
-    data: {
-      category: 'CEFR',
-      name: `Reserved roster destination ${suffix}`,
-      slug: `reserved-roster-destination-${suffix}`,
       teacherId,
     },
   });
@@ -2583,8 +2511,10 @@ void test('Teacher group roster exposes persisted status summary, overview, paus
   const membershipByStudentId = new Map(
     memberships.map((membership) => [membership.studentId, membership.id]),
   );
-  const billingMonth = new Date(Date.UTC(2026, 8, 1));
   const dueDate = new Date(Date.now() - 86_400_000);
+  const billingMonth = new Date(
+    Date.UTC(dueDate.getUTCFullYear(), dueDate.getUTCMonth(), 1),
+  );
   await database.tuitionCharge.createMany({
     data: studentIds.slice(9, 11).map((studentId) => ({
       amountUzs: 1_000_000n,
@@ -2883,66 +2813,6 @@ void test('Teacher group roster exposes persisted status summary, overview, paus
     ).code,
     'NOT_FOUND',
   );
-
-  const transferResult = await executeGraphql(
-    teacherToken,
-    `mutation RequestRosterTransfer($input: RequestStudentTransferInput!) {
-      requestStudentTransfer(input: $input) { transferRequest { id } }
-    }`,
-    {
-      input: {
-        reason: 'Reserved roster departure transfer',
-        studentId: pausedStudentId,
-        toGroupId: destinationGroup.id,
-      },
-    },
-  );
-  const transferRequestId = requireStringField(
-    requireRecordField(
-      requireRecordField(transferResult, 'requestStudentTransfer'),
-      'transferRequest',
-    ),
-    'id',
-  );
-  await executeGraphql(
-    adminToken,
-    `mutation ApproveRosterTransfer($input: ReviewStudentTransferInput!) {
-      reviewStudentTransfer(input: $input) { transferRequest { id status } }
-    }`,
-    {
-      input: {
-        decision: 'APPROVED',
-        reviewNote: 'Reserved roster transfer approved',
-        transferRequestId,
-      },
-    },
-  );
-  assert.equal(
-    await database.groupMembership.count({
-      where: { endedAt: null, groupId: rosterGroup.id },
-    }),
-    10,
-  );
-  assert.equal(
-    await database.groupMembership.count({
-      where: {
-        endedAt: null,
-        groupId: destinationGroup.id,
-        studentId: pausedStudentId,
-      },
-    }),
-    1,
-  );
-  const transferAudit = await database.auditLog.findFirst({
-    where: { action: 'GROUP_TRANSFER_REVIEWED', targetId: transferRequestId },
-  });
-  assert.ok(transferAudit);
-  const transferAuditValues = requireRecord(
-    transferAudit.newValues,
-    'transfer audit values',
-  );
-  assert.equal(typeof transferAuditValues.fromMembershipId, 'string');
-  assert.equal(typeof transferAuditValues.toMembershipId, 'string');
 });
 
 void test('Admin provisions a credential user who completes email-code login', async () => {
@@ -3981,6 +3851,444 @@ void test('Teacher can inspect owned-group progress, attempts, and answers', asy
   assert.equal(
     requireRecordField(hiddenGroupError, 'extensions').code,
     'NOT_FOUND',
+  );
+});
+
+void test('Writing review stays private until release and persists an owner-scoped rubric', async () => {
+  const database = requireApp().get(DatabaseService);
+  const authService = requireApp().get(AuthService);
+  const category = await database.testCategory.create({
+    data: { name: `Reserved Writing results ${randomUUID()}`, teacherId },
+  });
+  const paper = await database.testPaper.create({
+    data: {
+      academicYear: 2026,
+      createdById: teacherId,
+      groupId,
+      practiceNumber: 99,
+      slug: `reserved-writing-results-${randomUUID()}`,
+      sourceLabel: 'Fictional integration fixture.',
+      title: 'Reserved Writing results paper',
+    },
+  });
+  const writingTest = await database.test.create({
+    data: {
+      categoryId: category.id,
+      groupId,
+      paperId: paper.id,
+      skill: TestSkill.WRITING,
+    },
+  });
+  const version = await database.testVersion.create({
+    data: {
+      primaryLanguage: Language.EN,
+      scoringRuleVersion: 'manual-rubric-v1',
+      testId: writingTest.id,
+      translations: {
+        create: { language: Language.EN, title: 'Reserved Writing result' },
+      },
+      version: 1,
+    },
+  });
+  const questions: string[] = [];
+  for (const position of [1, 2]) {
+    const section = await database.testSection.create({
+      data: { position, testVersionId: version.id },
+    });
+    const question = await database.question.create({
+      data: {
+        kind: QuestionKind.LONG_TEXT,
+        position,
+        sectionId: section.id,
+        testVersionId: version.id,
+        translations: {
+          create: {
+            language: Language.EN,
+            prompt: `Reserved Task ${String(position)}`,
+          },
+        },
+      },
+    });
+    questions.push(question.id);
+  }
+  const membership = await database.groupMembership.findFirstOrThrow({
+    where: { groupId, studentId },
+  });
+  const attempt = await database.attempt.create({
+    data: {
+      attemptNumber: 1,
+      groupMembershipId: membership.id,
+      studentId,
+      testVersionId: version.id,
+    },
+  });
+  await database.attemptAnswer.createMany({
+    data: questions.map((questionId, index) => ({
+      attemptId: attempt.id,
+      questionId,
+      textValue: `Fictional Writing answer ${String(index + 1)}`,
+    })),
+  });
+  const inProgressHidden = await executeGraphqlExpectingErrors(
+    teacherToken,
+    `query AttemptSkill($attemptId: ID!) {
+      teacherResultAttemptSkill(attemptId: $attemptId)
+    }`,
+    { attemptId: attempt.id },
+  );
+  assert.match(JSON.stringify(inProgressHidden.errors), /NOT_FOUND/);
+  await database.attempt.update({
+    where: { id: attempt.id },
+    data: {
+      status: AttemptStatus.SUBMITTED,
+      submittedAt: new Date(),
+      submissionReason: AttemptSubmissionReason.MANUAL,
+    },
+  });
+
+  const inbox = await executeGraphql(
+    teacherToken,
+    `query Inbox($groupId: ID!) {
+    teacherResultInbox(groupId: $groupId, language: EN, skill: WRITING) {
+      pendingReviewCount edges { node { attemptId studentDisplayName status skill } }
+    }
+  }`,
+    { groupId },
+  );
+  const inboxData = requireRecordField(inbox, 'teacherResultInbox');
+  assert.ok(Number(inboxData.pendingReviewCount) >= 1);
+  assert.ok(
+    requireArrayField(inboxData, 'edges').some(
+      (edge) =>
+        requireRecordField(requireRecord(edge, 'edge'), 'node').attemptId ===
+        attempt.id,
+    ),
+  );
+
+  const hiddenBeforeRelease = await executeGraphql(
+    studentToken,
+    `query WritingResult($attemptId: ID!) {
+    studentWritingResult(attemptId: $attemptId, language: EN) { practiceBand }
+  }`,
+    { attemptId: attempt.id },
+  );
+  assert.equal(hiddenBeforeRelease.studentWritingResult, null);
+
+  const rubric = {
+    taskAchievement: 6,
+    coherenceCohesion: 6,
+    lexicalResource: 6,
+    grammaticalRangeAccuracy: 6,
+    feedback: 'Fictional Task feedback',
+  };
+  const saveOperation = `mutation SaveReview($input: SaveWritingAttemptReviewInput!) {
+    saveWritingAttemptReview(input: $input, language: EN) {
+      status review { practiceBand updatedAt releasedAt }
+    }
+  }`;
+  const draft = await executeGraphql(teacherToken, saveOperation, {
+    input: {
+      attemptId: attempt.id,
+      task1: rubric,
+      task2: {
+        ...rubric,
+        taskAchievement: 7,
+        coherenceCohesion: 7,
+        lexicalResource: 7,
+        grammaticalRangeAccuracy: 7,
+      },
+      feedback: 'Fictional overall feedback',
+      release: false,
+    },
+  });
+  const draftReview = requireRecordField(
+    requireRecordField(draft, 'saveWritingAttemptReview'),
+    'review',
+  );
+  assert.equal(draftReview.practiceBand, 6.5);
+  assert.equal(draftReview.releasedAt, null);
+  assert.equal(
+    (
+      await database.attemptReview.findUniqueOrThrow({
+        where: { attemptId: attempt.id },
+      })
+    ).rubricVersion,
+    'ielts-academic-writing-v1',
+  );
+
+  const otherTeacherId = randomUUID();
+  await database.user.create({
+    data: {
+      id: otherTeacherId,
+      displayName: 'Reserved Other Teacher',
+      role: UserRole.TEACHER,
+    },
+  });
+  const otherToken = await authService.issueAccessToken({
+    id: otherTeacherId,
+    role: UserRole.TEACHER,
+  });
+  const denied = await executeGraphqlExpectingErrors(
+    otherToken,
+    saveOperation,
+    {
+      input: {
+        attemptId: attempt.id,
+        task1: rubric,
+        task2: rubric,
+        release: true,
+      },
+    },
+  );
+  assert.match(JSON.stringify(denied.errors), /NOT_FOUND/);
+
+  const released = await executeGraphql(teacherToken, saveOperation, {
+    input: {
+      attemptId: attempt.id,
+      task1: rubric,
+      task2: {
+        ...rubric,
+        taskAchievement: 7,
+        coherenceCohesion: 7,
+        lexicalResource: 7,
+        grammaticalRangeAccuracy: 7,
+      },
+      expectedUpdatedAt: draftReview.updatedAt,
+      feedback: 'Fictional overall feedback',
+      release: true,
+    },
+  });
+  assert.equal(
+    requireRecordField(released, 'saveWritingAttemptReview').status,
+    'SCORED',
+  );
+  const visible = await executeGraphql(
+    studentToken,
+    `query WritingResult($attemptId: ID!) {
+    studentWritingResult(attemptId: $attemptId, language: EN) {
+      practiceBand feedback answers { textValue }
+    }
+  }`,
+    { attemptId: attempt.id },
+  );
+  const studentResult = requireRecordField(visible, 'studentWritingResult');
+  assert.equal(studentResult.practiceBand, 6.5);
+  assert.equal(studentResult.feedback, 'Fictional overall feedback');
+  assert.equal(requireArrayField(studentResult, 'answers').length, 2);
+  const otherStudentId = randomUUID();
+  await database.user.create({
+    data: {
+      id: otherStudentId,
+      displayName: 'Reserved Other Student',
+      role: UserRole.STUDENT,
+    },
+  });
+  const otherStudentToken = await authService.issueAccessToken({
+    id: otherStudentId,
+    role: UserRole.STUDENT,
+  });
+  const hiddenFromOtherStudent = await executeGraphql(
+    otherStudentToken,
+    `query WritingResult($attemptId: ID!) {
+      studentWritingResult(attemptId: $attemptId, language: EN) { practiceBand }
+    }`,
+    { attemptId: attempt.id },
+  );
+  assert.equal(hiddenFromOtherStudent.studentWritingResult, null);
+
+  const readingTest = await database.test.create({
+    data: {
+      categoryId: category.id,
+      groupId,
+      paperId: paper.id,
+      skill: TestSkill.READING,
+    },
+  });
+  const readingVersion = await database.testVersion.create({
+    data: {
+      primaryLanguage: Language.EN,
+      scoringRuleVersion: 'single-choice-v1',
+      testId: readingTest.id,
+      translations: {
+        create: { language: Language.EN, title: 'Reserved Reading result' },
+      },
+      version: 1,
+    },
+  });
+  const readingQuestion = await database.question.create({
+    data: {
+      kind: QuestionKind.SINGLE_CHOICE,
+      position: 1,
+      testVersionId: readingVersion.id,
+      translations: {
+        create: {
+          language: Language.EN,
+          prompt: 'Reserved objective question?',
+        },
+      },
+    },
+  });
+  const correctOption = await database.answerOption.create({
+    data: {
+      isCorrect: true,
+      position: 1,
+      questionId: readingQuestion.id,
+      translations: {
+        create: { language: Language.EN, text: 'Reserved correct option' },
+      },
+    },
+  });
+  const readingAttempt = await database.attempt.create({
+    data: {
+      attemptNumber: 1,
+      groupMembershipId: membership.id,
+      studentId,
+      testVersionId: readingVersion.id,
+    },
+  });
+  await database.attemptAnswer.create({
+    data: {
+      attemptId: readingAttempt.id,
+      questionId: readingQuestion.id,
+      selectedOptionId: correctOption.id,
+    },
+  });
+  await database.attempt.update({
+    where: { id: readingAttempt.id },
+    data: {
+      status: AttemptStatus.SUBMITTED,
+      submissionReason: AttemptSubmissionReason.MANUAL,
+      submittedAt: new Date(),
+    },
+  });
+  await database.attempt.update({
+    where: { id: readingAttempt.id },
+    data: {
+      status: AttemptStatus.SCORED,
+      correctAnswerCount: 1,
+      totalQuestionCount: 1,
+      percentage: 100,
+      passed: true,
+      passingPercentage: 60,
+      scoringRuleVersion: 'single-choice-v1',
+    },
+  });
+  const objective = await executeGraphql(
+    teacherToken,
+    `query Objective($attemptId: ID!) {
+    teacherObjectiveAttemptResult(attemptId: $attemptId, language: EN) {
+      skill correctAnswerCount answers { studentAnswer correctAnswer isCorrect }
+    }
+  }`,
+    { attemptId: readingAttempt.id },
+  );
+  const objectiveResult = requireRecordField(
+    objective,
+    'teacherObjectiveAttemptResult',
+  );
+  assert.equal(objectiveResult.skill, 'READING');
+  assert.equal(objectiveResult.correctAnswerCount, 1);
+  assert.equal(
+    requireRecord(
+      requireArrayField(objectiveResult, 'answers')[0],
+      'objective answer',
+    ).isCorrect,
+    true,
+  );
+  const hiddenObjective = await executeGraphqlExpectingErrors(
+    otherToken,
+    `query Objective($attemptId: ID!) {
+    teacherObjectiveAttemptResult(attemptId: $attemptId, language: EN) { attemptId }
+  }`,
+    { attemptId: readingAttempt.id },
+  );
+  assert.match(JSON.stringify(hiddenObjective.errors), /NOT_FOUND/);
+
+  const speakingTest = await database.test.create({
+    data: {
+      categoryId: category.id,
+      groupId,
+      paperId: paper.id,
+      skill: TestSkill.SPEAKING,
+    },
+  });
+  const speakingVersion = await database.testVersion.create({
+    data: {
+      primaryLanguage: Language.EN,
+      scoringRuleVersion: 'manual-rubric-v1',
+      testId: speakingTest.id,
+      translations: {
+        create: { language: Language.EN, title: 'Reserved Speaking result' },
+      },
+      version: 1,
+    },
+  });
+  const speakingSection = await database.testSection.create({
+    data: { position: 1, testVersionId: speakingVersion.id },
+  });
+  await database.question.create({
+    data: {
+      kind: QuestionKind.AUDIO_RESPONSE,
+      position: 1,
+      sectionId: speakingSection.id,
+      testVersionId: speakingVersion.id,
+      translations: {
+        create: { language: Language.EN, prompt: 'Fictional speaking prompt' },
+      },
+    },
+  });
+  const speakingAttempt = await database.attempt.create({
+    data: {
+      attemptNumber: 1,
+      groupMembershipId: membership.id,
+      studentId,
+      testVersionId: speakingVersion.id,
+    },
+  });
+  await database.attempt.update({
+    where: { id: speakingAttempt.id },
+    data: {
+      status: AttemptStatus.SUBMITTED,
+      submissionReason: AttemptSubmissionReason.MANUAL,
+      submittedAt: new Date(),
+    },
+  });
+  const speakingSave = `mutation SaveSpeaking($input: SaveSpeakingAttemptReviewInput!) {
+    saveSpeakingAttemptReview(input: $input, language: EN) { status review { practiceBand releasedAt } }
+  }`;
+  const speakingInput = {
+    attemptId: speakingAttempt.id,
+    fluencyCoherence: 6,
+    lexicalResource: 6,
+    grammaticalRangeAccuracy: 6,
+    pronunciation: 6,
+    practiceBand: 6,
+    feedback: 'Fictional speaking feedback',
+  };
+  const speakingDraft = await executeGraphql(teacherToken, speakingSave, {
+    input: { ...speakingInput, release: false },
+  });
+  assert.equal(
+    requireRecordField(speakingDraft, 'saveSpeakingAttemptReview').status,
+    'SUBMITTED',
+  );
+  const speakingRelease = await executeGraphql(teacherToken, speakingSave, {
+    input: { ...speakingInput, release: true },
+  });
+  assert.equal(
+    requireRecordField(speakingRelease, 'saveSpeakingAttemptReview').status,
+    'SCORED',
+  );
+  const speakingStudent = await executeGraphql(
+    studentToken,
+    `query SpeakingResult($attemptId: ID!) {
+    studentSpeakingResult(attemptId: $attemptId, language: EN) { practiceBand feedback }
+  }`,
+    { attemptId: speakingAttempt.id },
+  );
+  assert.equal(
+    requireRecordField(speakingStudent, 'studentSpeakingResult').practiceBand,
+    6,
   );
 });
 
@@ -5173,6 +5481,10 @@ void test('generated schema releases answer review only through the scored-resul
     /selectedOption|correctOption|isCorrect/,
   );
   assert.doesNotMatch(schema, /AuthAccount|providerAccountId/);
+  assert.doesNotMatch(
+    schema,
+    /TransferRequest|requestStudentTransfer|reviewStudentTransfer|transferRequests/,
+  );
   assert.match(schema, /startTestAttempt/);
   assert.match(schema, /studentAvailableTests/);
   assert.match(schema, /createMediaUploadIntent/);
@@ -5198,7 +5510,6 @@ void test('generated schema releases answer review only through the scored-resul
     'updateTeacherGroup',
     'teacherGroupRoster',
     'teacherTestPapers',
-    'requestStudentTransfer',
     'teacherTests',
     'createTestDraft',
     'publishTestVersion',

@@ -1,4 +1,4 @@
-import { GroupMembershipStatus, TransferRequestStatus } from '@best/database';
+import { GroupMembershipStatus } from '@best/database';
 import { Field, ID, InputType } from '@nestjs/graphql';
 
 @InputType('AddStudentToGroupInput')
@@ -56,28 +56,4 @@ export class SetGroupMembershipParticipationStatusInput {
 
   @Field()
   reason!: string;
-}
-
-@InputType('RequestStudentTransferInput')
-export class RequestStudentTransferInput {
-  @Field(() => ID)
-  studentId!: string;
-
-  @Field(() => ID)
-  toGroupId!: string;
-
-  @Field()
-  reason!: string;
-}
-
-@InputType('ReviewStudentTransferInput')
-export class ReviewStudentTransferInput {
-  @Field(() => ID)
-  transferRequestId!: string;
-
-  @Field(() => TransferRequestStatus)
-  decision!: TransferRequestStatus;
-
-  @Field()
-  reviewNote!: string;
 }

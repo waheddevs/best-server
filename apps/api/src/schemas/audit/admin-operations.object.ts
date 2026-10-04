@@ -17,7 +17,6 @@ export class AdminOperationalOverviewObject {
   @Field(() => Int) activeGroups!: number;
   @Field(() => Int) pendingIntakes!: number;
   @Field(() => Int) pendingMedia!: number;
-  @Field(() => Int) openTransfers!: number;
   @Field(() => Int) unreadNotifications!: number;
 }
 @ObjectType('AdminLibraryItem')

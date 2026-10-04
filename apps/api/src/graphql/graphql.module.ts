@@ -16,7 +16,6 @@ import {
   MediaType,
   UserRole,
   UserStatus,
-  TransferRequestStatus,
   IntakeStatus,
   IeltsModule,
   PublicContentStatus,
@@ -54,7 +53,6 @@ registerEnumType(GroupMembershipStatus, { name: 'GroupMembershipStatus' });
 registerEnumType(MediaType, { name: 'MediaType' });
 registerEnumType(MediaObjectStatus, { name: 'MediaObjectStatus' });
 registerEnumType(MediaMalwareStatus, { name: 'MediaMalwareStatus' });
-registerEnumType(TransferRequestStatus, { name: 'TransferRequestStatus' });
 registerEnumType(LessonStatus, { name: 'LessonStatus' });
 registerEnumType(LessonMaterialKind, { name: 'LessonMaterialKind' });
 registerEnumType(AttendanceStatus, { name: 'AttendanceStatus' });
