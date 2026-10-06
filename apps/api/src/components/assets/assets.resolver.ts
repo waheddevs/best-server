@@ -58,7 +58,7 @@ export class AssetsResolver {
     name: 'createMediaDownloadIntent',
   })
   @UseGuards(AuthGuard, RolesGuard)
-  @Roles(UserRole.TEACHER, UserRole.ADMIN)
+  @Roles(UserRole.STUDENT, UserRole.TEACHER, UserRole.ADMIN)
   async createMediaDownloadIntent(
     @AuthMember('id') creatorId: string,
     @Args('input') input: MediaObjectReferenceInput,
