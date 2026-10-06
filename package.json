@@ -20,6 +20,9 @@
       "built": true
     }
   },
+  "resolutions": {
+    "pg": "8.18.0"
+  },
   "scripts": {
     "build": "turbo run build",
     "database:generate": "turbo run generate --filter=@best/database",
