@@ -20,9 +20,14 @@ import { AdminUserObject } from '../../schemas/users/admin-user.object';
 import { AdminUserConnectionObject } from '../../schemas/users/user-connection.object';
 import {
   AdminUserMutationPayloadObject,
+  ChangeMyPasswordPayloadObject,
+  DeleteMyAccountPayloadObject,
   UpdateMyProfilePayloadObject,
 } from '../../schemas/users/user-mutation-payload.object';
-import { UpdateMyProfileInput } from '../../schemas/users/user-profile.input';
+import {
+  ChangeMyPasswordInput,
+  UpdateMyProfileInput,
+} from '../../schemas/users/user-profile.input';
 import { UserProfileObject } from '../../schemas/users/user-profile.object';
 import { ViewerObject } from '../../schemas/users/viewer.object';
 import { AuthMember } from '../auth/decorators/auth-member.decorator';
@@ -81,6 +86,36 @@ export class UsersResolver {
         context.req.requestId,
       ),
     };
+  }
+
+  @Mutation(() => ChangeMyPasswordPayloadObject, { name: 'changeMyPassword' })
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER)
+  async changeMyPassword(
+    @AuthMember('id') userId: string,
+    @Args('input') input: ChangeMyPasswordInput,
+    @Context() context: ApiGraphqlContext,
+  ): Promise<ChangeMyPasswordPayloadObject> {
+    await this.usersService.changeMyPassword(
+      userId,
+      input,
+      context.req.requestId,
+    );
+    return { changed: true };
+  }
+
+  @Mutation(() => DeleteMyAccountPayloadObject, { name: 'deleteMyAccount' })
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER)
+  async deleteMyAccount(
+    @AuthMember('id') userId: string,
+    @Context() context: ApiGraphqlContext,
+  ): Promise<DeleteMyAccountPayloadObject> {
+    await this.usersService.deleteMyTeacherAccount(
+      userId,
+      context.req.requestId,
+    );
+    return { deleted: true };
   }
 
   @Query(() => AdminUserConnectionObject, { name: 'adminUsers' })

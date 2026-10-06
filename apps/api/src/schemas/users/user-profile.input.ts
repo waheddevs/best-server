@@ -3,6 +3,9 @@ import { Field, ID, InputType } from '@nestjs/graphql';
 
 @InputType('UpdateMyProfileInput')
 export class UpdateMyProfileInput {
+  @Field(() => String, { nullable: true })
+  email?: string | null;
+
   @Field()
   displayName!: string;
 
@@ -20,4 +23,16 @@ export class UpdateMyProfileInput {
 
   @Field(() => ID, { nullable: true })
   avatarMediaObjectId?: string | null;
+}
+
+@InputType('ChangeMyPasswordInput')
+export class ChangeMyPasswordInput {
+  @Field()
+  currentPassword!: string;
+
+  @Field()
+  newPassword!: string;
+
+  @Field()
+  confirmPassword!: string;
 }

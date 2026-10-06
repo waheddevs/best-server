@@ -9,6 +9,18 @@ export class UpdateMyProfilePayloadObject {
   profile!: UserProfileObject;
 }
 
+@ObjectType('ChangeMyPasswordPayload')
+export class ChangeMyPasswordPayloadObject {
+  @Field()
+  changed!: boolean;
+}
+
+@ObjectType('DeleteMyAccountPayload')
+export class DeleteMyAccountPayloadObject {
+  @Field()
+  deleted!: boolean;
+}
+
 @ObjectType('AdminUserMutationPayload')
 export class AdminUserMutationPayloadObject {
   @Field(() => AdminUserObject)

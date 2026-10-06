@@ -445,6 +445,16 @@ input BeginCredentialLoginInput {
   password: String!
 }
 
+input ChangeMyPasswordInput {
+  confirmPassword: String!
+  currentPassword: String!
+  newPassword: String!
+}
+
+type ChangeMyPasswordPayload {
+  changed: Boolean!
+}
+
 input CompleteTeacherTaskInput {
   taskId: ID!
 }
@@ -616,6 +626,10 @@ type CredentialLoginSuccessPayload {
 A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
 """
 scalar DateTime
+
+type DeleteMyAccountPayload {
+  deleted: Boolean!
+}
 
 input EndGroupMembershipInput {
   membershipId: ID!
@@ -969,6 +983,7 @@ type Mutation {
   adminSetUserRole(input: AdminSetUserRoleInput!): AdminUserMutationPayload!
   adminSetUserStatus(input: AdminSetUserStatusInput!): AdminUserMutationPayload!
   beginCredentialLogin(input: BeginCredentialLoginInput!): CredentialLoginChallengePayload!
+  changeMyPassword(input: ChangeMyPasswordInput!): ChangeMyPasswordPayload!
   closeAssignment(input: AssignmentIdInput!): AssignmentPayload!
   completeTeacherTask(input: CompleteTeacherTaskInput!): TeacherTaskPayload!
   confirmAttemptAudioUpload(input: ConfirmAttemptAudioUploadInput!): ConfirmMediaUploadPayload!
@@ -993,6 +1008,7 @@ type Mutation {
   createTestQuestion(input: CreateTestQuestionInput!): TeacherTestVersionPayload!
   createTestSection(input: CreateTestSectionInput!): TeacherTestVersionPayload!
   createTestSectionBlock(input: CreateTestSectionBlockInput!): TeacherTestVersionPayload!
+  deleteMyAccount: DeleteMyAccountPayload!
   deleteTeacherGroup(groupId: ID!): GroupMutationPayload!
   deleteTeacherPracticeTest(testPaperId: ID!): TeacherTestPaperDeletionPayload!
   deleteTestDraftQuestion(input: TestVersionIdInput!, questionId: ID!): TeacherTestVersionPayload!
@@ -2573,6 +2589,7 @@ input UpdateMyProfileInput {
   avatarMediaObjectId: ID
   branchName: String
   displayName: String!
+  email: String
   phone: String
   preferredLanguage: Language!
   teacherSubject: String

@@ -21,7 +21,10 @@ import type { AdminSetUserRoleInput } from '../../schemas/users/admin-user.input
 import type { AdminProvisionUserInput } from '../../schemas/users/admin-user.input';
 import type { AdminUserObject } from '../../schemas/users/admin-user.object';
 import type { AdminUserConnectionObject } from '../../schemas/users/user-connection.object';
-import type { UpdateMyProfileInput } from '../../schemas/users/user-profile.input';
+import type {
+  ChangeMyPasswordInput,
+  UpdateMyProfileInput,
+} from '../../schemas/users/user-profile.input';
 import type { UserProfileObject } from '../../schemas/users/user-profile.object';
 import type { ViewerObject } from '../../schemas/users/viewer.object';
 import { CredentialPasswordService } from '../auth/credential-password.service';
@@ -151,6 +154,10 @@ export class UsersService {
       160,
     );
     const phone = parseOptionalText(input.phone, 'phone', 32, 7);
+    const requestedEmail =
+      input.email === undefined || input.email === null
+        ? null
+        : parseProvisioningEmail(input.email);
     const teacherSubject = parseOptionalText(
       input.teacherSubject,
       'teacherSubject',
@@ -171,6 +178,21 @@ export class UsersService {
 
       if (current === null) {
         throw inactiveAuthenticatedUserError();
+      }
+
+      const email = requestedEmail ?? current.email;
+      if (requestedEmail !== null && requestedEmail !== current.email) {
+        const existing = await transaction.user.findUnique({
+          where: { email: requestedEmail },
+          select: { id: true },
+        });
+        if (existing !== null) {
+          throw new ApplicationError(
+            ErrorCode.CONFLICT,
+            'A user with this email already exists',
+            409,
+          );
+        }
       }
 
       if (
@@ -211,6 +233,7 @@ export class UsersService {
           avatarMediaObjectId,
           ...(current.role === UserRole.TEACHER ? { branchName } : {}),
           displayName,
+          email,
           phone,
           preferredLanguage: input.preferredLanguage,
           ...(current.role === UserRole.TEACHER ? { teacherSubject } : {}),
@@ -231,6 +254,118 @@ export class UsersService {
       });
 
       return profile;
+    });
+  }
+
+  async changeMyPassword(
+    userId: string,
+    input: ChangeMyPasswordInput,
+    correlationId?: string,
+  ): Promise<void> {
+    const newPassword = parseProvisioningPassword(input.newPassword);
+    if (newPassword !== input.confirmPassword) {
+      throw new ApplicationError(
+        ErrorCode.BAD_USER_INPUT,
+        'New passwords do not match',
+        400,
+      );
+    }
+
+    const current = await this.database.user.findFirst({
+      where: { id: userId, status: UserStatus.ACTIVE },
+      select: { credentialPasswordHash: true },
+    });
+    if (current === null) {
+      throw inactiveAuthenticatedUserError();
+    }
+    const passwordMatches = await this.passwordService.verifyPassword(
+      input.currentPassword,
+      current.credentialPasswordHash,
+    );
+    if (!passwordMatches) {
+      throw new ApplicationError(
+        ErrorCode.BAD_USER_INPUT,
+        'Current password is incorrect',
+        400,
+      );
+    }
+    if (input.currentPassword === newPassword) {
+      throw new ApplicationError(
+        ErrorCode.BAD_USER_INPUT,
+        'New password must be different from the current password',
+        400,
+      );
+    }
+
+    const credentialPasswordHash =
+      await this.passwordService.hashPassword(newPassword);
+    await this.database.$transaction(async (transaction) => {
+      const updated = await transaction.user.updateMany({
+        where: {
+          id: userId,
+          status: UserStatus.ACTIVE,
+          credentialPasswordHash: current.credentialPasswordHash,
+        },
+        data: { credentialPasswordHash },
+      });
+      if (updated.count !== 1) {
+        throw new ApplicationError(
+          ErrorCode.CONFLICT,
+          'Password changed during this request; please try again',
+          409,
+        );
+      }
+      await transaction.auditLog.create({
+        data: {
+          action: 'USER_PASSWORD_CHANGED',
+          actorId: userId,
+          correlationId: correlationId ?? null,
+          targetId: userId,
+          targetType: 'USER',
+        },
+      });
+    });
+  }
+
+  async deleteMyTeacherAccount(
+    userId: string,
+    correlationId?: string,
+  ): Promise<void> {
+    const deletedAt = new Date();
+    await this.database.$transaction(async (transaction) => {
+      const updated = await transaction.user.updateMany({
+        where: {
+          id: userId,
+          role: UserRole.TEACHER,
+          status: UserStatus.ACTIVE,
+        },
+        data: {
+          credentialPasswordHash: null,
+          status: UserStatus.DELETED,
+        },
+      });
+      if (updated.count !== 1) {
+        throw inactiveAuthenticatedUserError();
+      }
+
+      await transaction.credentialSession.updateMany({
+        where: { userId, revokedAt: null },
+        data: { revokedAt: deletedAt, revokeReason: 'ACCOUNT_DELETED' },
+      });
+      await transaction.credentialLoginChallenge.deleteMany({
+        where: { userId, usedAt: null },
+      });
+      await transaction.auditLog.create({
+        data: {
+          action: 'TEACHER_ACCOUNT_DELETED',
+          actorId: userId,
+          correlationId: correlationId ?? null,
+          newValues: { status: UserStatus.DELETED },
+          oldValues: { status: UserStatus.ACTIVE },
+          targetId: userId,
+          targetType: 'USER',
+        },
+      });
     });
   }
 
@@ -450,6 +585,7 @@ function profileAuditValues(
     avatarMediaObjectId: profile.avatarMediaObjectId ?? null,
     branchName: profile.branchName ?? null,
     displayName: profile.displayName,
+    email: profile.email,
     phone: profile.phone ?? null,
     preferredLanguage: profile.preferredLanguage,
     teacherSubject: profile.teacherSubject ?? null,
