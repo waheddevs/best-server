@@ -42,6 +42,21 @@ export class MaterialsResolver {
   ) {
     return this.service.list(id, groupId, language, first, after);
   }
+  @Query(() => LessonMaterialConnectionObject, {
+    name: 'studentGroupMaterials',
+  })
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.STUDENT)
+  studentGroupMaterials(
+    @AuthMember('id') id: string,
+    @Args('groupId', { type: () => ID }) groupId: string,
+    @Args('language', { defaultValue: Language.EN, type: () => Language })
+    language: Language,
+    @Args('first', { nullable: true, type: () => Int }) first?: number,
+    @Args('after', { nullable: true }) after?: string,
+  ) {
+    return this.service.listForStudent(id, groupId, language, first, after);
+  }
   @Mutation(() => LessonMaterialPayloadObject, { name: 'createLessonMaterial' })
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.TEACHER)

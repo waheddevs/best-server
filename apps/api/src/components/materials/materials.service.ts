@@ -1,6 +1,8 @@
 import {
   ContentStatus,
   Language,
+  LessonStatus,
+  LibraryVisibility,
   MediaMalwareStatus,
   MediaObjectStatus,
   Prisma,
@@ -79,6 +81,67 @@ export class MaterialsService {
     const edges = page.map((row) => ({
       cursor: encodeCursor(row.id),
       node: mapMaterial(row, language),
+    }));
+    return {
+      edges,
+      pageInfo: { endCursor: edges.at(-1)?.cursor ?? null, hasNextPage },
+    };
+  }
+  async listForStudent(
+    studentId: string,
+    groupIdInput: string,
+    language: Language,
+    first?: number,
+    after?: string,
+  ): Promise<LessonMaterialConnectionObject> {
+    const groupId = parseUuid(groupIdInput, 'groupId');
+    const membership = await this.db.groupMembership.count({
+      where: {
+        endedAt: null,
+        groupId,
+        studentId,
+        group: { status: ContentStatus.ACTIVE },
+      },
+    });
+    if (membership === 0) throw notFound();
+    const size = parsePageSize(first);
+    const afterId = decodeCursor(after);
+    const rows = await this.db.lessonMaterial.findMany({
+      where: {
+        archivedAt: null,
+        groupId,
+        lessonId: { not: null },
+        lesson: {
+          archivedAt: null,
+          status: { in: [LessonStatus.SCHEDULED, LessonStatus.COMPLETED] },
+        },
+        libraryItem: {
+          status: ContentStatus.ACTIVE,
+          OR: [
+            { visibility: LibraryVisibility.ALL_GROUPS },
+            { groupAccesses: { some: { groupId } } },
+          ],
+          attachments: {
+            some: {
+              mediaObject: {
+                malwareStatus: MediaMalwareStatus.CLEAN,
+                status: MediaObjectStatus.READY,
+              },
+            },
+          },
+          translations: { some: {} },
+        },
+      },
+      ...(afterId === undefined ? {} : { cursor: { id: afterId }, skip: 1 }),
+      include: materialInclude,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: size + 1,
+    });
+    const hasNextPage = rows.length > size;
+    const page = hasNextPage ? rows.slice(0, size) : rows;
+    const edges = page.map((row) => ({
+      cursor: encodeCursor(row.id),
+      node: mapMaterial(row, language, true),
     }));
     return {
       edges,
@@ -232,11 +295,18 @@ export class MaterialsService {
 function mapMaterial(
   row: MaterialRecord,
   language: Language,
+  onlyReady = false,
 ): LessonMaterialObject {
   const translation =
     row.libraryItem.translations.find((item) => item.language === language) ??
     row.libraryItem.translations[0];
-  const attachment = row.libraryItem.attachments[0];
+  const attachment = onlyReady
+    ? row.libraryItem.attachments.find(
+        ({ mediaObject }) =>
+          mediaObject.malwareStatus === MediaMalwareStatus.CLEAN &&
+          mediaObject.status === MediaObjectStatus.READY,
+      )
+    : row.libraryItem.attachments[0];
   if (translation === undefined || attachment === undefined) throw notFound();
   const media = attachment.mediaObject;
   return {
