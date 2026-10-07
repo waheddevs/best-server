@@ -49,6 +49,7 @@ import { Pool } from 'pg';
 
 import { AppModule } from '../src/app.module';
 import { AuthService } from '../src/components/auth/auth.service';
+import { CredentialPasswordService } from '../src/components/auth/credential-password.service';
 import { CREDENTIAL_EMAIL_SENDER } from '../src/components/auth/auth.constants';
 import type {
   CredentialEmailSender,
@@ -1620,6 +1621,184 @@ void test('Admin task assignment persists a linked Teacher notification', async 
     { input: { kind: 'FOLLOW_UP', requestId: randomUUID(), teacherId, title } },
   );
   assert.ok('errors' in forbidden);
+});
+
+void test('Student notifications are owner-scoped, paginated, and persist read state', async () => {
+  const database = requireApp().get(DatabaseService);
+  const fixtureStudentId = randomUUID();
+  const fixtureEmail = `student-notifications-${randomUUID()}@example.test`;
+  await database.user.create({
+    data: {
+      id: fixtureStudentId,
+      displayName: 'Fictional Notification Student',
+      email: fixtureEmail,
+      role: UserRole.STUDENT,
+    },
+  });
+  const fixtureToken = await requireApp().get(AuthService).issueAccessToken({
+    id: fixtureStudentId,
+    role: UserRole.STUDENT,
+  });
+  const unreadBefore = await executeGraphql(
+    fixtureToken,
+    `query { myUnreadNotificationCount }`,
+  );
+  const seedPath = resolve(
+    __dirname,
+    '../../../packages/database/prisma/seed-student-notifications.ts',
+  );
+  const seedArguments = ['--experimental-strip-types', seedPath];
+  const seedOptions = {
+    cwd: resolve(__dirname, '../../..'),
+    env: {
+      ...process.env,
+      BEST_FIXTURE_STUDENT_EMAIL: fixtureEmail,
+      DATABASE_URL: testDatabaseUrl,
+      NODE_ENV: 'test',
+    },
+  };
+  const dryRun = await execFileAsync(
+    process.execPath,
+    seedArguments,
+    seedOptions,
+  );
+  assert.match(dryRun.stdout, /"toCreate":5/);
+  assert.equal(
+    await database.notification.count({
+      where: {
+        recipientId: fixtureStudentId,
+        eventKey: { startsWith: 'demo:student-notification:' },
+      },
+    }),
+    0,
+  );
+  const seeded = await execFileAsync(
+    process.execPath,
+    [...seedArguments, '--apply'],
+    seedOptions,
+  );
+  assert.match(seeded.stdout, /"persisted":5/);
+  const repeated = await execFileAsync(
+    process.execPath,
+    [...seedArguments, '--apply'],
+    seedOptions,
+  );
+  assert.match(repeated.stdout, /"existing":5/);
+  const rows = await database.notification.findMany({
+    where: {
+      recipientId: fixtureStudentId,
+      eventKey: { startsWith: 'demo:student-notification:' },
+    },
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+  });
+  assert.equal(rows.length, 5);
+  assert.equal(rows.filter(({ readAt }) => readAt === null).length, 3);
+  const ids = rows.map(({ id }) => id);
+  const firstId = ids[0];
+  assert.ok(firstId);
+
+  const feedOperation = `query StudentNotifications($first: Int, $after: String, $unreadOnly: Boolean) {
+    myUnreadNotificationCount
+    myNotifications(first: $first, after: $after, unreadOnly: $unreadOnly) {
+      edges { node { id kind readAt } }
+      pageInfo { endCursor hasNextPage }
+    }
+  }`;
+  const firstResponse = await executeGraphql(fixtureToken, feedOperation, {
+    first: 3,
+  });
+  assert.equal(
+    Number(firstResponse.myUnreadNotificationCount),
+    Number(unreadBefore.myUnreadNotificationCount) + 3,
+  );
+  const firstPage = requireRecordField(firstResponse, 'myNotifications');
+  const firstEdges = requireArrayField(firstPage, 'edges');
+  assert.deepEqual(
+    firstEdges.map((edge) =>
+      String(
+        requireRecordField(requireRecord(edge, 'notification edge'), 'node').id,
+      ),
+    ),
+    ids.slice(0, 3),
+  );
+  const pageInfo = requireRecordField(firstPage, 'pageInfo');
+  assert.equal(pageInfo.hasNextPage, true);
+  const secondResponse = await executeGraphql(fixtureToken, feedOperation, {
+    after: String(pageInfo.endCursor),
+    first: 3,
+  });
+  const secondEdges = requireArrayField(
+    requireRecordField(secondResponse, 'myNotifications'),
+    'edges',
+  );
+  assert.deepEqual(
+    secondEdges.map((edge) =>
+      String(
+        requireRecordField(requireRecord(edge, 'notification edge'), 'node').id,
+      ),
+    ),
+    ids.slice(3),
+  );
+  const unreadResponse = await executeGraphql(fixtureToken, feedOperation, {
+    first: 10,
+    unreadOnly: true,
+  });
+  const unreadEdges = requireArrayField(
+    requireRecordField(unreadResponse, 'myNotifications'),
+    'edges',
+  );
+  assert.deepEqual(
+    unreadEdges.map((edge) =>
+      String(
+        requireRecordField(requireRecord(edge, 'notification edge'), 'node').id,
+      ),
+    ),
+    ids.slice(0, 3),
+  );
+
+  const forbidden = await executeGraphqlExpectingErrors(
+    teacherToken,
+    `mutation Read($input: MarkNotificationReadInput!) {
+      markNotificationRead(input: $input) { notification { id } }
+    }`,
+    { input: { notificationId: firstId } },
+  );
+  assert.ok('errors' in forbidden);
+  const otherStudentForbidden = await executeGraphqlExpectingErrors(
+    studentToken,
+    `mutation Read($input: MarkNotificationReadInput!) {
+      markNotificationRead(input: $input) { notification { id } }
+    }`,
+    { input: { notificationId: firstId } },
+  );
+  assert.ok('errors' in otherStudentForbidden);
+  await executeGraphql(
+    fixtureToken,
+    `mutation Read($input: MarkNotificationReadInput!) {
+      markNotificationRead(input: $input) { notification { id readAt } }
+    }`,
+    { input: { notificationId: firstId } },
+  );
+  assert.notEqual(
+    (await database.notification.findUnique({ where: { id: firstId } }))
+      ?.readAt,
+    null,
+  );
+  await executeGraphql(
+    fixtureToken,
+    `mutation { markAllNotificationsRead { updatedCount } }`,
+  );
+  assert.equal(
+    await database.notification.count({
+      where: { id: { in: ids }, readAt: null },
+    }),
+    0,
+  );
+  const finalCount = await executeGraphql(
+    fixtureToken,
+    `query { myUnreadNotificationCount }`,
+  );
+  assert.equal(finalCount.myUnreadNotificationCount, 0);
 });
 
 void test('Teacher creates a categorized group with persisted schedule and ownership', async () => {
@@ -4500,6 +4679,332 @@ void test('Teacher and Student roles cannot call Admin academic operations', asy
   }
 });
 
+void test('Student settings persist profile image, contact details, and password', async () => {
+  const database = requireApp().get(DatabaseService);
+  const authService = requireApp().get(AuthService);
+  const passwordService = new CredentialPasswordService();
+  const initialPassword = 'reserved-student-password-2026';
+  const updatedPassword = 'updated-student-password-2026';
+  const initialEmail = `settings-${randomUUID()}@example.test`;
+  const updatedEmail = `settings-updated-${randomUUID()}@example.test`;
+  const provisioned = await executeGraphql(
+    adminToken,
+    `mutation ProvisionSettingsStudent($input: AdminProvisionUserInput!) {
+      adminProvisionUser(input: $input) { user { id } }
+    }`,
+    {
+      input: {
+        displayName: 'Reserved Settings Student',
+        email: initialEmail,
+        password: initialPassword,
+        role: 'STUDENT',
+      },
+    },
+  );
+  const userId = requireStringField(
+    requireRecordField(
+      requireRecordField(provisioned, 'adminProvisionUser'),
+      'user',
+    ),
+    'id',
+  );
+  const token = await authService.issueAccessToken({
+    id: userId,
+    role: UserRole.STUDENT,
+  });
+
+  const nonImageUpload = await executeGraphqlExpectingErrors(
+    token,
+    `mutation RejectStudentDocument($input: CreateMediaUploadIntentInput!) {
+      createMediaUploadIntent(input: $input) { uploadIntent { mediaObjectId } }
+    }`,
+    {
+      input: {
+        mimeType: 'application/pdf',
+        originalName: 'not-a-profile-image.pdf',
+        sizeBytes: 10,
+      },
+    },
+  );
+  assert.equal(
+    requireRecordField(
+      requireRecord(
+        requireArrayField(nonImageUpload, 'errors')[0],
+        'upload error',
+      ),
+      'extensions',
+    ).code,
+    'FORBIDDEN',
+  );
+
+  const image = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lXcAAAAASUVORK5CYII=',
+    'base64',
+  );
+  const created = await executeGraphql(
+    token,
+    `mutation CreateStudentAvatar($input: CreateMediaUploadIntentInput!) {
+      createMediaUploadIntent(input: $input) {
+        uploadIntent { mediaObjectId url requiredHeaders { name value } }
+      }
+    }`,
+    {
+      input: {
+        mimeType: 'image/png',
+        originalName: 'reserved-avatar.png',
+        sizeBytes: image.byteLength,
+      },
+    },
+  );
+  const intent = requireRecordField(
+    requireRecordField(created, 'createMediaUploadIntent'),
+    'uploadIntent',
+  );
+  const avatarMediaObjectId = requireStringField(intent, 'mediaObjectId');
+  const uploaded = await fetch(requireStringField(intent, 'url'), {
+    body: new Uint8Array(image),
+    headers: requireUploadHeaders(intent),
+    method: 'PUT',
+  });
+  assert.equal(uploaded.status, 200);
+  const confirmed = await executeGraphql(
+    token,
+    `mutation ConfirmStudentAvatar($input: MediaObjectReferenceInput!) {
+      confirmMediaUpload(input: $input) {
+        mediaObject { id malwareStatus status }
+      }
+    }`,
+    { input: { mediaObjectId: avatarMediaObjectId } },
+  );
+  const mediaObject = requireRecordField(
+    requireRecordField(confirmed, 'confirmMediaUpload'),
+    'mediaObject',
+  );
+  assert.equal(mediaObject.status, 'READY');
+  assert.equal(mediaObject.malwareStatus, 'CLEAN');
+
+  const updated = await executeGraphql(
+    token,
+    `mutation SaveStudentSettings($input: UpdateMyProfileInput!) {
+      updateMyProfile(input: $input) {
+        profile { id displayName email phone avatarMediaObjectId }
+      }
+    }`,
+    {
+      input: {
+        avatarMediaObjectId,
+        displayName: 'Mira Example',
+        email: updatedEmail,
+        phone: '+998900000000',
+        preferredLanguage: 'EN',
+      },
+    },
+  );
+  const profile = requireRecordField(
+    requireRecordField(updated, 'updateMyProfile'),
+    'profile',
+  );
+  assert.equal(profile.id, userId);
+  assert.equal(profile.displayName, 'Mira Example');
+  assert.equal(profile.email, updatedEmail);
+  assert.equal(profile.phone, '+998900000000');
+  assert.equal(profile.avatarMediaObjectId, avatarMediaObjectId);
+  const persisted = await database.user.findUniqueOrThrow({
+    where: { id: userId },
+    select: {
+      avatarMediaObjectId: true,
+      credentialPasswordHash: true,
+      displayName: true,
+      email: true,
+      phone: true,
+    },
+  });
+  assert.equal(persisted.avatarMediaObjectId, avatarMediaObjectId);
+  assert.equal(persisted.displayName, 'Mira Example');
+  assert.equal(persisted.email, updatedEmail);
+  assert.equal(persisted.phone, '+998900000000');
+
+  const passwordMutation = `mutation ChangeStudentPassword($input: ChangeMyPasswordInput!) {
+    changeMyPassword(input: $input) { changed }
+  }`;
+  const rejected = await executeGraphqlExpectingErrors(
+    token,
+    passwordMutation,
+    {
+      input: {
+        confirmPassword: updatedPassword,
+        currentPassword: 'wrong-reserved-password',
+        newPassword: updatedPassword,
+      },
+    },
+  );
+  assert.equal(requireArrayField(rejected, 'errors').length, 1);
+  const changed = await executeGraphql(token, passwordMutation, {
+    input: {
+      confirmPassword: updatedPassword,
+      currentPassword: initialPassword,
+      newPassword: updatedPassword,
+    },
+  });
+  assert.equal(requireRecordField(changed, 'changeMyPassword').changed, true);
+  const storedPassword = await database.user.findUniqueOrThrow({
+    where: { id: userId },
+    select: { credentialPasswordHash: true },
+  });
+  assert.notEqual(
+    storedPassword.credentialPasswordHash,
+    persisted.credentialPasswordHash,
+  );
+  assert.equal(
+    await passwordService.verifyPassword(
+      initialPassword,
+      storedPassword.credentialPasswordHash,
+    ),
+    false,
+  );
+  assert.equal(
+    await passwordService.verifyPassword(
+      updatedPassword,
+      storedPassword.credentialPasswordHash,
+    ),
+    true,
+  );
+});
+
+void test('Admin and owning Teacher can view current profile images only', async () => {
+  const database = requireApp().get(DatabaseService);
+  const image = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lXcAAAAASUVORK5CYII=',
+    'base64',
+  );
+  async function attachAvatar(token: string, userId: string): Promise<string> {
+    const created = await executeGraphql(
+      token,
+      `mutation CreateVisibleAvatar($input: CreateMediaUploadIntentInput!) {
+        createMediaUploadIntent(input: $input) {
+          uploadIntent { mediaObjectId url requiredHeaders { name value } }
+        }
+      }`,
+      {
+        input: {
+          mimeType: 'image/png',
+          originalName: 'fictional-profile.png',
+          sizeBytes: image.byteLength,
+        },
+      },
+    );
+    const intent = requireRecordField(
+      requireRecordField(created, 'createMediaUploadIntent'),
+      'uploadIntent',
+    );
+    const mediaObjectId = requireStringField(intent, 'mediaObjectId');
+    const upload = await fetch(requireStringField(intent, 'url'), {
+      body: new Uint8Array(image),
+      headers: requireUploadHeaders(intent),
+      method: 'PUT',
+    });
+    assert.equal(upload.status, 200);
+    await executeGraphql(
+      token,
+      `mutation ConfirmVisibleAvatar($input: MediaObjectReferenceInput!) {
+        confirmMediaUpload(input: $input) { mediaObject { id status } }
+      }`,
+      { input: { mediaObjectId } },
+    );
+    const user = await database.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { displayName: true, preferredLanguage: true },
+    });
+    await executeGraphql(
+      token,
+      `mutation AttachVisibleAvatar($input: UpdateMyProfileInput!) {
+        updateMyProfile(input: $input) { profile { avatarMediaObjectId } }
+      }`,
+      {
+        input: {
+          avatarMediaObjectId: mediaObjectId,
+          displayName: user.displayName,
+          preferredLanguage: user.preferredLanguage,
+        },
+      },
+    );
+    return mediaObjectId;
+  }
+
+  await attachAvatar(teacherToken, teacherId);
+  await attachAvatar(studentToken, studentId);
+  const operation = `mutation VisibleProfileAvatars($userIds: [ID!]!) {
+    profileAvatarDownloadIntents(userIds: $userIds) { userId url }
+  }`;
+  const admin = await executeGraphql(adminToken, operation, {
+    userIds: [teacherId, studentId],
+  });
+  const adminAvatars = requireArrayField(admin, 'profileAvatarDownloadIntents');
+  assert.deepEqual(
+    adminAvatars
+      .map((item) =>
+        requireStringField(requireRecord(item, 'avatar'), 'userId'),
+      )
+      .sort(),
+    [teacherId, studentId].sort(),
+  );
+  for (const item of adminAvatars) {
+    const response = await fetch(
+      requireStringField(requireRecord(item, 'avatar'), 'url'),
+    );
+    assert.equal(response.status, 200);
+    assert.deepEqual(Buffer.from(await response.arrayBuffer()), image);
+  }
+
+  const teacher = await executeGraphql(teacherToken, operation, {
+    userIds: [teacherId, studentId],
+  });
+  const teacherAvatars = requireArrayField(
+    teacher,
+    'profileAvatarDownloadIntents',
+  );
+  assert.deepEqual(
+    teacherAvatars.map((item) =>
+      requireStringField(requireRecord(item, 'avatar'), 'userId'),
+    ),
+    [studentId],
+  );
+  const otherTeacherId = randomUUID();
+  await database.user.create({
+    data: {
+      displayName: 'Unrelated Fictional Teacher',
+      id: otherTeacherId,
+      role: UserRole.TEACHER,
+    },
+  });
+  const otherTeacherToken = await requireApp()
+    .get(AuthService)
+    .issueAccessToken({
+      id: otherTeacherId,
+      role: UserRole.TEACHER,
+    });
+  const unrelated = await executeGraphql(otherTeacherToken, operation, {
+    userIds: [studentId],
+  });
+  assert.equal(
+    requireArrayField(unrelated, 'profileAvatarDownloadIntents').length,
+    0,
+  );
+  const denied = await executeGraphqlExpectingErrors(studentToken, operation, {
+    userIds: [teacherId],
+  });
+  assert.equal(
+    requireRecordField(
+      requireRecord(
+        requireArrayField(denied, 'errors')[0],
+        'authorization error',
+      ),
+      'extensions',
+    ).code,
+    'FORBIDDEN',
+  );
+});
+
 void test('Teacher can upload, confirm, and download an immutable private PDF', async () => {
   const pdf = Buffer.from('%PDF-1.7\n%%EOF');
   const created = await executeGraphql(
@@ -5205,6 +5710,100 @@ void test('Teacher lesson plans receive stable numbers and soft-delete from the 
   );
   assert.ok(listedIds.includes(lessonId));
 
+  const hiddenDraft = await executeGraphql(
+    studentToken,
+    `query StudentDraftVisibility($groupId: ID!) {
+      studentGroupLessons(groupId: $groupId, first: 50) {
+        edges { node { id } }
+      }
+      studentGroupMaterials(groupId: $groupId, language: EN, first: 50) {
+        edges { node { id } }
+      }
+    }`,
+    { groupId },
+  );
+  for (const [field, privateId] of [
+    ['studentGroupLessons', lessonId],
+    ['studentGroupMaterials', lessonMaterialId],
+  ] as const) {
+    const ids = requireArrayField(
+      requireRecordField(hiddenDraft, field),
+      'edges',
+    ).map((edge) =>
+      requireStringField(
+        requireRecordField(requireRecord(edge, `${field} edge`), 'node'),
+        'id',
+      ),
+    );
+    assert.equal(ids.includes(privateId), false);
+  }
+
+  await executeGraphql(
+    teacherToken,
+    `mutation PublishLessonForStudent($input: SetLessonStatusInput!) {
+      setLessonStatus(input: $input) { lesson { id status } }
+    }`,
+    { input: { lessonId, status: 'SCHEDULED' } },
+  );
+
+  const studentGroup = await executeGraphql(
+    studentToken,
+    `query StudentCurrentGroupForLessons {
+      studentCurrentGroup { group { id name } }
+    }`,
+  );
+  assert.equal(
+    requireStringField(
+      requireRecordField(
+        requireRecordField(studentGroup, 'studentCurrentGroup'),
+        'group',
+      ),
+      'id',
+    ),
+    groupId,
+  );
+  const studentLessons = await executeGraphql(
+    studentToken,
+    `query StudentLessonsForGroup($groupId: ID!) {
+      studentGroupLessons(groupId: $groupId, first: 50) {
+        edges { node { id lessonNumber } }
+      }
+      studentGroupMaterials(groupId: $groupId, language: EN, first: 50) {
+        edges { node { id lessonId libraryItemId kind mediaObject { id } } }
+      }
+    }`,
+    { groupId },
+  );
+  const studentLessonIds = requireArrayField(
+    requireRecordField(studentLessons, 'studentGroupLessons'),
+    'edges',
+  ).map((edge) =>
+    requireStringField(
+      requireRecordField(requireRecord(edge, 'student lesson edge'), 'node'),
+      'id',
+    ),
+  );
+  assert.ok(studentLessonIds.includes(lessonId));
+  const studentMaterialIds = requireArrayField(
+    requireRecordField(studentLessons, 'studentGroupMaterials'),
+    'edges',
+  ).map((edge) =>
+    requireStringField(
+      requireRecordField(requireRecord(edge, 'student material edge'), 'node'),
+      'id',
+    ),
+  );
+  assert.ok(studentMaterialIds.includes(lessonMaterialId));
+
+  const inaccessible = await executeGraphqlExpectingErrors(
+    studentToken,
+    `query OtherGroupLessons($groupId: ID!) {
+      studentGroupLessons(groupId: $groupId) { edges { node { id } } }
+    }`,
+    { groupId: randomUUID() },
+  );
+  assert.ok('errors' in inaccessible);
+
   await executeGraphql(
     teacherToken,
     `mutation ArchiveLesson($input: SetLessonArchivedInput!) {
@@ -5251,6 +5850,36 @@ void test('Teacher lesson plans receive stable numbers and soft-delete from the 
     ),
   );
   assert.equal(visibleMaterialIds.includes(lessonMaterialId), false);
+
+  const studentAfterArchive = await executeGraphql(
+    studentToken,
+    `query StudentLessonsAfterArchive($groupId: ID!) {
+      studentGroupLessons(groupId: $groupId, first: 50) {
+        edges { node { id } }
+      }
+      studentGroupMaterials(groupId: $groupId, language: EN, first: 50) {
+        edges { node { id } }
+      }
+    }`,
+    { groupId },
+  );
+  for (const field of ['studentGroupLessons', 'studentGroupMaterials']) {
+    const ids = requireArrayField(
+      requireRecordField(studentAfterArchive, field),
+      'edges',
+    ).map((edge) =>
+      requireStringField(
+        requireRecordField(requireRecord(edge, `${field} edge`), 'node'),
+        'id',
+      ),
+    );
+    assert.equal(
+      ids.includes(
+        field === 'studentGroupLessons' ? lessonId : lessonMaterialId,
+      ),
+      false,
+    );
+  }
 
   const database = requireApp().get(DatabaseService);
   const persisted = await database.lesson.findUniqueOrThrow({
