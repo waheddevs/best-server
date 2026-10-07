@@ -79,6 +79,17 @@ export class LessonsResolver {
   ) {
     return this.service.getTeacherLessons(id, groupId, first, after, status);
   }
+  @Query(() => LessonConnectionObject, { name: 'studentGroupLessons' })
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.STUDENT)
+  studentGroupLessons(
+    @AuthMember('id') id: string,
+    @Args('groupId', { type: () => ID }) groupId: string,
+    @Args('first', { nullable: true, type: () => Int }) first?: number,
+    @Args('after', { nullable: true }) after?: string,
+  ) {
+    return this.service.getStudentGroupLessons(id, groupId, first, after);
+  }
   @Query(() => LessonObject, { name: 'teacherLesson' })
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.TEACHER)

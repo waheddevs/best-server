@@ -1,4 +1,4 @@
-import { LessonStatus, Prisma } from '@best/database';
+import { ContentStatus, LessonStatus, Prisma } from '@best/database';
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
 import { ErrorCode } from '../../libs/enums/error-code.enum';
@@ -139,6 +139,33 @@ export class LessonsService {
         archivedAt: null,
         groupId,
         ...(status === undefined ? {} : { status }),
+      },
+      first,
+      after,
+    );
+  }
+
+  async getStudentGroupLessons(
+    studentId: string,
+    groupIdInput: string,
+    first?: number,
+    after?: string,
+  ): Promise<LessonConnectionObject> {
+    const groupId = parseUuid(groupIdInput, 'groupId');
+    const membership = await this.database.groupMembership.count({
+      where: {
+        endedAt: null,
+        groupId,
+        studentId,
+        group: { status: ContentStatus.ACTIVE },
+      },
+    });
+    if (membership === 0) throw notFound();
+    return this.getConnection(
+      {
+        archivedAt: null,
+        groupId,
+        status: { in: [LessonStatus.SCHEDULED, LessonStatus.COMPLETED] },
       },
       first,
       after,
