@@ -1019,6 +1019,7 @@ type Mutation {
   grantAdditionalTestAttempt(input: GrantAdditionalTestAttemptInput!): AttemptGrantPayload!
   markAllNotificationsRead: MarkAllNotificationsReadPayload!
   markNotificationRead(input: MarkNotificationReadInput!): NotificationPayload!
+  profileAvatarDownloadIntents(userIds: [ID!]!): [ProfileAvatarDownloadIntent!]!
   publishAssignment(input: AssignmentIdInput!): AssignmentPayload!
   publishTestVersion(input: TestVersionIdInput!): TeacherTestVersionPayload!
   recordLessonAttendance(input: RecordLessonAttendanceInput!): LessonAttendancePayload!
@@ -1115,6 +1116,11 @@ type PageInfo {
 type PracticeBookmarkPayload {
   saved: Boolean!
   testPaperId: ID!
+}
+
+type ProfileAvatarDownloadIntent {
+  url: String!
+  userId: ID!
 }
 
 enum PublicContentStatus {
@@ -1357,6 +1363,8 @@ type Query {
   studentAttemptMediaDownload(attemptId: ID!, mediaObjectId: ID!): MediaDownloadIntent!
   studentAvailableTests(after: String, first: Int, language: Language!): StudentTestConnection!
   studentCurrentGroup: StudentCurrentGroup
+  studentGroupLessons(after: String, first: Int, groupId: ID!): LessonConnection!
+  studentGroupMaterials(after: String, first: Int, groupId: ID!, language: Language! = EN): LessonMaterialConnection!
   studentLesson(lessonId: ID!): Lesson!
   studentLibraryItem(language: Language!, libraryItemId: ID!): StudentLibraryItem!
   studentLibraryItems(after: String, categoryId: ID, first: Int, language: Language!): StudentLibraryItemConnection!
