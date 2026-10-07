@@ -1,6 +1,6 @@
 import { UserRole } from '@best/database';
 import { UseGuards } from '@nestjs/common';
-import { Args, Mutation, Resolver } from '@nestjs/graphql';
+import { Args, ID, Mutation, Resolver } from '@nestjs/graphql';
 
 import { CreateMediaUploadIntentInput } from '../../schemas/assets/create-media-upload-intent.input';
 import {
@@ -9,6 +9,7 @@ import {
   CreateMediaUploadIntentPayloadObject,
 } from '../../schemas/assets/media-mutation-payload.object';
 import { MediaObjectReferenceInput } from '../../schemas/assets/media-object-reference.input';
+import { ProfileAvatarDownloadIntentObject } from '../../schemas/assets/profile-avatar-download-intent.object';
 import { AuthMember } from '../auth/decorators/auth-member.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { AuthGuard } from '../auth/guards/auth.guard';
@@ -24,7 +25,7 @@ export class AssetsResolver {
     name: 'createMediaUploadIntent',
   })
   @UseGuards(AuthGuard, RolesGuard)
-  @Roles(UserRole.TEACHER, UserRole.ADMIN)
+  @Roles(UserRole.STUDENT, UserRole.TEACHER, UserRole.ADMIN)
   async createMediaUploadIntent(
     @AuthMember('id') creatorId: string,
     @Args('input') input: CreateMediaUploadIntentInput,
@@ -41,7 +42,7 @@ export class AssetsResolver {
     name: 'confirmMediaUpload',
   })
   @UseGuards(AuthGuard, RolesGuard)
-  @Roles(UserRole.TEACHER, UserRole.ADMIN)
+  @Roles(UserRole.STUDENT, UserRole.TEACHER, UserRole.ADMIN)
   async confirmMediaUpload(
     @AuthMember('id') creatorId: string,
     @Args('input') input: MediaObjectReferenceInput,
@@ -69,5 +70,20 @@ export class AssetsResolver {
         input.mediaObjectId,
       ),
     };
+  }
+
+  @Mutation(() => [ProfileAvatarDownloadIntentObject], {
+    name: 'profileAvatarDownloadIntents',
+  })
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.TEACHER, UserRole.ADMIN)
+  profileAvatarDownloadIntents(
+    @AuthMember('id') viewerId: string,
+    @Args('userIds', { type: () => [ID] }) userIds: string[],
+  ): Promise<ProfileAvatarDownloadIntentObject[]> {
+    return this.assetsService.createProfileAvatarDownloadIntents(
+      viewerId,
+      userIds,
+    );
   }
 }

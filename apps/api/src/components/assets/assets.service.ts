@@ -1,10 +1,13 @@
 import { createHash, randomUUID } from 'node:crypto';
 
 import {
+  ContentStatus,
   MediaMalwareStatus,
   MediaObjectStatus,
-  type MediaType,
+  MediaType,
   MediaVisibility,
+  UserRole,
+  UserStatus,
 } from '@best/database';
 import { createPrivateObjectKey } from '@best/storage';
 import { Injectable } from '@nestjs/common';
@@ -39,6 +42,27 @@ export class AssetsService {
     input: CreateMediaUploadIntentInput,
   ): Promise<MediaUploadIntentObject> {
     const upload = validateMediaUpload(input, this.storage.maxUploadBytes);
+    const creator = await this.database.user.findFirst({
+      where: { id: creatorId, status: UserStatus.ACTIVE },
+      select: { role: true },
+    });
+    if (creator === null) {
+      throw new ApplicationError(
+        ErrorCode.FORBIDDEN,
+        'Media owner is not active',
+        403,
+      );
+    }
+    if (
+      creator.role === UserRole.STUDENT &&
+      (upload.mediaType !== MediaType.IMAGE || upload.sizeBytes > 5 * 1_048_576)
+    ) {
+      throw new ApplicationError(
+        ErrorCode.FORBIDDEN,
+        'Students may upload profile images up to 5 MB only',
+        403,
+      );
+    }
     const mediaObjectId = randomUUID();
     const objectKey = createPrivateObjectKey({
       mediaObjectId,
@@ -279,6 +303,91 @@ export class AssetsService {
     } catch (error: unknown) {
       throw storageUnavailableError(error);
     }
+  }
+
+  async createProfileAvatarDownloadIntents(
+    viewerId: string,
+    userIds: string[],
+  ): Promise<{ userId: string; url: string }[]> {
+    if (userIds.length > 100) {
+      throw new ApplicationError(
+        ErrorCode.BAD_USER_INPUT,
+        'At most 100 profile images can be requested',
+        400,
+      );
+    }
+    const ids = [...new Set(userIds.map((id) => parseUuid(id, 'userId')))];
+    if (ids.length === 0) return [];
+
+    const viewer = await this.database.user.findFirst({
+      where: { id: viewerId, status: UserStatus.ACTIVE },
+      select: { role: true },
+    });
+    if (viewer?.role !== UserRole.ADMIN && viewer?.role !== UserRole.TEACHER) {
+      throw new ApplicationError(
+        ErrorCode.FORBIDDEN,
+        'Profile images are not available',
+        403,
+      );
+    }
+
+    const users = await this.database.user.findMany({
+      where: {
+        id: { in: ids },
+        role:
+          viewer.role === UserRole.ADMIN
+            ? { in: [UserRole.STUDENT, UserRole.TEACHER] }
+            : UserRole.STUDENT,
+        status: UserStatus.ACTIVE,
+        ...(viewer.role === UserRole.TEACHER
+          ? {
+              groupMemberships: {
+                some: {
+                  endedAt: null,
+                  group: {
+                    status: { not: ContentStatus.DELETED },
+                    teacherId: viewerId,
+                  },
+                },
+              },
+            }
+          : {}),
+      },
+      select: {
+        id: true,
+        avatarMediaObject: {
+          select: {
+            createdById: true,
+            malwareStatus: true,
+            mediaType: true,
+            objectKey: true,
+            status: true,
+          },
+        },
+      },
+    });
+
+    return Promise.all(
+      users.flatMap((user) => {
+        const avatar = user.avatarMediaObject;
+        if (
+          avatar?.createdById !== user.id ||
+          avatar.mediaType !== MediaType.IMAGE ||
+          avatar.malwareStatus !== MediaMalwareStatus.CLEAN ||
+          avatar.status !== MediaObjectStatus.READY
+        ) {
+          return [];
+        }
+        return [
+          this.storage
+            .createDownloadIntent(avatar.objectKey)
+            .then((intent) => ({
+              userId: user.id,
+              url: intent.url,
+            })),
+        ];
+      }),
+    );
   }
 
   async createAuthorizedMediaDownloadIntent(
