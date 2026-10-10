@@ -5014,8 +5014,24 @@ void test('Speaking audio uploads are scoped to active owned attempts without wi
   const category = await database.testCategory.create({
     data: { teacherId, name: `Reserved audio upload ${randomUUID()}` },
   });
+  const paper = await database.testPaper.create({
+    data: {
+      academicYear: 2026,
+      createdById: teacherId,
+      groupId,
+      practiceNumber: 120,
+      slug: `reserved-audio-upload-${randomUUID()}`,
+      sourceLabel: 'Fictional integration fixture.',
+      title: 'Reserved Speaking audio upload paper',
+    },
+  });
   const speakingTest = await database.test.create({
-    data: { categoryId: category.id, groupId, skill: TestSkill.SPEAKING },
+    data: {
+      categoryId: category.id,
+      groupId,
+      paperId: paper.id,
+      skill: TestSkill.SPEAKING,
+    },
   });
   const version = await database.testVersion.create({
     data: {
@@ -5146,7 +5162,7 @@ void test('Speaking audio uploads are scoped to active owned attempts without wi
   await executeGraphql(
     studentToken,
     `mutation SaveSpeakingAudio($input: SaveAttemptAnswerInput!) {
-      saveAttemptAnswer(input: $input, language: EN) { id }
+      saveAttemptAnswer(input: $input, language: EN) { attempt { id } }
     }`,
     {
       input: {
