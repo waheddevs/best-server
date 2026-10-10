@@ -1014,6 +1014,7 @@ type Mutation {
   deleteTestDraftQuestion(input: TestVersionIdInput!, questionId: ID!): TeacherTestVersionPayload!
   deleteTestDraftSection(input: TestVersionIdInput!, testSectionId: ID!): TeacherTestVersionPayload!
   deleteTestSectionBlock(testSectionBlockId: ID!, testSectionId: ID!): TeacherTestVersionPayload!
+  discardTestAttempt(attemptId: ID!): Boolean!
   endGroupMembership(input: EndGroupMembershipInput!): MembershipMutationPayload!
   generateListeningAudio(input: GenerateListeningAudioInput!): GenerateListeningAudioPayload!
   grantAdditionalTestAttempt(input: GrantAdditionalTestAttemptInput!): AttemptGrantPayload!
