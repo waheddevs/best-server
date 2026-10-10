@@ -5005,6 +5005,201 @@ void test('Admin and owning Teacher can view current profile images only', async
   );
 });
 
+void test('Speaking audio uploads are scoped to active owned attempts without widening general Student uploads', async () => {
+  if (!app) throw new Error('Application is unavailable');
+  const database = app.get(DatabaseService);
+  const membership = await database.groupMembership.findFirstOrThrow({
+    where: { studentId, groupId },
+  });
+  const category = await database.testCategory.create({
+    data: { teacherId, name: `Reserved audio upload ${randomUUID()}` },
+  });
+  const speakingTest = await database.test.create({
+    data: { categoryId: category.id, groupId, skill: TestSkill.SPEAKING },
+  });
+  const version = await database.testVersion.create({
+    data: {
+      testId: speakingTest.id,
+      version: 1,
+      primaryLanguage: Language.EN,
+      scoringRuleVersion: 'manual-rubric-v1',
+      translations: {
+        create: { language: Language.EN, title: 'Reserved upload test' },
+      },
+    },
+  });
+  const section = await database.testSection.create({
+    data: {
+      testVersionId: version.id,
+      position: 1,
+      translations: {
+        create: {
+          language: Language.EN,
+          title: 'Reserved Part 1',
+          instructions: 'Record a fictional audio response.',
+        },
+      },
+    },
+  });
+  const question = await database.question.create({
+    data: {
+      testVersionId: version.id,
+      sectionId: section.id,
+      position: 1,
+      kind: QuestionKind.AUDIO_RESPONSE,
+      translations: {
+        create: {
+          language: Language.EN,
+          prompt: 'Describe a fictional place.',
+        },
+      },
+    },
+  });
+  const attempt = await database.attempt.create({
+    data: {
+      studentId,
+      groupMembershipId: membership.id,
+      testVersionId: version.id,
+      attemptNumber: 1,
+      expiresAt: new Date(Date.now() + 600_000),
+    },
+  });
+  const audio = Buffer.from([0x1a, 0x45, 0xdf, 0xa3, 0x01]);
+  const uploadInput = {
+    mimeType: 'audio/webm',
+    originalName: 'reserved-speaking-response.webm',
+    sizeBytes: audio.byteLength,
+  };
+  const input = {
+    ...uploadInput,
+    attemptId: attempt.id,
+    questionId: question.id,
+  };
+  const createMutation = `mutation SpeakingUpload($input: CreateAttemptAudioUploadInput!) {
+    createAttemptAudioUploadIntent(input: $input) {
+      uploadIntent { mediaObjectId url requiredHeaders { name value } }
+    }
+  }`;
+  const general = await executeGraphqlExpectingErrors(
+    studentToken,
+    `mutation GeneralAudio($input: CreateMediaUploadIntentInput!) {
+      createMediaUploadIntent(input: $input) { uploadIntent { mediaObjectId } }
+    }`,
+    { input: uploadInput },
+  );
+  assert.match(JSON.stringify(general.errors), /FORBIDDEN/);
+  const wrongQuestion = await executeGraphqlExpectingErrors(
+    studentToken,
+    createMutation,
+    { input: { ...input, questionId: randomUUID() } },
+  );
+  assert.match(JSON.stringify(wrongQuestion.errors), /ATTEMPT_NOT_ACTIVE/);
+  const nonAudio = await executeGraphqlExpectingErrors(
+    studentToken,
+    createMutation,
+    {
+      input: { ...input, mimeType: 'image/png', originalName: 'reserved.png' },
+    },
+  );
+  assert.match(JSON.stringify(nonAudio.errors), /BAD_USER_INPUT/);
+  const otherStudent = await database.user.create({
+    data: { displayName: 'Reserved Audio Owner', role: UserRole.STUDENT },
+  });
+  const otherToken = await app.get(AuthService).issueAccessToken({
+    id: otherStudent.id,
+    role: UserRole.STUDENT,
+  });
+  const foreign = await executeGraphqlExpectingErrors(
+    otherToken,
+    createMutation,
+    { input },
+  );
+  assert.match(JSON.stringify(foreign.errors), /ATTEMPT_NOT_ACTIVE/);
+
+  const created = await executeGraphql(studentToken, createMutation, { input });
+  const intent = requireRecordField(
+    requireRecordField(created, 'createAttemptAudioUploadIntent'),
+    'uploadIntent',
+  );
+  const mediaObjectId = requireStringField(intent, 'mediaObjectId');
+  const uploaded = await fetch(requireStringField(intent, 'url'), {
+    method: 'PUT',
+    body: audio,
+    headers: requireUploadHeaders(intent),
+  });
+  assert.equal(uploaded.status, 200);
+  const confirmed = await executeGraphql(
+    studentToken,
+    `mutation ConfirmSpeaking($input: ConfirmAttemptAudioUploadInput!) {
+      confirmAttemptAudioUpload(input: $input) { mediaObject { id status malwareStatus } }
+    }`,
+    {
+      input: { attemptId: attempt.id, questionId: question.id, mediaObjectId },
+    },
+  );
+  const media = requireRecordField(
+    requireRecordField(confirmed, 'confirmAttemptAudioUpload'),
+    'mediaObject',
+  );
+  assert.equal(media.status, 'READY');
+  assert.equal(media.malwareStatus, 'CLEAN');
+  await executeGraphql(
+    studentToken,
+    `mutation SaveSpeakingAudio($input: SaveAttemptAnswerInput!) {
+      saveAttemptAnswer(input: $input, language: EN) { id }
+    }`,
+    {
+      input: {
+        attemptId: attempt.id,
+        questionId: question.id,
+        responseMediaObjectId: mediaObjectId,
+      },
+    },
+  );
+  const answer = await database.attemptAnswer.findUniqueOrThrow({
+    where: {
+      attemptId_questionId: { attemptId: attempt.id, questionId: question.id },
+    },
+  });
+  assert.equal(answer.responseMediaObjectId, mediaObjectId);
+  const stored = await database.mediaObject.findUniqueOrThrow({
+    where: { id: mediaObjectId },
+  });
+  assert.equal(stored.createdById, studentId);
+  assert.equal(stored.visibility, MediaVisibility.OWNER_ONLY);
+
+  await database.attempt.update({
+    where: { id: attempt.id },
+    data: {
+      status: AttemptStatus.SUBMITTED,
+      submittedAt: new Date(),
+      submissionReason: AttemptSubmissionReason.MANUAL,
+    },
+  });
+  const closed = await executeGraphqlExpectingErrors(
+    studentToken,
+    createMutation,
+    { input },
+  );
+  assert.match(JSON.stringify(closed.errors), /ATTEMPT_NOT_ACTIVE/);
+  const expired = await database.attempt.create({
+    data: {
+      studentId,
+      groupMembershipId: membership.id,
+      testVersionId: version.id,
+      attemptNumber: 2,
+      startedAt: new Date(Date.now() - 120_000),
+      expiresAt: new Date(Date.now() - 60_000),
+    },
+  });
+  const expiredUpload = await executeGraphqlExpectingErrors(
+    studentToken,
+    createMutation,
+    { input: { ...input, attemptId: expired.id } },
+  );
+  assert.match(JSON.stringify(expiredUpload.errors), /ATTEMPT_NOT_ACTIVE/);
+});
+
 void test('Teacher can upload, confirm, and download an immutable private PDF', async () => {
   const pdf = Buffer.from('%PDF-1.7\n%%EOF');
   const created = await executeGraphql(
