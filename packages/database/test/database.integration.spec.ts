@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import { after, test } from 'node:test';
 
 import { loadInfrastructureEnvironment } from '@best/config';
@@ -77,6 +79,7 @@ void test('reviewed migrations expose the current database surface', async () =>
           '20260929020000_teacher_finance_snapshots',
           '20260930010000_accepted_answer_display_value',
           '20260930011000_accepted_answer_display_value_version_backfill',
+          '20261008010000_user_name_fields',
         ],
       ],
     );
@@ -100,7 +103,7 @@ void test('reviewed migrations expose the current database surface', async () =>
        WHERE "trigger_schema" = 'public'`,
     );
 
-    assert.equal(migrations.rowCount, 35);
+    assert.equal(migrations.rowCount, 36);
     assert.equal(tables.rows[0]?.count, '85');
     assert.equal(enums.rows[0]?.count, '42');
     assert.deepEqual(
@@ -800,6 +803,104 @@ async function createPublishedTestFixture(
     wrongOptionId,
   };
 }
+
+void test('user name migration backfills safe names without changing originals', async () => {
+  const migration = await readFile(
+    resolve('prisma/migrations/20261008010000_user_name_fields/migration.sql'),
+    'utf8',
+  );
+
+  await withTransaction(async (client) => {
+    // The temporary table shadows public.users only within this connection.
+    await client.query(`CREATE TEMP TABLE "users" (
+      "id" INTEGER PRIMARY KEY,
+      "display_name" VARCHAR(160) NOT NULL
+    ) ON COMMIT DROP`);
+    const names = [
+      'Avery Example',
+      'Mononym',
+      '  Sam\t\tSample  ',
+      'Compound Given Surname',
+      '   ',
+      `${'A'.repeat(81)} Sample`,
+    ];
+    for (const [index, name] of names.entries()) {
+      await client.query(
+        'INSERT INTO "users" ("id", "display_name") VALUES ($1, $2)',
+        [index, name],
+      );
+    }
+
+    await client.query(migration);
+    const actual = await client.query<{
+      display_name: string;
+      first_name: string | null;
+      last_name: string | null;
+    }>('SELECT display_name, first_name, last_name FROM "users" ORDER BY id');
+    assert.deepEqual(
+      actual.rows.map((row) => row.display_name),
+      names,
+    );
+    assert.deepEqual(
+      actual.rows.map((row) => [row.first_name, row.last_name]),
+      [
+        ['Avery', 'Example'],
+        ['Mononym', null],
+        ['Sam', 'Sample'],
+        [null, null],
+        [null, null],
+        [null, null],
+      ],
+    );
+
+    await expectDatabaseError(
+      client,
+      () => client.query(`UPDATE "users" SET first_name = '' WHERE id = 0`),
+      /users_first_name_check/,
+    );
+    await expectDatabaseError(
+      client,
+      () => client.query(`UPDATE "users" SET last_name = ' ' WHERE id = 0`),
+      /users_last_name_check/,
+    );
+    await expectDatabaseError(
+      client,
+      () => client.query(`UPDATE "users" SET first_name = NULL WHERE id = 0`),
+      /users_last_name_check/,
+    );
+
+    await client.query(`INSERT INTO "users" (id, display_name)
+      VALUES (99, 'Legacy Compatible')`);
+    const legacy = await client.query<{ first_name: null; last_name: null }>(
+      'SELECT first_name, last_name FROM "users" WHERE id = 99',
+    );
+    assert.deepEqual(legacy.rows, [{ first_name: null, last_name: null }]);
+  });
+});
+
+void test('user name columns are available on the deployed User table', async () => {
+  const columns = await pool.query<{
+    column_name: string;
+    character_maximum_length: number;
+    is_nullable: string;
+  }>(`SELECT column_name, character_maximum_length, is_nullable
+      FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'users'
+        AND column_name IN ('first_name', 'last_name')
+      ORDER BY column_name`);
+  assert.deepEqual(columns.rows, [
+    {
+      column_name: 'first_name',
+      character_maximum_length: 80,
+      is_nullable: 'YES',
+    },
+    {
+      column_name: 'last_name',
+      character_maximum_length: 80,
+      is_nullable: 'YES',
+    },
+  ]);
+});
 
 async function expectDatabaseError(
   client: PoolClient,
