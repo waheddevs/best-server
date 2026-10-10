@@ -1,6 +1,10 @@
 import { createRequire } from 'node:module';
 
 import type * as DatabasePackage from '../src/index.ts';
+import {
+  remainingScenarios,
+  remainingWritingTasks,
+} from './academic-catalog-remaining-content.ts';
 
 const require = createRequire(import.meta.url);
 const {
@@ -1884,6 +1888,31 @@ const pageOneScenarios: readonly PageOneScenario[] = [
 ];
 
 function pageOneScenario(practiceNumber: number): PageOneScenario {
+  if (practiceNumber >= 17) {
+    const row = remainingScenarios[practiceNumber - 17];
+    if (row === undefined)
+      throw new Error('Missing remaining practice scenario');
+    const [
+      applicant,
+      habitat,
+      initiative,
+      item,
+      locality,
+      street,
+      study,
+      venue,
+    ] = row;
+    return {
+      applicant,
+      habitat,
+      initiative,
+      item,
+      locality,
+      street,
+      study,
+      venue,
+    };
+  }
   const scenario = pageOneScenarios[practiceNumber - 2];
   if (scenario === undefined)
     throw new Error(
@@ -1955,7 +1984,7 @@ function pageOneListeningSections(
   const name = scenario.applicant.split(' ')[0] ?? 'Alex';
   const surname = scenario.applicant.split(' ')[1] ?? 'Taylor';
   const phone = `07700 900${String(300 + practiceNumber)}`;
-  const startDate = `${String(10 + practiceNumber)} April`;
+  const startDate = `${String(practiceNumber <= 16 ? 10 + practiceNumber : 1 + (practiceNumber % 28))} April`;
   const weekday = ['Tuesday', 'Wednesday', 'Thursday', 'Friday'][
     practiceNumber % 4
   ]!;
@@ -2163,7 +2192,12 @@ function pageOneListeningSections(
       sampleSize,
       'How many survey responses are needed?',
       `Ravi: We need ${sampleSize} completed survey responses.`,
-      threeOptions(sampleSize, '80', '200', practiceNumber + 2),
+      threeOptions(
+        sampleSize,
+        '80',
+        practiceNumber >= 17 ? String(Number(sampleSize) + 40) : '200',
+        practiceNumber + 2,
+      ),
     ],
     [
       weekday,
@@ -2295,7 +2329,9 @@ function pageOneReadingSections(
   practiceNumber: number,
 ): readonly ObjectiveSection[] {
   const scenario = pageOneScenario(practiceNumber);
-  const year = String(2008 + practiceNumber);
+  const year = String(
+    practiceNumber <= 16 ? 2008 + practiceNumber : 2010 + (practiceNumber % 15),
+  );
   const monitoring = `${String(2 + (practiceNumber % 3))} years`;
   const commonOptions = ['TRUE', 'FALSE', 'NOT GIVEN'];
   const firstFacts: Fact[] = [
@@ -2699,6 +2735,10 @@ async function main(): Promise<void> {
   validatePageOneContent();
   assertLocalDevelopmentDatabase();
   const apply = process.argv.includes('--apply');
+  if (process.argv.includes('--remaining-only')) {
+    await seedRemainingCatalog(apply);
+    return;
+  }
   const teacherEmail = (
     process.env.BEST_FIXTURE_TEACHER_EMAIL ?? 'ibrohim_gaffarov@gmail.com'
   )
@@ -3126,6 +3166,243 @@ async function main(): Promise<void> {
 
 type SeedGroup = { id: string; name: string };
 
+async function seedRemainingCatalog(apply: boolean): Promise<void> {
+  if (remainingScenarios.length !== practiceCatalogSize - 16)
+    throw new Error('Remaining content must cover exactly Tests 17–48');
+
+  const content = new Map<
+    number,
+    {
+      listening: readonly ObjectiveSection[];
+      reading: readonly ObjectiveSection[];
+    }
+  >();
+  const writingTitles = new Set<string>();
+  for (let number = 17; number <= practiceCatalogSize; number += 1) {
+    const listening = pageOneListeningSections(number);
+    const reading = pageOneReadingSections(number);
+    for (const [sections, expected] of [
+      [listening, [10, 10, 10, 10]],
+      [reading, [13, 13, 14]],
+    ] as const) {
+      if (sections.length !== expected.length)
+        throw new Error(`Invalid section count in Test ${String(number)}`);
+      for (const [index, definition] of sections.entries()) {
+        if (definition.facts.length !== expected[index])
+          throw new Error(`Invalid question count in Test ${String(number)}`);
+        const passage = (
+          definition.content ??
+          definition.facts.map((fact) => fact.sentence).join('\n\n')
+        ).toLowerCase();
+        for (const fact of definition.facts) {
+          if (
+            !passage.includes((fact.evidenceText ?? fact.answer).toLowerCase())
+          )
+            throw new Error(
+              `Missing answer evidence in Test ${String(number)}`,
+            );
+          if (
+            fact.options &&
+            (new Set(fact.options).size !== fact.options.length ||
+              fact.options.filter((option) => option === fact.answer).length !==
+                1)
+          )
+            throw new Error(`Invalid answer options in Test ${String(number)}`);
+          if (!fact.options && fact.answer.trim().split(/\s+/u).length > 3)
+            throw new Error(
+              `Completion answer exceeds word limit in Test ${String(number)}`,
+            );
+        }
+      }
+    }
+    const tasks = remainingWritingTasks(number);
+    if (writingTitles.has(tasks[0].title))
+      throw new Error(
+        `Invalid or duplicate Writing tasks in Test ${String(number)}`,
+      );
+    writingTitles.add(tasks[0].title);
+    content.set(number, { listening, reading });
+  }
+
+  const loadPapers = () =>
+    database.testPaper.findMany({
+      where: {
+        practiceNumber: { gte: 17, lte: practiceCatalogSize },
+        slug: { startsWith: 'best-lc-academic-test-' },
+        sourceLabel,
+        status: ContentStatus.ACTIVE,
+        group: { category: 'IELTS', status: ContentStatus.ACTIVE },
+      },
+      orderBy: [{ groupId: 'asc' }, { practiceNumber: 'asc' }],
+      select: {
+        id: true,
+        groupId: true,
+        practiceNumber: true,
+        tests: {
+          select: {
+            id: true,
+            categoryId: true,
+            skill: true,
+            status: true,
+            versions: {
+              orderBy: { version: 'desc' as const },
+              select: {
+                id: true,
+                status: true,
+                _count: { select: { questions: true } },
+                sections: {
+                  orderBy: { position: 'asc' as const },
+                  select: { _count: { select: { questions: true } } },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+  const papers = await loadPapers();
+  if (papers.length === 0)
+    throw new Error('No existing Tests 17–48 found; nothing was changed');
+  const groups = new Map<string, Set<number>>();
+  for (const paper of papers) {
+    const numbers = groups.get(paper.groupId) ?? new Set<number>();
+    numbers.add(paper.practiceNumber);
+    groups.set(paper.groupId, numbers);
+  }
+  if (
+    [...groups.values()].some(
+      (numbers) => numbers.size !== practiceCatalogSize - 16,
+    )
+  )
+    throw new Error(
+      'A target group has an incomplete paper catalog; refusing a partial seed',
+    );
+
+  const skills = [
+    TestSkill.LISTENING,
+    TestSkill.READING,
+    TestSkill.WRITING,
+  ] as const;
+  const isComplete = (test: (typeof papers)[number]['tests'][number]) => {
+    const expected =
+      test.skill === TestSkill.LISTENING
+        ? [10, 10, 10, 10]
+        : test.skill === TestSkill.READING
+          ? [13, 13, 14]
+          : [1, 1];
+    const published = test.versions.find(
+      (version) => version.status === TestVersionStatus.PUBLISHED,
+    );
+    return (
+      test.status === ContentStatus.ACTIVE &&
+      published?._count.questions ===
+        expected.reduce((sum, count) => sum + count, 0) &&
+      published.sections.length === expected.length &&
+      published.sections.every(
+        (section, index) => section._count.questions === expected[index],
+      )
+    );
+  };
+
+  // Preflight every target before the first write. Existing authored versions,
+  // including drafts, are never replaced by this fill-missing-only seed.
+  const plan = papers.map((paper) => {
+    const categoryId = paper.tests.find(
+      (test) => test.skill === TestSkill.SPEAKING,
+    )?.categoryId;
+    if (!categoryId)
+      throw new Error(
+        `No existing category for Test ${String(paper.practiceNumber)}`,
+      );
+    const missing = skills.filter((skill) => {
+      const test = paper.tests.find((item) => item.skill === skill);
+      if (test === undefined) return true;
+      if (!isComplete(test))
+        throw new Error(
+          `Test ${String(paper.practiceNumber)} ${skill} has existing incomplete content; nothing will be overwritten`,
+        );
+      return false;
+    });
+    return { paper, categoryId, missing };
+  });
+  const counts = Object.fromEntries(
+    skills.map((skill) => [
+      skill,
+      plan.filter((entry) => entry.missing.includes(skill)).length,
+    ]),
+  );
+  process.stdout.write(
+    `${JSON.stringify({ mode: apply ? 'apply' : 'dry-run', range: '17–48', groups: groups.size, papers: papers.length, missing: counts, listeningMedia: 'Transcripts only; audio assets must be attached through the existing authorized media workflow.' }, null, 2)}\n`,
+  );
+  if (!apply) return;
+
+  for (const { paper, categoryId, missing } of plan) {
+    if (missing.length === 0) continue;
+    const definitions = content.get(paper.practiceNumber);
+    if (definitions === undefined)
+      throw new Error('Validated content is missing');
+    await database.$transaction(
+      async (tx) => {
+        for (const skill of missing) {
+          if (skill === TestSkill.WRITING) {
+            await createWritingSkill(
+              tx,
+              categoryId,
+              paper.groupId,
+              paper.id,
+              paper.practiceNumber,
+            );
+          } else {
+            await createObjectiveSkill(tx, {
+              categoryId,
+              description:
+                skill === TestSkill.LISTENING
+                  ? 'Four original listening parts with 40 questions. Audio media is attached separately.'
+                  : 'Three original academic passages with 40 mixed-format questions.',
+              durationMinutes: skill === TestSkill.LISTENING ? 30 : 60,
+              groupId: paper.groupId,
+              paperId: paper.id,
+              sections:
+                skill === TestSkill.LISTENING
+                  ? definitions.listening
+                  : definitions.reading,
+              skill,
+              title: `Academic Test ${String(paper.practiceNumber)} — ${skill === TestSkill.LISTENING ? 'Listening' : 'Reading'}`,
+            });
+          }
+        }
+      },
+      { timeout: 120_000 },
+    );
+  }
+  const verified = await loadPapers();
+  if (
+    verified.length !== papers.length ||
+    verified.some((paper) =>
+      skills.some((skill) => {
+        const test = paper.tests.find((item) => item.skill === skill);
+        return test === undefined || !isComplete(test);
+      }),
+    )
+  )
+    throw new Error('Post-seed verification failed');
+  for (const before of papers) {
+    const after = verified.find((paper) => paper.id === before.id);
+    if (after === undefined) throw new Error('An existing paper is missing');
+    if (
+      before.tests.some(
+        (test) =>
+          JSON.stringify(test) !==
+          JSON.stringify(after.tests.find((item) => item.id === test.id)),
+      )
+    )
+      throw new Error('Existing content changed unexpectedly');
+  }
+  process.stdout.write(
+    `Verified ${String(verified.length)} papers: Listening 40, Reading 40, Writing 2. All pre-existing versions, including Speaking, were preserved.\n`,
+  );
+}
+
 async function isLegacySpeakingVersion(
   versionId: string,
   practiceNumber: number,
@@ -3480,16 +3757,17 @@ async function populateObjectiveVersion(
       if (definition.content === undefined) searchFrom = endOffset;
       const question = await tx.question.create({
         data: {
-          acceptedAnswers:
-            kind === QuestionKind.SHORT_TEXT
-              ? {
+          ...(kind === QuestionKind.SHORT_TEXT
+            ? {
+                acceptedAnswers: {
                   create: {
                     displayValue: fact.answer,
                     normalizedValue: normalize(fact.answer),
                     position: 1,
                   },
-                }
-              : undefined,
+                },
+              }
+            : {}),
           answerLimit:
             kind === QuestionKind.SHORT_TEXT
               ? input.skill === TestSkill.LISTENING && sectionIndex === 3
@@ -3501,10 +3779,10 @@ async function populateObjectiveVersion(
           },
           kind,
           maxSelections: fact.options === undefined ? null : 1,
-          options:
-            fact.options === undefined
-              ? undefined
-              : {
+          ...(fact.options === undefined
+            ? {}
+            : {
+                options: {
                   create: fact.options.map((text, optionIndex) => ({
                     isCorrect: text === fact.answer,
                     position: optionIndex + 1,
@@ -3513,6 +3791,7 @@ async function populateObjectiveVersion(
                     },
                   })),
                 },
+              }),
           position: questionPosition,
           sectionId: testSection.id,
           testVersionId,
@@ -3975,7 +4254,10 @@ async function createWritingSkill(
   paperId: string,
   practiceNumber: number,
 ): Promise<void> {
-  const tasks = writingPromptSets[practiceNumber - 1];
+  const tasks =
+    practiceNumber >= 17
+      ? remainingWritingTasks(practiceNumber)
+      : writingPromptSets[practiceNumber - 1];
   if (tasks === undefined) {
     throw new Error(
       `Writing prompt set ${String(practiceNumber)} is not available`,
