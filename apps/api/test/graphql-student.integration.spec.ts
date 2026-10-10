@@ -6951,6 +6951,7 @@ async function applyMigrations(connectionString: string): Promise<void> {
       '20260929020000_teacher_finance_snapshots',
       '20260930010000_accepted_answer_display_value',
       '20260930011000_accepted_answer_display_value_version_backfill',
+      '20261008010000_user_name_fields',
     ]) {
       const sql = await readFile(
         resolve(
