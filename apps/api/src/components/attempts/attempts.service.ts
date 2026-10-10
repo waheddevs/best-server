@@ -72,16 +72,16 @@ export class AttemptsService {
     studentId: string,
     input: CreateAttemptAudioUploadInput,
   ): Promise<MediaUploadIntentObject> {
-    await this.assertWritableAudioQuestion(
+    return this.assetsService.createSpeakingAudioUploadIntent(
       studentId,
       parseUuid(input.attemptId, 'attemptId'),
       parseUuid(input.questionId, 'questionId'),
+      {
+        mimeType: input.mimeType,
+        originalName: input.originalName,
+        sizeBytes: input.sizeBytes,
+      },
     );
-    return this.assetsService.createMediaUploadIntent(studentId, {
-      mimeType: input.mimeType,
-      originalName: input.originalName,
-      sizeBytes: input.sizeBytes,
-    });
   }
 
   async confirmAttemptAudioUpload(
@@ -1109,6 +1109,7 @@ export class AttemptsService {
         status: AttemptStatus.IN_PROGRESS,
         studentId,
         testVersion: {
+          test: { skill: TestSkill.SPEAKING },
           questions: {
             some: { id: questionId, kind: QuestionKind.AUDIO_RESPONSE },
           },

@@ -1,11 +1,14 @@
 import { createHash, randomUUID } from 'node:crypto';
 
 import {
+  AttemptStatus,
   ContentStatus,
   MediaMalwareStatus,
   MediaObjectStatus,
   MediaType,
   MediaVisibility,
+  QuestionKind,
+  TestSkill,
   UserRole,
   UserStatus,
 } from '@best/database';
@@ -27,6 +30,7 @@ import { MalwareScannerGateway } from './malware-scanner.gateway';
 import {
   getMediaUploadPolicy,
   validateMediaUpload,
+  type ValidatedMediaUpload,
 } from './media-upload-policy';
 
 @Injectable()
@@ -63,6 +67,53 @@ export class AssetsService {
         403,
       );
     }
+    return this.createValidatedUploadIntent(creatorId, upload);
+  }
+
+  async createSpeakingAudioUploadIntent(
+    studentId: string,
+    attemptId: string,
+    questionId: string,
+    input: CreateMediaUploadIntentInput,
+  ): Promise<MediaUploadIntentObject> {
+    const upload = validateMediaUpload(input, this.storage.maxUploadBytes);
+    if (upload.mediaType !== MediaType.AUDIO) {
+      throw new ApplicationError(
+        ErrorCode.BAD_USER_INPUT,
+        'Only audio can be uploaded as a Speaking response',
+        400,
+      );
+    }
+    const attempt = await this.database.attempt.findFirst({
+      where: {
+        id: attemptId,
+        studentId,
+        student: { role: UserRole.STUDENT, status: UserStatus.ACTIVE },
+        status: AttemptStatus.IN_PROGRESS,
+        OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+        testVersion: {
+          test: { skill: TestSkill.SPEAKING },
+          questions: {
+            some: { id: questionId, kind: QuestionKind.AUDIO_RESPONSE },
+          },
+        },
+      },
+      select: { id: true },
+    });
+    if (attempt === null) {
+      throw new ApplicationError(
+        ErrorCode.ATTEMPT_NOT_ACTIVE,
+        'The audio response does not belong to an active Speaking attempt',
+        409,
+      );
+    }
+    return this.createValidatedUploadIntent(studentId, upload);
+  }
+
+  private async createValidatedUploadIntent(
+    creatorId: string,
+    upload: ValidatedMediaUpload,
+  ): Promise<MediaUploadIntentObject> {
     const mediaObjectId = randomUUID();
     const objectKey = createPrivateObjectKey({
       mediaObjectId,
