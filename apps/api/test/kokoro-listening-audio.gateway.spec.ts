@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createSpeechSegments } from '../src/components/tests/kokoro-listening-audio.gateway';
+import { createSpeechSegments } from '../src/components/tests/kokoro-listening-audio.engine';
 
 void test('assigns stable Kokoro voices to labelled dialogue speakers', () => {
   const segments = createSpeechSegments(
