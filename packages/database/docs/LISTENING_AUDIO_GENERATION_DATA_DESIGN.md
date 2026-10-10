@@ -2,11 +2,13 @@
 
 ## Scope
 
-Teacher-owned IELTS Listening drafts may generate a Part 1 audio preview from
-the section transcript. The API runs the pinned Kokoro model in-process through
-`kokoro-js`, encodes the generated samples as WAV, and stores the file in the
-existing private object store. The Teacher must listen to and confirm the
-preview before the normal section save attaches it.
+Teacher-owned IELTS Listening drafts may generate an audio preview from the
+section transcript. A dedicated Node.js worker thread runs the pinned Kokoro
+model through `kokoro-js`, encodes the generated samples as WAV, and returns the
+bytes to the API for storage in the existing private object store. Keeping CPU
+inference and WAV encoding off the API event loop allows unrelated Student and
+Admin requests to continue while generation runs. The Teacher must listen to
+and confirm the preview before the normal section save attaches it.
 
 ## Persistence
 
@@ -55,9 +57,10 @@ routed through the user-upload malware scanner.
 
 `generateListeningAudio(input: GenerateListeningAudioInput!)` accepts the
 target `testSectionId` and transcript and returns the generated media identifier,
-duration, and short-lived private preview URL. The mutation is synchronous and
-bounded by the configured TTS timeout. Published versions remain immutable;
-the client creates the next draft version before invoking generation.
+duration, and short-lived private preview URL. The mutation remains synchronous
+from the Teacher client's perspective, while its CPU work runs outside the API
+event loop. Published versions remain immutable; the client creates the next
+draft version before invoking generation.
 
 ## Configuration
 
@@ -69,5 +72,7 @@ The API reads:
 - `TTS_MAX_TRANSCRIPT_CHARACTERS`
 
 The API pins `kokoro-js` `1.2.1`. On first use, Transformers.js downloads the
-configured model from Hugging Face and caches it locally. The API keeps one
-loaded model per process and serializes CPU generation requests.
+configured model from Hugging Face and caches it locally. Each API process owns
+one lazy, persistent TTS worker thread. That worker keeps one loaded model and
+serializes CPU generation requests. Worker failure rejects the active request;
+the next request starts a fresh worker without restarting the API process.
