@@ -39,6 +39,62 @@ export class AttemptsService {
     private readonly assetsService: AssetsService,
   ) {}
 
+  async discardTestAttempt(
+    studentId: string,
+    attemptIdInput: string,
+    correlationId: string | undefined,
+  ): Promise<boolean> {
+    const attemptId = parseUuid(attemptIdInput, 'attemptId');
+    return this.database.$transaction(async (transaction) => {
+      // Serialize Exit with submission; completed attempts must never be removed.
+      await transaction.$queryRaw`
+        SELECT "id" FROM "attempts"
+        WHERE "id" = ${attemptId}::uuid AND "student_id" = ${studentId}::uuid
+        FOR UPDATE
+      `;
+      const attempt = await transaction.attempt.findFirst({
+        where: { id: attemptId, studentId },
+        select: { status: true, testVersionId: true, attemptNumber: true },
+      });
+      if (attempt === null) {
+        // A retry after a lost response is safe only for this student's own Exit.
+        const discarded = await transaction.auditLog.findFirst({
+          where: {
+            actorId: studentId,
+            targetId: attemptId,
+            action: 'ATTEMPT_DISCARDED',
+          },
+          select: { id: true },
+        });
+        if (discarded) return true;
+        throw inaccessibleAttemptError();
+      }
+      if (attempt.status !== AttemptStatus.IN_PROGRESS) {
+        throw new ApplicationError(
+          ErrorCode.ATTEMPT_NOT_ACTIVE,
+          'Only an unfinished attempt can be discarded',
+          409,
+        );
+      }
+      await transaction.attempt.delete({ where: { id: attemptId } });
+      await transaction.auditLog.create({
+        data: {
+          actorId: studentId,
+          action: 'ATTEMPT_DISCARDED',
+          targetType: 'Attempt',
+          targetId: attemptId,
+          correlationId: correlationId ?? null,
+          oldValues: {
+            testVersionId: attempt.testVersionId,
+            attemptNumber: attempt.attemptNumber,
+          },
+        },
+      });
+      // Answers, selections and notes cascade. Uploaded media is not deleted.
+      return true;
+    });
+  }
+
   async createStudentAttemptMediaDownloadIntent(
     studentId: string,
     attemptIdInput: string,

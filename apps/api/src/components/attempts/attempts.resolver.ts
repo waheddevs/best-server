@@ -33,6 +33,21 @@ import { AttemptsService } from './attempts.service';
 export class AttemptsResolver {
   constructor(private readonly attemptsService: AttemptsService) {}
 
+  @Mutation(() => Boolean, { name: 'discardTestAttempt' })
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.STUDENT)
+  discardTestAttempt(
+    @AuthMember('id') studentId: string,
+    @Args('attemptId', { type: () => ID }) attemptId: string,
+    @Context() context: ApiGraphqlContext,
+  ): Promise<boolean> {
+    return this.attemptsService.discardTestAttempt(
+      studentId,
+      attemptId,
+      context.req.requestId,
+    );
+  }
+
   @Query(() => MediaDownloadIntentObject, {
     name: 'studentAttemptMediaDownload',
   })
