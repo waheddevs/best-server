@@ -1812,10 +1812,10 @@ function parseSectionTranslations(
 }
 
 function optionalPositiveInteger(
-  value: number | undefined,
+  value: number | null | undefined,
   field: string,
 ): number | null {
-  if (value === undefined) return null;
+  if (value === undefined || value === null) return null;
   if (!Number.isInteger(value) || value < 1)
     throw validationError(`${field} must be a positive whole number`);
   return value;
@@ -2669,11 +2669,11 @@ function requiredText(value: string, field: string, maximum: number): string {
 }
 
 function optionalText(
-  value: string | undefined,
+  value: string | null | undefined,
   field: string,
   maximum: number,
 ): string | null {
-  if (value === undefined) return null;
+  if (value === undefined || value === null) return null;
   const text = value.trim();
   if (text.length > maximum)
     throw validationError(
