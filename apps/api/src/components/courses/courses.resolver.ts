@@ -19,9 +19,26 @@ import { AuthMember } from '../auth/decorators/auth-member.decorator';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CoursesService } from './courses.service';
+import { CourseCoverService } from './course-cover.service';
+import { MediaDownloadIntentObject } from '../../schemas/assets/media-download-intent.object';
 @Resolver()
 export class CoursesResolver {
-  constructor(private readonly service: CoursesService) {}
+  constructor(
+    private readonly service: CoursesService,
+    private readonly covers: CourseCoverService,
+  ) {}
+
+  @Query(() => MediaDownloadIntentObject, { nullable: true })
+  publicCourseCover(@Args('courseId') courseId: string) {
+    return this.covers.download(courseId);
+  }
+
+  @Query(() => MediaDownloadIntentObject, { nullable: true })
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  adminCourseCover(@Args('courseId') courseId: string) {
+    return this.covers.download(courseId, true);
+  }
 
   @Query(() => PublicCourseConnectionObject, { name: 'publicCourses' }) list(
     @Args('language', { type: () => Language }) language: Language,

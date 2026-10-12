@@ -7,30 +7,6 @@ input AddStudentToGroupInput {
   studentId: ID!
 }
 
-type AdminAcademicOverview {
-  activeGroupCount: Int!
-  activeStudentCount: Int!
-  activeTeacherCount: Int!
-  assignedTestCount: Int!
-  averagePercentage: Float
-  awaitingScoreAssignmentCount: Int!
-  completedAssignmentCount: Int!
-  completionPercentage: Float!
-  failedAssignmentCount: Int!
-  highestPercentage: Float
-  lowestPercentage: Float
-  passedAssignmentCount: Int!
-  remainingAssignmentCount: Int!
-  scoredAssignmentCount: Int!
-  totalAssignmentCount: Int!
-}
-
-input AdminArchiveLibraryItemInput {
-  archived: Boolean!
-  libraryItemId: ID!
-  reason: String!
-}
-
 input AdminAssignTeacherTaskInput {
   dueAt: DateTime
   groupId: ID
@@ -40,56 +16,219 @@ input AdminAssignTeacherTaskInput {
   title: String!
 }
 
-type AdminAuditLog {
-  action: String!
-  actorId: ID
-  correlationId: String
-  createdAt: DateTime!
+type AdminCourseCatalog {
+  metrics: [AdminMetric!]!
+  nodes: [AdminCourseEntry!]!
+  page: Int!
+  pageCount: Int!
+  totalCount: Int!
+}
+
+type AdminCourseEntry {
   id: ID!
-  reason: String
-  targetId: String!
-  targetType: String!
+  registrations: Int!
+  updatedAt: DateTime!
+  versions: [PublicCourse!]!
 }
 
-type AdminAuditLogConnection {
-  edges: [AdminAuditLogEdge!]!
-  pageInfo: PageInfo!
+input AdminCourseTranslationInput {
+  audience: String
+  comparisonTitle: String
+  curriculum: [String!]!
+  description: String!
+  duration: String
+  focus: String
+  formatLabel: String
+  highlights: [String!]!
+  imageAlt: String
+  language: Language!
+  level: String
+  outcomes: [String!]!
+  overview: [String!]!
+  posterAlt: String
+  posterTitle: String
+  prerequisites: String
+  schedule: String
+  title: String!
+  tracks: [AdminTrackInput!]!
 }
 
-type AdminAuditLogEdge {
-  cursor: String!
-  node: AdminAuditLog!
+input AdminDeleteStudentInput {
+  studentId: ID!
 }
 
-type AdminGroupProgress {
-  activeStudentCount: Int!
-  assignedTestCount: Int!
-  averagePercentage: Float
-  awaitingScoreAssignmentCount: Int!
-  completedAssignmentCount: Int!
-  completionPercentage: Float!
-  failedAssignmentCount: Int!
-  groupId: ID!
-  groupName: String!
-  groupStatus: ContentStatus!
-  highestPercentage: Float
-  lowestPercentage: Float
-  passedAssignmentCount: Int!
-  remainingAssignmentCount: Int!
-  scoredAssignmentCount: Int!
-  teacherDisplayName: String!
+input AdminDeleteTeacherInput {
   teacherId: ID!
-  totalAssignmentCount: Int!
 }
 
-type AdminGroupProgressConnection {
-  edges: [AdminGroupProgressEdge!]!
-  pageInfo: PageInfo!
+input AdminDirectoryInput {
+  category: String
+  descending: Boolean! = false
+  from: String
+  groupId: String
+  month: String
+  page: Int! = 1
+  pageSize: Int! = 15
+  room: String
+  search: String
+  sort: String
+  status: String
+  studentId: String
+  teacherId: String
+  to: String
 }
 
-type AdminGroupProgressEdge {
-  cursor: String!
-  node: AdminGroupProgress!
+type AdminDirectoryOption {
+  id: String!
+  label: String!
+  status: String
+}
+
+type AdminDirectoryOptions {
+  groups: [AdminDirectoryOption!]!
+  students: [AdminDirectoryOption!]!
+  teachers: [AdminDirectoryOption!]!
+}
+
+type AdminEventCatalog {
+  metrics: [AdminMetric!]!
+  nodes: [AdminEventEntry!]!
+  page: Int!
+  pageCount: Int!
+  totalCount: Int!
+}
+
+type AdminEventEntry {
+  id: ID!
+  registrations: Int!
+  updatedAt: DateTime!
+  versions: [PublicEvent!]!
+}
+
+input AdminEventTranslationInput {
+  audience: [String!]!
+  dateLabel: String
+  description: String!
+  durationLabel: String
+  faq: [AdminFaqInput!]!
+  formatLabel: String
+  imageAlt: String
+  language: Language!
+  locationLabel: String
+  overview: [String!]!
+  practicalInfo: [String!]!
+  programme: [AdminProgrammeInput!]!
+  takeaways: [String!]!
+  timeLabel: String
+  title: String!
+  topics: [String!]!
+}
+
+type AdminExamCatalog {
+  metrics: [AdminMetric!]!
+  nodes: [AdminExamEntry!]!
+  page: Int!
+  pageCount: Int!
+  totalCount: Int!
+}
+
+type AdminExamEntry {
+  id: ID!
+  key: String!
+  position: Int!
+  registrations: Int!
+  revision: String!
+  sessions: [AdminExamSession!]!
+  status: PublicContentStatus!
+  translations: [AdminExamTranslation!]!
+}
+
+type AdminExamOption {
+  id: ID!
+  label: String!
+}
+
+type AdminExamSession {
+  active: Boolean!
+  capacity: Int
+  id: ID!
+  offeringId: ID!
+  registrations: Int!
+  revision: String!
+  startsAt: DateTime!
+}
+
+type AdminExamSessionDirectory {
+  metrics: [AdminMetric!]!
+  nodes: [AdminExamSessionRow!]!
+  offerings: [AdminExamOption!]!
+  page: Int!
+  pageCount: Int!
+  totalCount: Int!
+}
+
+type AdminExamSessionRow {
+  active: Boolean!
+  capacity: Int
+  id: ID!
+  offeringId: ID!
+  registrations: Int!
+  revision: String!
+  startsAt: DateTime!
+  title: String!
+}
+
+type AdminExamTranslation {
+  description: String!
+  duration: String!
+  formatLabel: String!
+  highlights: [String!]!
+  language: Language!
+  level: String!
+  title: String!
+}
+
+input AdminExamTranslationInput {
+  description: String!
+  duration: String!
+  formatLabel: String!
+  highlights: [String!]!
+  language: Language!
+  level: String!
+  title: String!
+}
+
+input AdminFaqInput {
+  answer: String!
+  question: String!
+}
+
+type AdminGroupDirectory {
+  metrics: [AdminMetric!]!
+  nodes: [AdminGroupRow!]!
+  page: Int!
+  pageCount: Int!
+  totalCount: Int!
+}
+
+type AdminGroupRow {
+  activeStudentCount: Int!
+  archivedAt: DateTime
+  category: GroupCategory
+  createdAt: DateTime!
+  endsAtMinutes: Int
+  id: ID!
+  monthlyTuitionUzs: String
+  name: String!
+  room: String
+  scheduleDays: [Int!]!
+  slug: String!
+  startsAtMinutes: Int
+  status: ContentStatus!
+  teacherId: ID!
+  teacherName: String!
+  timeZone: String!
+  updatedAt: DateTime!
 }
 
 type AdminIntakeConnection {
@@ -111,86 +250,291 @@ type AdminIntakeRecord {
   email: String
   id: ID!
   kind: String!
+  message: String
   name: String!
   phone: String
   reviewNote: String
   status: IntakeStatus!
+  subject: String
 }
 
-type AdminLibraryItem {
+type AdminLessonDirectory {
+  metrics: [AdminMetric!]!
+  nodes: [AdminLessonRow!]!
+  page: Int!
+  pageCount: Int!
+  totalCount: Int!
+}
+
+type AdminLessonRow {
   archivedAt: DateTime
+  createdAt: DateTime!
+  endsAt: DateTime!
+  groupId: ID!
+  groupName: String!
+  hasConflict: Boolean!
   id: ID!
-  ownerId: ID!
-  ownerName: String!
-  status: ContentStatus!
-  title: String!
+  lessonNumber: Int!
+  room: String
+  startsAt: DateTime!
+  status: LessonStatus!
+  studentCount: Int!
+  teacherId: String!
+  teacherName: String!
+  translations: [LessonTranslation!]!
   updatedAt: DateTime!
 }
 
-type AdminLibraryItemConnection {
-  edges: [AdminLibraryItemEdge!]!
-  pageInfo: PageInfo!
+type AdminMetric {
+  key: String!
+  value: String!
 }
 
-type AdminLibraryItemEdge {
-  cursor: String!
-  node: AdminLibraryItem!
-}
-
-type AdminLibraryItemPayload {
-  item: AdminLibraryItem!
-}
-
-type AdminLocationSummary {
-  activeGroupCount: Int!
-  nextLessonAt: DateTime
-  room: String!
-  scheduledLessonCount: Int!
-}
-
-type AdminMediaObject {
-  createdAt: DateTime!
-  id: ID!
-  malwareStatus: MediaMalwareStatus!
-  mimeType: String!
-  originalName: String!
-  ownerId: ID!
-  rejectionCode: String
-  status: MediaObjectStatus!
-}
-
-type AdminMediaObjectConnection {
-  edges: [AdminMediaObjectEdge!]!
-  pageInfo: PageInfo!
-}
-
-type AdminMediaObjectEdge {
-  cursor: String!
-  node: AdminMediaObject!
-}
-
-type AdminMediaObjectPayload {
-  mediaObject: AdminMediaObject!
+type AdminNoticeDirectory {
+  allCount: Int!
+  kinds: [String!]!
+  nodes: [Notification!]!
+  page: Int!
+  pageCount: Int!
+  totalCount: Int!
+  unreadCount: Int!
 }
 
 type AdminOperationalOverview {
   activeGroups: Int!
   activeUsers: Int!
   pendingIntakes: Int!
-  pendingMedia: Int!
   unreadNotifications: Int!
+}
+
+type AdminOverview {
+  lessons: [AdminOverviewItem!]!
+  metrics: [AdminMetric!]!
+  requests: [AdminOverviewItem!]!
+  upcoming: [AdminOverviewItem!]!
+}
+
+type AdminOverviewItem {
+  date: DateTime!
+  href: String!
+  id: String!
+  subtitle: String!
+  title: String!
+}
+
+type AdminPaymentDirectory {
+  metrics: [AdminMetric!]!
+  nodes: [AdminPaymentRow!]!
+  page: Int!
+  pageCount: Int!
+  totalCount: Int!
+}
+
+type AdminPaymentEvent {
+  amountUzs: String!
+  date: String!
+  id: String!
+  kind: String!
+  note: String
+}
+
+type AdminPaymentRow {
+  adjustmentUzs: String!
+  amountUzs: String!
+  balanceUzs: String!
+  dueDate: String!
+  events: [AdminPaymentEvent!]!
+  groupId: String!
+  groupName: String!
+  id: String!
+  month: String!
+  paidUzs: String!
+  status: String!
+  studentId: String!
+  studentName: String!
+}
+
+input AdminProgrammeInput {
+  description: String!
+  timeLabel: String!
+  title: String!
 }
 
 input AdminProvisionUserInput {
   displayName: String!
   email: String!
+  groupId: ID
   password: String!
   role: UserRole!
 }
 
-input AdminRejectMediaObjectInput {
-  mediaObjectId: ID!
-  reason: String!
+input AdminRemoveCourseInput {
+  courseId: ID!
+  expectedUpdatedAt: DateTime!
+}
+
+input AdminRemoveEventInput {
+  eventId: ID!
+  expectedUpdatedAt: DateTime!
+}
+
+input AdminRemoveExamInput {
+  offeringId: ID!
+  revision: String!
+}
+
+input AdminRemoveMessageInput {
+  messageId: ID!
+}
+
+input AdminRemoveRequestInput {
+  expectedUpdatedAt: String!
+  id: ID!
+  kind: String!
+}
+
+type AdminRequest {
+  createdAt: DateTime!
+  currentLevel: String
+  email: String
+  id: ID!
+  kind: String!
+  message: String
+  name: String!
+  participantCount: Int
+  phone: String
+  reviewNote: String
+  sessionAt: DateTime
+  status: IntakeStatus!
+  subject: String
+  subjectId: String!
+  subjectName: String!
+  updatedAt: DateTime!
+}
+
+type AdminRequestDirectory {
+  metrics: [AdminMetric!]!
+  nodes: [AdminRequest!]!
+  page: Int!
+  pageCount: Int!
+  totalCount: Int!
+}
+
+input AdminReviewRequestInput {
+  expectedUpdatedAt: String!
+  id: ID!
+  kind: String!
+  note: String!
+  status: IntakeStatus!
+}
+
+type AdminSalaryDirectory {
+  metrics: [AdminMetric!]!
+  nodes: [AdminSalaryRow!]!
+  page: Int!
+  pageCount: Int!
+  totalCount: Int!
+}
+
+type AdminSalaryRow {
+  baseUzs: String!
+  bonusUzs: String!
+  deductionUzs: String!
+  groupCount: Int!
+  id: String!
+  month: String!
+  netUzs: String!
+  note: String
+  status: String!
+  studentCount: Int!
+  teacherId: String!
+  teacherName: String!
+  version: Int!
+}
+
+input AdminSaveCourseContentInput {
+  accent: PublicCourseAccent!
+  category: PublicCourseCategory!
+  coverMediaId: ID
+  expectedUpdatedAt: String
+  featured: Boolean!
+  heroVariant: String
+  id: ID
+  imagePath: String
+  position: Int!
+  posterImagePath: String
+  slug: String!
+  symbol: String!
+  translations: [AdminCourseTranslationInput!]!
+}
+
+input AdminSaveEventContentInput {
+  capacity: Int
+  coverMediaId: ID
+  endsAt: DateTime
+  expectedUpdatedAt: String
+  id: ID
+  imagePath: String
+  location: String
+  position: Int!
+  slug: String!
+  startsAt: DateTime!
+  timelineStatus: PublicEventTimelineStatus!
+  translations: [AdminEventTranslationInput!]!
+}
+
+input AdminSaveExamInput {
+  id: ID
+  key: String!
+  position: Int!
+  revision: String
+  status: PublicContentStatus!
+  translations: [AdminExamTranslationInput!]!
+}
+
+input AdminSaveExamSessionInput {
+  active: Boolean!
+  capacity: Int
+  id: ID
+  offeringId: ID!
+  revision: String
+  startsAt: DateTime!
+}
+
+input AdminSaveGroupInput {
+  category: GroupCategory!
+  endsAtMinutes: Int
+  expectedUpdatedAt: String
+  groupId: ID
+  monthlyTuitionUzs: String
+  name: String!
+  room: String
+  scheduleDays: [Int!]!
+  slug: String!
+  startsAtMinutes: Int
+  teacherId: ID!
+  timeZone: String
+}
+
+input AdminSaveLessonInput {
+  endsAt: DateTime!
+  expectedUpdatedAt: String
+  groupId: ID!
+  lessonId: ID
+  room: String
+  startsAt: DateTime!
+  translations: [LessonTranslationInput!]!
+}
+
+input AdminSaveSalaryInput {
+  baseUzs: String!
+  bonusUzs: String!
+  deductionUzs: String!
+  id: ID
+  month: String!
+  note: String
+  teacherId: ID!
+  version: Int
 }
 
 input AdminSetUserRoleInput {
@@ -205,84 +549,19 @@ input AdminSetUserStatusInput {
   userId: ID!
 }
 
-type AdminStudent {
-  averagePercentage: Float
-  currentGroupId: ID
-  currentGroupName: String
-  displayName: String!
-  failedTestCount: Int!
-  highestPercentage: Float
-  latestResultAt: DateTime
-  lowestPercentage: Float
-  passedTestCount: Int!
-  scoredAttemptCount: Int!
-  scoredTestCount: Int!
-  status: UserStatus!
-  studentId: ID!
-}
-
-type AdminStudentConnection {
-  edges: [AdminStudentEdge!]!
-  pageInfo: PageInfo!
-}
-
-type AdminStudentEdge {
-  cursor: String!
-  node: AdminStudent!
-}
-
-type AdminStudentResult {
-  attemptId: ID!
-  attemptNumber: Int!
-  correctAnswerCount: Int!
-  groupId: ID!
-  groupName: String!
-  highestPercentage: Float!
-  passed: Boolean!
-  percentage: Float!
-  submittedAt: DateTime!
-  testId: ID!
+input AdminTrackInput {
+  highlights: [String!]!
+  level: String!
+  summary: String!
   title: String!
-  totalQuestionCount: Int!
-}
-
-type AdminStudentResultConnection {
-  edges: [AdminStudentResultEdge!]!
-  pageInfo: PageInfo!
-}
-
-type AdminStudentResultEdge {
-  cursor: String!
-  node: AdminStudentResult!
-}
-
-type AdminTestSummary {
-  attemptCount: Int!
-  awaitingReviewCount: Int!
-  groupId: ID!
-  groupName: String!
-  id: ID!
-  language: Language!
-  latestVersionNumber: Int
-  latestVersionStatus: TestVersionStatus
-  questionCount: Int!
-  status: ContentStatus!
-  teacherDisplayName: String!
-  teacherId: ID!
-  title: String!
-}
-
-type AdminTestSummaryConnection {
-  edges: [AdminTestSummaryEdge!]!
-  pageInfo: PageInfo!
-}
-
-type AdminTestSummaryEdge {
-  cursor: String!
-  node: AdminTestSummary!
 }
 
 type AdminUser {
+  activeGroupId: ID
+  activeGroupName: String
+  activeMembershipStartedAt: DateTime
+  activeTeacherId: ID
+  activeTeacherName: String
   avatarMediaObjectId: ID
   branchName: String
   createdAt: DateTime!
@@ -974,12 +1253,28 @@ type MembershipMutationPayload {
 type Mutation {
   addStudentToGroup(input: AddStudentToGroupInput!): MembershipMutationPayload!
   adminAssignTeacherTask(input: AdminAssignTeacherTaskInput!): TeacherTaskPayload!
+  adminDeleteStudent(input: AdminDeleteStudentInput!): AdminUserMutationPayload!
+  adminDeleteTeacher(input: AdminDeleteTeacherInput!): AdminUserMutationPayload!
+  adminFinalizeSalary(id: ID!, version: Int!): AdminSalaryRow!
   adminProvisionUser(input: AdminProvisionUserInput!): AdminUserMutationPayload!
-  adminRejectMediaObject(input: AdminRejectMediaObjectInput!): AdminMediaObjectPayload!
+  adminRemoveCourse(input: AdminRemoveCourseInput!): ID!
+  adminRemoveEvent(input: AdminRemoveEventInput!): ID!
+  adminRemoveExam(input: AdminRemoveExamInput!): ID!
+  adminRemoveMessage(input: AdminRemoveMessageInput!): ID!
+  adminRemoveRequest(input: AdminRemoveRequestInput!): ID!
+  adminReviewRequest(input: AdminReviewRequestInput!): ID!
+  adminSaveCourseContent(input: AdminSaveCourseContentInput!): ID!
+  adminSaveEventContent(input: AdminSaveEventContentInput!): ID!
+  adminSaveExam(input: AdminSaveExamInput!): ID!
+  adminSaveExamSession(input: AdminSaveExamSessionInput!): ID!
+  adminSaveGroup(input: AdminSaveGroupInput!): Group!
+  adminSaveLesson(input: AdminSaveLessonInput!): Lesson!
+  adminSaveSalary(input: AdminSaveSalaryInput!): AdminSalaryRow!
   adminSetContactRequestStatus(input: SetIntakeStatusInput!): AdminIntakePayload!
   adminSetEventRegistrationStatus(input: SetIntakeStatusInput!): AdminIntakePayload!
   adminSetExamRegistrationStatus(input: SetIntakeStatusInput!): AdminIntakePayload!
-  adminSetLibraryItemArchived(input: AdminArchiveLibraryItemInput!): AdminLibraryItemPayload!
+  adminSetGroupStatus(groupId: ID!, status: String!): Group!
+  adminSetLessonStatus(lessonId: ID!, reason: String!, status: String!): Lesson!
   adminSetUserRole(input: AdminSetUserRoleInput!): AdminUserMutationPayload!
   adminSetUserStatus(input: AdminSetUserStatusInput!): AdminUserMutationPayload!
   beginCredentialLogin(input: BeginCredentialLoginInput!): CredentialLoginChallengePayload!
@@ -1323,28 +1618,32 @@ type PublicSubmissionReceipt {
 }
 
 type Query {
-  adminAcademicOverview: AdminAcademicOverview!
-  adminAttendance(lessonId: ID!): [LessonAttendance!]!
-  adminAuditLogs(action: String, actorId: ID, after: String, first: Int, from: DateTime, targetType: String, to: DateTime): AdminAuditLogConnection!
   adminContactRequests(after: String, first: Int, status: IntakeStatus): AdminIntakeConnection!
   adminCourse(language: Language!, slug: String!): PublicCourse!
+  adminCourseCatalog(input: AdminDirectoryInput!): AdminCourseCatalog!
+  adminCourseCover(courseId: String!): MediaDownloadIntent
   adminCourses(after: String, first: Int, language: Language!): PublicCourseConnection!
+  adminDirectoryOptions: AdminDirectoryOptions!
   adminEvent(language: Language!, slug: String!): PublicEvent!
+  adminEventCatalog(input: AdminDirectoryInput!): AdminEventCatalog!
+  adminEventCover(eventId: String!): MediaDownloadIntent
   adminEventRegistrations(after: String, first: Int, status: IntakeStatus): AdminIntakeConnection!
   adminEvents(after: String, first: Int, language: Language!): PublicEventConnection!
+  adminExamCatalog(input: AdminDirectoryInput!): AdminExamCatalog!
   adminExamRegistrations(after: String, first: Int, status: IntakeStatus): AdminIntakeConnection!
+  adminExamSessionDirectory(input: AdminDirectoryInput!, language: Language!): AdminExamSessionDirectory!
   adminGroup(groupId: ID!): Group!
-  adminGroupProgresses(after: String, first: Int): AdminGroupProgressConnection!
+  adminGroupDirectory(input: AdminDirectoryInput!): AdminGroupDirectory!
   adminGroups(after: String, first: Int, search: String, status: ContentStatus, teacherId: ID): GroupConnection!
-  adminLibraryItems(after: String, first: Int, ownerId: ID, search: String, status: ContentStatus): AdminLibraryItemConnection!
-  adminLocations: [AdminLocationSummary!]!
-  adminMediaObjects(after: String, first: Int, malwareStatus: MediaMalwareStatus, ownerId: ID, status: MediaObjectStatus): AdminMediaObjectConnection!
+  adminLessonDirectory(input: AdminDirectoryInput!): AdminLessonDirectory!
+  adminNoticeDirectory(input: AdminDirectoryInput!): AdminNoticeDirectory!
   adminOperationalOverview: AdminOperationalOverview!
+  adminOverview(language: Language!): AdminOverview!
+  adminPaymentDetail(id: ID!): AdminPaymentRow!
+  adminPaymentDirectory(input: AdminDirectoryInput!): AdminPaymentDirectory!
+  adminRequestDirectory(input: AdminDirectoryInput!, language: Language!): AdminRequestDirectory!
+  adminSalaryDirectory(input: AdminDirectoryInput!): AdminSalaryDirectory!
   adminSchedule(from: DateTime!, to: DateTime!): [Lesson!]!
-  adminStudentResults(after: String, first: Int, language: Language!, studentId: ID!): AdminStudentResultConnection!
-  adminStudents(after: String, first: Int): AdminStudentConnection!
-  adminTest(language: Language!, testId: ID!): AdminTestSummary!
-  adminTests(after: String, first: Int, language: Language!): AdminTestSummaryConnection!
   adminTuitionLedger(after: String, first: Int, studentId: ID): TuitionLedgerConnection!
   adminUser(userId: ID!): AdminUser!
   adminUsers(after: String, first: Int, role: UserRole, search: String, status: UserStatus): AdminUserConnection!
@@ -1352,8 +1651,10 @@ type Query {
   myProfile: UserProfile!
   myUnreadNotificationCount: Int!
   publicCourse(language: Language!, slug: String!): PublicCourse!
+  publicCourseCover(courseId: String!): MediaDownloadIntent
   publicCourses(after: String, first: Int, language: Language!): PublicCourseConnection!
   publicEvent(language: Language!, slug: String!): PublicEvent!
+  publicEventCover(eventId: String!): MediaDownloadIntent
   publicEvents(after: String, first: Int, language: Language!): PublicEventConnection!
   publicExamOfferings(language: Language!): [PublicExamOffering!]!
   publicFaq(language: Language!): [PublicFaqItem!]!

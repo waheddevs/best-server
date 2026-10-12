@@ -33,9 +33,25 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { EventsService } from './events.service';
+import { EventCoverService } from './event-cover.service';
+import { MediaDownloadIntentObject } from '../../schemas/assets/media-download-intent.object';
 @Resolver()
 export class EventsResolver {
-  constructor(private readonly service: EventsService) {}
+  constructor(
+    private readonly service: EventsService,
+    private readonly covers: EventCoverService,
+  ) {}
+  @Query(() => MediaDownloadIntentObject, { nullable: true })
+  publicEventCover(@Args('eventId') eventId: string) {
+    return this.covers.download(eventId);
+  }
+
+  @Query(() => MediaDownloadIntentObject, { nullable: true })
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  adminEventCover(@Args('eventId') eventId: string) {
+    return this.covers.download(eventId, true);
+  }
 
   @Query(() => PublicEventConnectionObject, { name: 'publicEvents' }) list(
     @Args('language', { type: () => Language }) language: Language,

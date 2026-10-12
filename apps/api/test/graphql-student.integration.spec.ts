@@ -8341,6 +8341,188 @@ void test('Admin message removal retains data, hides lists and counts, and enfor
   );
 });
 
+void test('Admin course cover: upload, ownership, persistence and public visibility', async () => {
+  const db = requireEditorialApp().get(DatabaseService);
+  const bytes = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aF6kAAAAASUVORK5CYII=',
+    'base64',
+  );
+  const created = await executeGraphql(
+    adminToken,
+    `mutation($input:CreateMediaUploadIntentInput!){createMediaUploadIntent(input:$input){uploadIntent{mediaObjectId url requiredHeaders{name value}}}}`,
+    {
+      input: {
+        originalName: 'reserved-course.png',
+        mimeType: 'image/png',
+        sizeBytes: bytes.length,
+      },
+    },
+  );
+  const intent = requireRecordField(
+    requireRecordField(created, 'createMediaUploadIntent'),
+    'uploadIntent',
+  );
+  const coverMediaId = requireStringField(intent, 'mediaObjectId');
+  const input = {
+    slug: 'reserved-cover-' + randomUUID(),
+    position: 0,
+    category: 'ENGLISH',
+    accent: 'BLUE',
+    symbol: 'C',
+    featured: false,
+    coverMediaId,
+    translations: ['UZ', 'RU', 'EN'].map((language) => ({
+      language,
+      title: 'Reserved course',
+      description: 'Reserved description',
+      overview: [],
+      highlights: [],
+      outcomes: [],
+      curriculum: [],
+      tracks: [],
+    })),
+  };
+  const save = `mutation($input:AdminSaveCourseContentInput!){adminSaveCourseContent(input:$input)}`;
+  await assert.rejects(executeGraphql(adminToken, save, { input }));
+  assert.equal(
+    (
+      await fetch(requireStringField(intent, 'url'), {
+        method: 'PUT',
+        headers: requireUploadHeaders(intent),
+        body: bytes,
+      })
+    ).status,
+    200,
+  );
+  await executeGraphql(
+    adminToken,
+    `mutation($input:MediaObjectReferenceInput!){confirmMediaUpload(input:$input){mediaObject{id status}}}`,
+    { input: { mediaObjectId: coverMediaId } },
+  );
+  await assert.rejects(executeGraphql(teacherToken, save, { input }));
+  await assert.rejects(executeGraphql(studentToken, save, { input }));
+  const id = String(
+    (await executeGraphql(adminToken, save, { input })).adminSaveCourseContent,
+  );
+  let course = await db.publicCourse.findUniqueOrThrow({ where: { id } });
+  assert.equal(course.coverMediaId, coverMediaId);
+  const publicQuery = `query($courseId:String!){publicCourseCover(courseId:$courseId){url expiresAt}}`;
+  const adminQuery = `query($courseId:String!){adminCourseCover(courseId:$courseId){url expiresAt}}`;
+  assert.equal(
+    (await executeGraphql(undefined, publicQuery, { courseId: id }))
+      .publicCourseCover,
+    null,
+  );
+  await assert.rejects(
+    executeGraphql(studentToken, adminQuery, { courseId: id }),
+  );
+  const preview = requireRecordField(
+    await executeGraphql(adminToken, adminQuery, { courseId: id }),
+    'adminCourseCover',
+  );
+  assert.equal((await fetch(requireStringField(preview, 'url'))).status, 200);
+  const otherId = randomUUID();
+  await db.user.create({
+    data: { id: otherId, displayName: 'Reserved Admin', role: UserRole.ADMIN },
+  });
+  const otherToken = await requireEditorialApp()
+    .get(AuthService)
+    .issueAccessToken({ id: otherId, role: UserRole.ADMIN });
+  await assert.rejects(
+    executeGraphql(otherToken, save, {
+      input: { ...input, slug: 'reserved-other-' + randomUUID() },
+    }),
+  );
+  await executeGraphql(otherToken, save, {
+    input: { ...input, id, expectedUpdatedAt: course.updatedAt.toISOString() },
+  });
+  await executeGraphql(
+    adminToken,
+    `mutation($input:SetPublicCourseStatusInput!){setCourseStatus(input:$input){course{id}}}`,
+    { input: { courseId: id, status: 'PUBLISHED' } },
+  );
+  const published = requireRecordField(
+    await executeGraphql(undefined, publicQuery, { courseId: id }),
+    'publicCourseCover',
+  );
+  assert.ok(
+    Date.parse(requireStringField(published, 'expiresAt')) > Date.now(),
+  );
+  assert.deepEqual(
+    Buffer.from(
+      await (await fetch(requireStringField(published, 'url'))).arrayBuffer(),
+    ),
+    bytes,
+  );
+  await executeGraphql(
+    adminToken,
+    `mutation($input:SetPublicCourseStatusInput!){setCourseStatus(input:$input){course{id}}}`,
+    {
+      input: {
+        courseId: id,
+        status: 'ARCHIVED',
+        reason: 'Reserved visibility test',
+      },
+    },
+  );
+  assert.equal(
+    (await executeGraphql(undefined, publicQuery, { courseId: id }))
+      .publicCourseCover,
+    null,
+  );
+  course = await db.publicCourse.findUniqueOrThrow({ where: { id } });
+  await executeGraphql(adminToken, save, {
+    input: {
+      ...input,
+      id,
+      expectedUpdatedAt: course.updatedAt.toISOString(),
+      coverMediaId: null,
+    },
+  });
+  assert.equal(
+    (await db.publicCourse.findUniqueOrThrow({ where: { id } })).coverMediaId,
+    null,
+  );
+  assert.equal(
+    (await executeGraphql(undefined, publicQuery, { courseId: id }))
+      .publicCourseCover,
+    null,
+  );
+  course = await db.publicCourse.findUniqueOrThrow({ where: { id } });
+  await executeGraphql(adminToken, save, {
+    input: { ...input, id, expectedUpdatedAt: course.updatedAt.toISOString() },
+  });
+  await executeGraphql(
+    adminToken,
+    `mutation($input:SetPublicCourseStatusInput!){setCourseStatus(input:$input){course{id}}}`,
+    { input: { courseId: id, status: 'PUBLISHED' } },
+  );
+  assert.ok(
+    (await executeGraphql(undefined, publicQuery, { courseId: id }))
+      .publicCourseCover,
+  );
+  course = await db.publicCourse.findUniqueOrThrow({ where: { id } });
+  await executeGraphql(
+    adminToken,
+    `mutation($input:AdminRemoveCourseInput!){adminRemoveCourse(input:$input)}`,
+    {
+      input: {
+        courseId: id,
+        expectedUpdatedAt: course.updatedAt.toISOString(),
+      },
+    },
+  );
+  assert.equal(
+    (await executeGraphql(undefined, publicQuery, { courseId: id }))
+      .publicCourseCover,
+    null,
+  );
+  assert.equal(
+    (await executeGraphql(adminToken, adminQuery, { courseId: id }))
+      .adminCourseCover,
+    null,
+  );
+});
 
 void test('Admin course removal preserves registrations and hides deleted courses', async () => {
   const db = requireEditorialApp().get(DatabaseService);
@@ -8686,6 +8868,236 @@ void test('Admin exam removal preserves registrations and sessions and hides del
         ...sessionInput,
         startsAt: new Date(Date.now() + 86400000 * 31).toISOString(),
       },
+    }),
+  );
+});
+
+void test('Admin event cover and removal preserve registrations and hide deleted content', async () => {
+  const db = requireEditorialApp().get(DatabaseService);
+  const slug = 'reserved-event-' + randomUUID();
+  const bytes = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aF6kAAAAASUVORK5CYII=',
+    'base64',
+  );
+  const upload = await executeGraphql(
+    adminToken,
+    `mutation($input:CreateMediaUploadIntentInput!){createMediaUploadIntent(input:$input){uploadIntent{mediaObjectId url requiredHeaders{name value}}}}`,
+    {
+      input: {
+        originalName: 'reserved-event.png',
+        mimeType: 'image/png',
+        sizeBytes: bytes.length,
+      },
+    },
+  );
+  const intent = requireRecordField(
+    requireRecordField(upload, 'createMediaUploadIntent'),
+    'uploadIntent',
+  );
+  const coverMediaId = requireStringField(intent, 'mediaObjectId');
+  const input = {
+    slug,
+    coverMediaId,
+    position: 0,
+    startsAt: new Date(Date.now() + 86400000 * 30).toISOString(),
+    timelineStatus: 'UPCOMING',
+    location: 'Reserved room',
+    capacity: 15,
+    translations: ['UZ', 'RU', 'EN'].map((language) => ({
+      language,
+      title: slug,
+      description: 'Reserved event description',
+      topics: ['Practice'],
+      overview: [],
+      audience: [],
+      takeaways: [],
+      practicalInfo: [],
+      programme: [
+        { timeLabel: '10:00', title: 'Welcome', description: 'Introduction' },
+      ],
+      faq: [{ question: 'Who can attend?', answer: 'Registered guests' }],
+    })),
+  };
+  const save = `mutation($input:AdminSaveEventContentInput!){adminSaveEventContent(input:$input)}`;
+  const remove = `mutation($input:AdminRemoveEventInput!){adminRemoveEvent(input:$input)}`;
+  const status = `mutation($input:SetPublicEventStatusInput!){setEventStatus(input:$input){event{id}}}`;
+  await assert.rejects(executeGraphql(adminToken, save, { input }));
+  assert.equal(
+    (
+      await fetch(requireStringField(intent, 'url'), {
+        method: 'PUT',
+        headers: requireUploadHeaders(intent),
+        body: bytes,
+      })
+    ).status,
+    200,
+  );
+  await executeGraphql(
+    adminToken,
+    `mutation($input:MediaObjectReferenceInput!){confirmMediaUpload(input:$input){mediaObject{id}}}`,
+    { input: { mediaObjectId: coverMediaId } },
+  );
+  for (const token of [undefined, studentToken, teacherToken])
+    await assert.rejects(executeGraphql(token, save, { input }));
+  const id = String(
+    (await executeGraphql(adminToken, save, { input })).adminSaveEventContent,
+  );
+  let event = await db.publicEvent.findUniqueOrThrow({ where: { id } });
+  const stale = event.updatedAt.toISOString();
+  assert.equal(event.coverMediaId, coverMediaId);
+  const pubCover = `query($eventId:String!){publicEventCover(eventId:$eventId){url}}`;
+  const admCover = `query($eventId:String!){adminEventCover(eventId:$eventId){url}}`;
+  assert.equal(
+    (await executeGraphql(undefined, pubCover, { eventId: id }))
+      .publicEventCover,
+    null,
+  );
+  await assert.rejects(executeGraphql(studentToken, admCover, { eventId: id }));
+  const preview = requireRecordField(
+    await executeGraphql(adminToken, admCover, { eventId: id }),
+    'adminEventCover',
+  );
+  assert.equal((await fetch(requireStringField(preview, 'url'))).status, 200);
+  const otherId = randomUUID();
+  await db.user.create({
+    data: {
+      id: otherId,
+      displayName: 'Reserved Event Admin',
+      role: UserRole.ADMIN,
+    },
+  });
+  const otherToken = await requireEditorialApp()
+    .get(AuthService)
+    .issueAccessToken({ id: otherId, role: UserRole.ADMIN });
+  await assert.rejects(
+    executeGraphql(otherToken, save, {
+      input: { ...input, slug: 'reserved-other-' + randomUUID() },
+    }),
+  );
+  await executeGraphql(otherToken, save, {
+    input: { ...input, id, expectedUpdatedAt: event.updatedAt.toISOString() },
+  });
+  await executeGraphql(adminToken, status, {
+    input: { eventId: id, status: 'PUBLISHED' },
+  });
+  const cover = requireRecordField(
+    await executeGraphql(undefined, pubCover, { eventId: id }),
+    'publicEventCover',
+  );
+  assert.equal((await fetch(requireStringField(cover, 'url'))).status, 200);
+  const register = `mutation($input:RegisterForEventInput!){registerForEvent(input:$input){receiptId}}`;
+  const registration = {
+    eventId: id,
+    name: 'Reserved Guest',
+    email: 'event-remove@example.com',
+    phone: '+998000000041',
+    participantCount: 2,
+    locale: 'EN',
+    consent: true,
+  };
+  const receipt = requireRecordField(
+    await executeGraphql(undefined, register, { input: registration }),
+    'registerForEvent',
+  );
+  event = await db.publicEvent.findUniqueOrThrow({ where: { id } });
+  const removal = {
+    eventId: id,
+    expectedUpdatedAt: event.updatedAt.toISOString(),
+  };
+  for (const token of [undefined, studentToken, teacherToken])
+    await assert.rejects(executeGraphql(token, remove, { input: removal }));
+  await assert.rejects(
+    executeGraphql(adminToken, remove, {
+      input: { ...removal, expectedUpdatedAt: stale },
+    }),
+  );
+  assert.equal(
+    (await db.publicEvent.findUniqueOrThrow({ where: { id } })).deletedAt,
+    null,
+  );
+  const results = await Promise.all(
+    [1, 2].map(() => executeGraphql(adminToken, remove, { input: removal })),
+  );
+  assert.ok(results.every((result) => result.adminRemoveEvent === id));
+  const retained = await db.publicEvent.findUniqueOrThrow({
+    where: { id },
+    include: {
+      translations: true,
+      programmeItems: true,
+      faqItems: true,
+      registrations: true,
+    },
+  });
+  assert.ok(retained.deletedAt);
+  assert.equal(retained.status, 'PUBLISHED');
+  assert.equal(retained.translations.length, 3);
+  assert.equal(retained.programmeItems.length, 1);
+  assert.equal(retained.faqItems.length, 1);
+  assert.equal(retained.registrations[0]?.id, receipt.receiptId);
+  assert.equal(retained.registrations[0]?.participantCount, 2);
+  assert.equal(
+    await db.auditLog.count({
+      where: { targetId: id, action: 'CONTENT_DELETED' },
+    }),
+    1,
+  );
+  assert.equal(
+    (await executeGraphql(undefined, pubCover, { eventId: id }))
+      .publicEventCover,
+    null,
+  );
+  assert.equal(
+    (await executeGraphql(adminToken, admCover, { eventId: id }))
+      .adminEventCover,
+    null,
+  );
+  const catalog = requireRecordField(
+    await executeGraphql(
+      adminToken,
+      `query($input:AdminDirectoryInput!){adminEventCatalog(input:$input){totalCount}}`,
+      { input: { search: slug } },
+    ),
+    'adminEventCatalog',
+  );
+  assert.equal(catalog.totalCount, 0);
+  for (const [token, field] of [
+    [undefined, 'publicEvent'],
+    [adminToken, 'adminEvent'],
+  ] as const) {
+    await assert.rejects(
+      executeGraphql(
+        token,
+        `query($slug:String!){${field}(slug:$slug,language:EN){id}}`,
+        { slug },
+      ),
+    );
+  }
+  const list = requireRecordField(
+    await executeGraphql(
+      undefined,
+      `query{publicEvents(language:EN,first:100){edges{node{id}}}}`,
+    ),
+    'publicEvents',
+  );
+  assert.ok(
+    !requireArrayField(list, 'edges').some(
+      (edge) =>
+        requireRecordField(requireRecord(edge, 'edge'), 'node').id === id,
+    ),
+  );
+  await assert.rejects(
+    executeGraphql(undefined, register, {
+      input: { ...registration, phone: '+998000000042' },
+    }),
+  );
+  await assert.rejects(
+    executeGraphql(adminToken, status, {
+      input: { eventId: id, status: 'PUBLISHED' },
+    }),
+  );
+  await assert.rejects(
+    executeGraphql(adminToken, save, {
+      input: { ...input, id, expectedUpdatedAt: removal.expectedUpdatedAt },
     }),
   );
 });
