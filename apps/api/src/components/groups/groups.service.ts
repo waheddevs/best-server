@@ -28,7 +28,7 @@ import type {
   TeacherGroupOverviewObject,
 } from '../../schemas/groups/group.object';
 
-const GROUP_SELECT = {
+export const GROUP_SELECT = {
   _count: {
     select: {
       memberships: {
@@ -170,7 +170,9 @@ export class GroupsService {
   ): Promise<GroupConnectionObject> {
     return this.getGroups(
       {
-        ...(status === undefined ? {} : { status }),
+        ...(status === undefined
+          ? { status: { not: ContentStatus.DELETED } }
+          : { status }),
         ...(teacherId === undefined
           ? {}
           : { teacherId: parseUuid(teacherId, 'teacherId') }),
@@ -453,6 +455,7 @@ export class GroupsService {
     transaction: Prisma.TransactionClient,
     teacherId: string,
   ): Promise<void> {
+    await transaction.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('group-schedule-write'))`;
     await transaction.$executeRaw`
       SELECT pg_advisory_xact_lock(
         hashtext('teacher-group-schedule'),
@@ -466,7 +469,7 @@ export class GroupsService {
     teacherId: string,
     schedule: Pick<
       GroupInputValues,
-      'endsAtMinutes' | 'scheduleDays' | 'startsAtMinutes'
+      'endsAtMinutes' | 'scheduleDays' | 'startsAtMinutes' | 'room'
     >,
     excludedGroupId?: string,
   ): Promise<void> {
@@ -487,7 +490,19 @@ export class GroupsService {
         scheduleDays: { hasSome: schedule.scheduleDays },
         startsAtMinutes: { lt: schedule.endsAtMinutes },
         status: ContentStatus.ACTIVE,
-        teacherId,
+        OR: [
+          { teacherId },
+          ...(schedule.room
+            ? [
+                {
+                  room: {
+                    equals: schedule.room,
+                    mode: Prisma.QueryMode.insensitive,
+                  },
+                },
+              ]
+            : []),
+        ],
       },
       select: { id: true },
     });
@@ -555,7 +570,9 @@ interface GroupInputValues {
   readonly timeZone: string;
 }
 
-function parseMonthlyTuition(value: string | undefined): bigint | undefined {
+export function parseMonthlyTuition(
+  value: string | undefined,
+): bigint | undefined {
   if (value === undefined) return undefined;
   if (!/^[1-9]\d{0,9}$/.test(value) || BigInt(value) > 2000000000n) {
     throw new ApplicationError(
@@ -567,7 +584,7 @@ function parseMonthlyTuition(value: string | undefined): bigint | undefined {
   return BigInt(value);
 }
 
-function tashkentDate(): Date {
+export function tashkentDate(): Date {
   const parts = new Intl.DateTimeFormat('en-US', {
     day: '2-digit',
     month: '2-digit',
@@ -579,7 +596,9 @@ function tashkentDate(): Date {
   return new Date(Date.UTC(part('year'), part('month') - 1, part('day')));
 }
 
-function parseGroupInput(input: CreateTeacherGroupInput): GroupInputValues {
+export function parseGroupInput(
+  input: CreateTeacherGroupInput,
+): GroupInputValues {
   const name = parseText(input.name, 'name', 160);
   if (!Object.values(GroupCategory).includes(input.category)) {
     throw new ApplicationError(
@@ -649,7 +668,7 @@ function parseGroupInput(input: CreateTeacherGroupInput): GroupInputValues {
   };
 }
 
-function mapGroup(group: GroupRecord): GroupObject {
+export function mapGroup(group: GroupRecord) {
   const { _count, tuitionRates, ...values } = group;
   return {
     ...values,
@@ -722,7 +741,7 @@ function inaccessibleGroupError(): ApplicationError {
   return new ApplicationError(ErrorCode.NOT_FOUND, 'Group was not found', 404);
 }
 
-function mapGroupWriteError(error: unknown): never {
+export function mapGroupWriteError(error: unknown): never {
   if (error instanceof ApplicationError) throw error;
   if (
     error instanceof Prisma.PrismaClientKnownRequestError &&

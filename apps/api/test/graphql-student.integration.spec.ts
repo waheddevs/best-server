@@ -7418,6 +7418,56 @@ function requireStringField(
 }
 
 
+void test('Admin operations: group save, conflict, soft deletion and audit', async () => {
+  const input = {
+    teacherId,
+    name: 'Integration admin group',
+    slug: 'admin-ops-' + randomUUID(),
+    category: 'CEFR',
+    room: 'Reserved admin room',
+    scheduleDays: [7],
+    startsAtMinutes: 1260,
+    endsAtMinutes: 1320,
+    monthlyTuitionUzs: '300000',
+  };
+  const save = `mutation($input:AdminSaveGroupInput!){adminSaveGroup(input:$input){id status updatedAt}}`;
+  await assert.rejects(executeGraphql(teacherToken, save, { input }));
+  const created = await executeGraphql(adminToken, save, { input });
+  const row = requireRecordField(created, 'adminSaveGroup');
+  const id = String(row.id);
+  await assert.rejects(
+    executeGraphql(adminToken, save, {
+      input: { ...input, slug: 'collision-' + randomUUID() },
+    }),
+  );
+  const updated = await executeGraphql(adminToken, save, {
+    input: {
+      ...input,
+      groupId: id,
+      expectedUpdatedAt: row.updatedAt,
+      name: 'Updated admin group',
+    },
+  });
+  assert.ok(!updated.errors);
+  const deleted = await executeGraphql(
+    adminToken,
+    `mutation($id:ID!){adminSetGroupStatus(groupId:$id,status:"DELETED"){status}}`,
+    { id },
+  );
+  assert.equal(
+    requireRecordField(deleted, 'adminSetGroupStatus').status,
+    'DELETED',
+  );
+  const db = requireEditorialApp().get(DatabaseService);
+  assert.equal(
+    (await db.group.findUniqueOrThrow({ where: { id } })).status,
+    'DELETED',
+  );
+  assert.equal(
+    await db.auditLog.count({ where: { targetId: id, targetType: 'GROUP' } }),
+    3,
+  );
+});
 
 
 
