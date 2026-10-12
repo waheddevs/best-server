@@ -7804,6 +7804,92 @@ void test('Admin editorial: complete course content, public read, requests and s
   );
 });
 
+void test('Admin editorial: event nested content, public registration and capacity guard', async () => {
+  const db = requireEditorialApp().get(DatabaseService);
+  const slug = 'editorial-event-' + randomUUID();
+  const input = {
+    slug,
+    position: 1,
+    startsAt: new Date(Date.now() + 86400000 * 20).toISOString(),
+    location: 'Reserved hall',
+    capacity: 2,
+    timelineStatus: 'UPCOMING',
+    translations: ['UZ', 'RU', 'EN'].map((language) => ({
+      language,
+      title: 'Reserved event ' + language,
+      description: 'Reserved description',
+      topics: ['Topic'],
+      overview: ['Overview'],
+      audience: ['Adults'],
+      takeaways: ['Practice'],
+      practicalInfo: ['Bring notebook'],
+      programme: [
+        { timeLabel: '10:00', title: 'Opening', description: 'Welcome' },
+      ],
+      faq: [{ question: 'Who?', answer: 'Everyone' }],
+    })),
+  };
+  const save = `mutation($input:AdminSaveEventContentInput!){adminSaveEventContent(input:$input)}`;
+  const id = String(
+    (await executeGraphql(adminToken, save, { input })).adminSaveEventContent,
+  );
+  await executeGraphql(
+    adminToken,
+    `mutation($input:SetPublicEventStatusInput!){setEventStatus(input:$input){event{id}}}`,
+    { input: { eventId: id, status: 'PUBLISHED' } },
+  );
+  const pub = requireRecordField(
+    await executeGraphql(
+      undefined,
+      `query($slug:String!){publicEvent(slug:$slug,language:EN){topics programme{title} faq{answer}}}`,
+      { slug },
+    ),
+    'publicEvent',
+  );
+  assert.deepEqual(pub.topics, ['Topic']);
+  assert.equal(requireEditorialArray(pub.programme).length, 1);
+  const register = `mutation($input:RegisterForEventInput!){registerForEvent(input:$input){receiptId}}`;
+  const results = await Promise.allSettled(
+    [1, 2, 3].map((i) =>
+      executeGraphql(undefined, register, {
+        input: {
+          eventId: id,
+          name: 'Reserved Applicant',
+          phone: '+99800000002' + String(i),
+          email: 'event@example.com',
+          participantCount: 1,
+          locale: 'EN',
+          consent: true,
+        },
+      }),
+    ),
+  );
+  assert.equal(results.filter((r) => r.status === 'fulfilled').length, 2);
+  assert.equal(await db.eventRegistration.count({ where: { eventId: id } }), 2);
+  const current = await db.publicEvent.findUniqueOrThrow({ where: { id } });
+  await assert.rejects(
+    executeGraphql(adminToken, save, {
+      input: {
+        ...input,
+        id,
+        expectedUpdatedAt: current.updatedAt.toISOString(),
+        capacity: 1,
+      },
+    }),
+  );
+  await executeGraphql(adminToken, save, {
+    input: {
+      ...input,
+      id,
+      expectedUpdatedAt: current.updatedAt.toISOString(),
+      capacity: 3,
+    },
+  });
+  assert.equal(
+    await db.publicEventFaqItem.count({ where: { eventId: id } }),
+    1,
+  );
+});
 
 void test('Admin editorial: exam sessions, public reads, revision and concurrent registration limits', async () => {
   const db = requireEditorialApp().get(DatabaseService);

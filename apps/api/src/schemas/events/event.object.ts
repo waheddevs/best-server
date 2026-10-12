@@ -81,6 +81,8 @@ export class AdminIntakeRecordObject {
   @Field(() => String) name!: string;
   @Field(() => String, { nullable: true }) email!: string | null;
   @Field(() => String, { nullable: true }) phone!: string | null;
+  @Field(() => String, { nullable: true }) subject!: string | null;
+  @Field(() => String, { nullable: true }) message!: string | null;
   @Field(() => IntakeStatus) status!: IntakeStatus;
   @Field(() => String, { nullable: true }) reviewNote!: string | null;
   @Field(() => GraphQLISODateTime) createdAt!: Date;

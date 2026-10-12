@@ -29,7 +29,7 @@ import type {
   PublicEventObject,
   PublicSubmissionReceiptObject,
 } from '../../schemas/events/event.object';
-const include = {
+export const eventContentInclude = {
   faqItems: {
     include: { translations: { orderBy: { language: 'asc' } } },
     orderBy: { position: 'asc' },
@@ -59,7 +59,7 @@ export class EventsService {
         ...(afterId === undefined ? {} : { id: { gt: afterId } }),
         translations: { some: { language } },
       },
-      include,
+      include: eventContentInclude,
       orderBy: { id: 'asc' },
       take: size + 1,
     });
@@ -86,7 +86,7 @@ export class EventsService {
         ...(admin ? {} : { status: PublicContentStatus.PUBLISHED }),
         translations: { some: { language } },
       },
-      include,
+      include: eventContentInclude,
     });
     if (row === null) throw notFound();
     return mapEvent(row, language);
@@ -103,7 +103,7 @@ export class EventsService {
           ...values,
           translations: { createMany: { data: translations(input) } },
         },
-        include,
+        include: eventContentInclude,
       });
       await audit(
         tx,
@@ -134,7 +134,7 @@ export class EventsService {
           ...values,
           translations: { createMany: { data: translations(input) } },
         },
-        include,
+        include: eventContentInclude,
       });
       await audit(
         tx,
@@ -174,7 +174,7 @@ export class EventsService {
               : existing.publishedAt,
           status,
         },
-        include,
+        include: eventContentInclude,
       });
       await tx.auditLog.create({
         data: {
@@ -516,7 +516,7 @@ function translations(input: UpsertEventInput) {
     title: required(x.title, 240),
   }));
 }
-function mapEvent(row: Event, language: Language): PublicEventObject {
+export function mapEvent(row: Event, language: Language): PublicEventObject {
   const t = row.translations.find((x) => x.language === language);
   if (t === undefined) throw notFound();
   return {
