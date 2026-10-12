@@ -7805,6 +7805,99 @@ void test('Admin editorial: complete course content, public read, requests and s
 });
 
 
+void test('Admin editorial: exam sessions, public reads, revision and concurrent registration limits', async () => {
+  const db = requireEditorialApp().get(DatabaseService);
+  const key = 'editorial-exam-' + randomUUID();
+  const input = {
+    key,
+    position: 1,
+    status: 'PUBLISHED',
+    translations: ['UZ', 'RU', 'EN'].map((language) => ({
+      language,
+      title: 'Reserved exam ' + language,
+      description: 'Reserved description',
+      formatLabel: 'Paper',
+      duration: '60 minutes',
+      level: 'B1',
+      highlights: ['Practice'],
+    })),
+  };
+  const save = `mutation($input:AdminSaveExamInput!){adminSaveExam(input:$input)}`;
+  await assert.rejects(executeGraphql(teacherToken, save, { input }));
+  const id = String(
+    (await executeGraphql(adminToken, save, { input })).adminSaveExam,
+  );
+  const sessionInput = {
+    offeringId: id,
+    startsAt: new Date(Date.now() + 86400000 * 30).toISOString(),
+    capacity: 1,
+    active: true,
+  };
+  const sessionSave = `mutation($input:AdminSaveExamSessionInput!){adminSaveExamSession(input:$input)}`;
+  const sid = String(
+    (await executeGraphql(adminToken, sessionSave, { input: sessionInput }))
+      .adminSaveExamSession,
+  );
+  const pub = await executeGraphql(
+    undefined,
+    `query{publicExamOfferings(language:EN){id sessions{id capacity}}}`,
+  );
+  assert.ok(
+    requireEditorialArray(pub.publicExamOfferings).some(
+      (r) => isRecord(r) && r.id === id,
+    ),
+  );
+  const register = `mutation($input:SubmitExamRegistrationInput!){submitExamRegistration(input:$input){receiptId}}`;
+  const results = await Promise.allSettled(
+    [1, 2].map((i) =>
+      executeGraphql(undefined, register, {
+        input: {
+          offeringKey: key,
+          sessionId: sid,
+          name: 'Reserved Applicant',
+          phone: '+99800000003' + String(i),
+          email: 'exam@example.com',
+          currentLevel: 'B1',
+          locale: 'EN',
+          consent: true,
+        },
+      }),
+    ),
+  );
+  assert.equal(results.filter((r) => r.status === 'fulfilled').length, 1);
+  assert.equal(
+    await db.examRegistration.count({ where: { sessionId: sid } }),
+    1,
+  );
+  const page = requireRecordField(
+    await executeGraphql(
+      adminToken,
+      `query($input:AdminDirectoryInput!){adminExamSessionDirectory(input:$input,language:EN){nodes{id revision} totalCount}}`,
+      { input: { groupId: id } },
+    ),
+    'adminExamSessionDirectory',
+  );
+  const session = requireEditorialArray(page.nodes)[0];
+  assert.ok(isRecord(session));
+  await executeGraphql(adminToken, sessionSave, {
+    input: {
+      ...sessionInput,
+      id: sid,
+      revision: session.revision,
+      active: false,
+    },
+  });
+  await assert.rejects(
+    executeGraphql(adminToken, sessionSave, {
+      input: { ...sessionInput, id: sid, revision: session.revision },
+    }),
+  );
+  assert.equal(
+    (await db.publicExamSession.findUniqueOrThrow({ where: { id: sid } }))
+      .active,
+    false,
+  );
+});
 
 void test('Admin editorial: notices and overview are scoped to current recipient', async () => {
   const db = requireEditorialApp().get(DatabaseService);
