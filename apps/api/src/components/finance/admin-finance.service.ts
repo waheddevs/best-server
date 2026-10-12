@@ -1,3 +1,4 @@
+import { adminSalaryReport, adminSalaryHistory } from './admin-salary-report';
 import { ContentStatus, Prisma, UserRole, UserStatus } from '@best/database';
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
@@ -93,6 +94,12 @@ function salaryRow(
 @Injectable()
 export class AdminFinanceService {
   constructor(private readonly database: DatabaseService) {}
+  salaryReport(input: AdminDirectoryInput) {
+    return adminSalaryReport(this.database, input);
+  }
+  salaryHistory(input: AdminDirectoryInput) {
+    return adminSalaryHistory(this.database, input);
+  }
   async payments(raw: AdminDirectoryInput) {
     const input = directoryInput(raw);
     const status = directoryEnum(input.status, ['PAID', 'UNPAID']);

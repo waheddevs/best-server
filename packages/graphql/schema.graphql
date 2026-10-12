@@ -436,6 +436,58 @@ type AdminSalaryDirectory {
   totalCount: Int!
 }
 
+type AdminSalaryGroup {
+  centerUzs: String!
+  id: String!
+  name: String!
+  receivedUzs: String!
+  teacherUzs: String!
+}
+
+type AdminSalaryHistory {
+  groups: [AdminSalaryGroup!]!
+  nodes: [AdminSalaryPayment!]!
+  page: Int!
+  pageCount: Int!
+  totalCount: Int!
+}
+
+type AdminSalaryPayment {
+  centerUzs: String!
+  groupName: String!
+  id: String!
+  note: String
+  paidAt: String!
+  receivedUzs: String!
+  studentName: String!
+  teacherUzs: String!
+}
+
+type AdminSalaryReport {
+  centerUzs: String!
+  nodes: [AdminSalaryReportRow!]!
+  page: Int!
+  pageCount: Int!
+  previousMonth: String
+  previousReceivedUzs: String
+  receivedUzs: String!
+  teacherUzs: String!
+  totalCount: Int!
+}
+
+type AdminSalaryReportRow {
+  centerUzs: String!
+  groupCount: Int!
+  id: String!
+  month: String!
+  paymentCount: Int!
+  receivedUzs: String!
+  studentCount: Int!
+  teacherId: String!
+  teacherName: String!
+  teacherUzs: String!
+}
+
 type AdminSalaryRow {
   baseUzs: String!
   bonusUzs: String!
@@ -1643,6 +1695,8 @@ type Query {
   adminPaymentDirectory(input: AdminDirectoryInput!): AdminPaymentDirectory!
   adminRequestDirectory(input: AdminDirectoryInput!, language: Language!): AdminRequestDirectory!
   adminSalaryDirectory(input: AdminDirectoryInput!): AdminSalaryDirectory!
+  adminSalaryHistory(input: AdminDirectoryInput!): AdminSalaryHistory!
+  adminSalaryReport(input: AdminDirectoryInput!): AdminSalaryReport!
   adminSchedule(from: DateTime!, to: DateTime!): [Lesson!]!
   adminTuitionLedger(after: String, first: Int, studentId: ID): TuitionLedgerConnection!
   adminUser(userId: ID!): AdminUser!

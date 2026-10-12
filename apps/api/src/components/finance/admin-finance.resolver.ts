@@ -1,3 +1,7 @@
+import {
+  AdminSalaryReport,
+  AdminSalaryHistory,
+} from '../../schemas/finance/admin-salary-report.object';
 import { UserRole } from '@best/database';
 import { UseGuards } from '@nestjs/common';
 import {
@@ -29,6 +33,16 @@ import { AdminFinanceService } from './admin-finance.service';
 @Roles(UserRole.ADMIN)
 export class AdminFinanceResolver {
   constructor(private readonly service: AdminFinanceService) {}
+  @Query(() => AdminSalaryReport) adminSalaryReport(
+    @Args('input') input: AdminDirectoryInput,
+  ) {
+    return this.service.salaryReport(input);
+  }
+  @Query(() => AdminSalaryHistory) adminSalaryHistory(
+    @Args('input') input: AdminDirectoryInput,
+  ) {
+    return this.service.salaryHistory(input);
+  }
   @Query(() => AdminPaymentDirectory) adminPaymentDirectory(
     @Args('input') input: AdminDirectoryInput,
   ) {

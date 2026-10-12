@@ -9101,3 +9101,128 @@ void test('Admin event cover and removal preserve registrations and hide deleted
     }),
   );
 });
+
+void test('Salary revenue: exact 30/70 allocation, Tashkent month, filters, history, read-only and RBAC', async () => {
+  const db = requireEditorialApp().get(DatabaseService);
+  const teacher = await db.user.create({
+    data: {
+      displayName: 'Reserved Revenue Teacher',
+      email: `salary-${randomUUID()}@example.com`,
+      role: UserRole.TEACHER,
+    },
+  });
+  const group = await db.group.create({
+    data: {
+      teacherId: teacher.id,
+      name: 'Reserved Revenue Group',
+      slug: `salary-${randomUUID()}`,
+      status: ContentStatus.ACTIVE,
+    },
+  });
+  const sid = randomUUID();
+  await db.user.create({
+    data: {
+      id: sid,
+      displayName: 'Reserved Revenue Learner',
+      email: `salary-${sid}@example.com`,
+      role: UserRole.STUDENT,
+    },
+  });
+  const membership = await db.groupMembership.create({
+    data: {
+      studentId: sid,
+      groupId: group.id,
+      startedAt: new Date('2026-01-01'),
+    },
+  });
+  const charge = await db.tuitionCharge.create({
+    data: {
+      studentId: sid,
+      groupMembershipId: membership.id,
+      billingMonth: new Date('2026-08-01'),
+      dueDate: new Date('2026-08-05'),
+      amountUzs: 900000n,
+    },
+  });
+  const pay = async (amount: bigint, date: string, allocated = amount) =>
+    db.payment.create({
+      data: {
+        studentId: sid,
+        recordedById: adminId,
+        amountUzs: amount,
+        method: 'CASH',
+        paidAt: new Date(date),
+        allocations: { create: { chargeId: charge.id, amountUzs: allocated } },
+      },
+    });
+  await pay(300000n, '2026-08-31T19:00:00Z'); // September in Tashkent.
+  await pay(100000n, '2026-09-10T00:00:00Z', 10001n); // Only allocation is revenue.
+  await pay(100000n, '2026-08-31T18:59:59Z'); // Previous month.
+  await pay(50000n, '2026-09-30T19:00:00Z'); // October, excluded.
+  await db.financeAdjustment.create({
+    data: {
+      studentId: sid,
+      recordedById: adminId,
+      chargeId: charge.id,
+      kind: 'CREDIT',
+      amountUzs: 1000n,
+      reason: 'Reserved test credit',
+    },
+  });
+  const query = `query($input:AdminDirectoryInput!){adminSalaryReport(input:$input){totalCount receivedUzs teacherUzs centerUzs previousMonth previousReceivedUzs nodes{id teacherId month receivedUzs teacherUzs centerUzs groupCount studentCount}}}`;
+  const input = { teacherId: teacher.id, month: '2026-09', pageSize: 1 };
+  await assert.rejects(executeGraphql(studentToken, query, { input }));
+  await assert.rejects(executeGraphql(teacherToken, query, { input }));
+  const beforeCount = await db.teacherSalaryStatement.count();
+  const result = requireRecordField(
+    await executeGraphql(adminToken, query, { input }),
+    'adminSalaryReport',
+  );
+  assert.equal(result.totalCount, 1);
+  assert.equal(result.receivedUzs, '310001');
+  assert.equal(result.teacherUzs, '217000');
+  assert.equal(result.centerUzs, '93001');
+  assert.equal(result.previousReceivedUzs, '100000');
+  assert.equal(result.previousMonth, '2026-08');
+  const missing = requireRecordField(
+    await executeGraphql(adminToken, query, {
+      input: { ...input, search: 'no matching fictional teacher' },
+    }),
+    'adminSalaryReport',
+  );
+  assert.equal(missing.totalCount, 0);
+  const historyQuery = `query($input:AdminDirectoryInput!){adminSalaryHistory(input:$input){totalCount pageCount nodes{id studentName groupName paidAt receivedUzs teacherUzs centerUzs} groups{id receivedUzs teacherUzs centerUzs}}}`;
+  const history = requireRecordField(
+    await executeGraphql(adminToken, historyQuery, { input }),
+    'adminSalaryHistory',
+  );
+  assert.equal(history.totalCount, 2);
+  assert.equal(history.pageCount, 2);
+  assert.ok(Array.isArray(history.nodes) && history.nodes.length === 1);
+  const second = requireRecordField(
+    await executeGraphql(adminToken, historyQuery, {
+      input: { ...input, page: 2 },
+    }),
+    'adminSalaryHistory',
+  );
+  assert.notDeepEqual(second.nodes, history.nodes);
+  const scoped = requireRecordField(
+    await executeGraphql(adminToken, query, {
+      input: { ...input, groupId: group.id },
+    }),
+    'adminSalaryReport',
+  );
+  assert.equal(scoped.receivedUzs, '310001');
+  await assert.rejects(
+    executeGraphql(adminToken, query, { input: { month: '2026-13' } }),
+  );
+  await assert.rejects(
+    executeGraphql(adminToken, historyQuery, { input: { month: '2026-09' } }),
+  );
+  assert.equal(await db.teacherSalaryStatement.count(), beforeCount);
+  assert.equal(
+    (await db.tuitionCharge.findUniqueOrThrow({ where: { id: charge.id } }))
+      .amountUzs,
+    900000n,
+  );
+});
