@@ -527,6 +527,64 @@ export class UsersService {
     return user;
   }
 
+  async deleteAdminStudent(
+    adminId: string,
+    studentId: string,
+    correlationId?: string,
+  ): Promise<AdminUserObject> {
+    const id = parseUuid(studentId, 'studentId');
+    const deletedAt = new Date();
+
+    return this.database.$transaction(async (transaction) => {
+      const current = await transaction.user.findFirst({
+        where: {
+          id,
+          role: UserRole.STUDENT,
+          status: { not: UserStatus.DELETED },
+        },
+        select: ADMIN_USER_SELECT,
+      });
+      if (current === null) throw inaccessibleUserError();
+
+      const updated = await transaction.user.updateMany({
+        where: {
+          id,
+          role: UserRole.STUDENT,
+          status: current.status,
+        },
+        data: {
+          credentialPasswordHash: null,
+          status: UserStatus.DELETED,
+        },
+      });
+      if (updated.count !== 1) throw inaccessibleUserError();
+
+      await transaction.credentialSession.updateMany({
+        where: { userId: id, revokedAt: null },
+        data: { revokedAt: deletedAt, revokeReason: 'ACCOUNT_DELETED' },
+      });
+      await transaction.credentialLoginChallenge.deleteMany({
+        where: { userId: id, usedAt: null },
+      });
+      await transaction.auditLog.create({
+        data: {
+          action: 'ADMIN_STUDENT_SOFT_DELETED',
+          actorId: adminId,
+          correlationId: correlationId ?? null,
+          newValues: { status: UserStatus.DELETED },
+          oldValues: { status: current.status },
+          targetId: id,
+          targetType: 'USER',
+        },
+      });
+
+      return transaction.user.findUniqueOrThrow({
+        where: { id },
+        select: ADMIN_USER_SELECT,
+      });
+    });
+  }
+
   async setAdminUserStatus(
     adminId: string,
     userId: string,

@@ -19,6 +19,12 @@ export class AdminProvisionUserInput {
   role!: UserRole;
 }
 
+@InputType('AdminDeleteStudentInput')
+export class AdminDeleteStudentInput {
+  @Field(() => ID)
+  studentId!: string;
+}
+
 @InputType('AdminSetUserStatusInput')
 export class AdminSetUserStatusInput {
   @Field(() => ID)

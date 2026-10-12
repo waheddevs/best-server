@@ -2651,6 +2651,112 @@ void test('Teacher soft-deletes only an owned Student and preserves their record
   assert.ok(requireArrayField(repeated, 'errors').length > 0);
 });
 
+void test('Admin soft-deletes a Student and hides the retained account from Admin and Teacher lists', async () => {
+  const database = requireApp().get(DatabaseService);
+  const suffix = randomUUID().slice(0, 8);
+  const group = await database.group.create({
+    data: {
+      category: 'CEFR',
+      name: `Reserved admin delete ${suffix}`,
+      slug: `reserved-admin-delete-${suffix}`,
+      teacherId,
+    },
+  });
+  const student = await database.user.create({
+    data: {
+      displayName: 'Fictional Admin Delete Student',
+      email: `admin-delete-${suffix}@example.com`,
+      role: UserRole.STUDENT,
+    },
+  });
+  await database.groupMembership.create({
+    data: { groupId: group.id, studentId: student.id },
+  });
+  const mutation = `mutation AdminDeleteStudent($input: AdminDeleteStudentInput!) {
+    adminDeleteStudent(input: $input) { user { id role status } }
+  }`;
+
+  const denied = await executeGraphqlExpectingErrors(teacherToken, mutation, {
+    input: { studentId: student.id },
+  });
+  assert.ok(requireArrayField(denied, 'errors').length > 0);
+
+  const deleted = await executeGraphql(adminToken, mutation, {
+    input: { studentId: student.id },
+  });
+  const deletedUser = requireRecordField(
+    requireRecordField(deleted, 'adminDeleteStudent'),
+    'user',
+  );
+  assert.equal(deletedUser.id, student.id);
+  assert.equal(deletedUser.role, 'STUDENT');
+  assert.equal(deletedUser.status, 'DELETED');
+  assert.equal(
+    (await database.user.findUniqueOrThrow({ where: { id: student.id } }))
+      .status,
+    UserStatus.DELETED,
+  );
+  assert.equal(
+    await database.auditLog.count({
+      where: {
+        action: 'ADMIN_STUDENT_SOFT_DELETED',
+        actorId: adminId,
+        targetId: student.id,
+      },
+    }),
+    1,
+  );
+
+  const adminDirectory = await executeGraphql(
+    adminToken,
+    `query ActiveAdminStudents {
+      adminUsers(first: 100, role: STUDENT) { edges { node { id } } }
+    }`,
+  );
+  assert.equal(
+    requireArrayField(
+      requireRecordField(adminDirectory, 'adminUsers'),
+      'edges',
+    ).some(
+      (edge) =>
+        requireRecordField(requireRecord(edge, 'admin student edge'), 'node')
+          .id === student.id,
+    ),
+    false,
+  );
+
+  const roster = await executeGraphql(
+    teacherToken,
+    `query AdminDeletedStudentRoster($groupId: ID!) {
+      teacherGroupRoster(groupId: $groupId, first: 20, includeEnded: true) {
+        edges { node { studentId } }
+      }
+    }`,
+    { groupId: group.id },
+  );
+  assert.equal(
+    requireArrayField(
+      requireRecordField(roster, 'teacherGroupRoster'),
+      'edges',
+    ).some(
+      (edge) =>
+        requireRecordField(requireRecord(edge, 'teacher roster edge'), 'node')
+          .studentId === student.id,
+    ),
+    false,
+  );
+
+  const repeated = await executeGraphqlExpectingErrors(adminToken, mutation, {
+    input: { studentId: student.id },
+  });
+  assert.equal(
+    requireRecordField(
+      requireRecord(requireArrayField(repeated, 'errors')[0], 'repeat error'),
+      'extensions',
+    ).code,
+    'NOT_FOUND',
+  );
+});
 
 
 void test('Teacher group roster exposes persisted status summary, overview, and pause', async () => {
