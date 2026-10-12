@@ -1477,6 +1477,7 @@ model ExamRegistration {
   @@unique([offeringId, phone])
   @@index([status, createdAt])
   @@map("exam_registrations")
+  deletedAt       DateTime?                 @map("deleted_at") @db.Timestamptz(3)
 
 }
 
@@ -1498,6 +1499,7 @@ model EventRegistration {
   @@unique([eventId, phone])
   @@index([status, createdAt])
   @@map("event_registrations")
+  deletedAt       DateTime?                 @map("deleted_at") @db.Timestamptz(3)
 
 }
 
@@ -1520,6 +1522,7 @@ model CourseRegistration {
   @@unique([courseId, phone])
   @@index([status, createdAt])
   @@map("course_registrations")
+  deletedAt       DateTime?                 @map("deleted_at") @db.Timestamptz(3)
 
 }
 

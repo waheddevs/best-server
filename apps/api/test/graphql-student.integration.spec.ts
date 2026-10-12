@@ -7681,3 +7681,111 @@ function requireEditorialApp(): INestApplication {
   assert.ok(app);
   return app;
 }
+
+void test('Admin request removal preserves rows, excludes queues, guards roles and rejects stale versions', async () => {
+  const db = requireEditorialApp().get(DatabaseService);
+  const marker = 'reserved-remove-' + randomUUID();
+  const course = await db.publicCourse.create({ data: { slug: marker } });
+  const event = await db.publicEvent.create({
+    data: { slug: marker, startsAt: new Date() },
+  });
+  const data = {
+    name: marker,
+    phone: '+998000000000',
+    email: 'remove@example.com',
+    consent: true,
+  };
+  const rows = [
+    {
+      kind: 'COURSE',
+      row: await db.courseRegistration.create({
+        data: { ...data, courseId: course.id },
+      }),
+    },
+    {
+      kind: 'EVENT',
+      row: await db.eventRegistration.create({
+        data: { ...data, eventId: event.id },
+      }),
+    },
+    { kind: 'EXAM', row: await db.examRegistration.create({ data }) },
+  ];
+  const mutation = `mutation($input:AdminRemoveRequestInput!){adminRemoveRequest(input:$input)}`;
+  const directory = `query($input:AdminDirectoryInput!){adminRequestDirectory(input:$input,language:EN){totalCount nodes{id} metrics{key value}}}`;
+  const before = await executeGraphql(adminToken, directory, {
+    input: { search: marker },
+  });
+  assert.equal(
+    requireRecordField(before, 'adminRequestDirectory').totalCount,
+    3,
+  );
+  for (const { kind, row } of rows) {
+    const input = {
+      id: row.id,
+      kind,
+      expectedUpdatedAt: row.updatedAt.toISOString(),
+    };
+    for (const token of [undefined, studentToken, teacherToken]) {
+      await assert.rejects(executeGraphql(token, mutation, { input }));
+    }
+    await assert.rejects(
+      executeGraphql(adminToken, mutation, {
+        input: { ...input, expectedUpdatedAt: '2000-01-01T00:00:00.000Z' },
+      }),
+    );
+    await executeGraphql(adminToken, mutation, { input });
+    await executeGraphql(adminToken, mutation, { input });
+    const persisted =
+      kind === 'COURSE'
+        ? await db.courseRegistration.findUniqueOrThrow({
+            where: { id: row.id },
+          })
+        : kind === 'EVENT'
+          ? await db.eventRegistration.findUniqueOrThrow({
+              where: { id: row.id },
+            })
+          : await db.examRegistration.findUniqueOrThrow({
+              where: { id: row.id },
+            });
+    assert.ok(persisted.deletedAt);
+    assert.equal(persisted.status, 'NEW');
+    assert.equal(persisted.name, marker);
+    assert.equal(
+      await db.auditLog.count({
+        where: {
+          targetId: row.id,
+          action: 'REQUEST_REMOVED',
+          actorId: adminId,
+        },
+      }),
+      1,
+    );
+    await assert.rejects(
+      executeGraphql(
+        adminToken,
+        `mutation($input:AdminReviewRequestInput!){adminReviewRequest(input:$input)}`,
+        {
+          input: {
+            ...input,
+            expectedUpdatedAt: persisted.updatedAt.toISOString(),
+            status: 'RESOLVED',
+            note: 'Reserved review',
+          },
+        },
+      ),
+    );
+  }
+  const afterRemoval = await executeGraphql(adminToken, directory, {
+    input: { search: marker },
+  });
+  const result = requireRecordField(afterRemoval, 'adminRequestDirectory');
+  assert.equal(result.totalCount, 0);
+  assert.deepEqual(result.nodes, []);
+  const overview = await executeGraphql(
+    adminToken,
+    `query{adminOverview(language:EN){requests{id}}}`,
+  );
+  for (const { row } of rows) {
+    assert.ok(!JSON.stringify(overview).includes(row.id));
+  }
+});
