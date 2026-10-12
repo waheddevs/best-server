@@ -7668,6 +7668,141 @@ void test('Admin operations: settings profile persists with audit', async () => 
   );
 });
 
+void test('Admin editorial: complete course content, public read, requests and stale edits', async () => {
+  const db = requireEditorialApp().get(DatabaseService);
+  const slug = 'editorial-course-' + randomUUID();
+  const input = {
+    slug,
+    position: 2,
+    category: 'EXAM',
+    accent: 'BLUE',
+    symbol: 'A',
+    featured: true,
+    imagePath: '/images/course.webp',
+    translations: ['UZ', 'RU', 'EN'].map((language) => ({
+      language,
+      title: 'Reserved course ' + language,
+      description: 'Reserved description',
+      duration: '12 weeks',
+      overview: ['Overview'],
+      highlights: ['Highlight'],
+      outcomes: ['Outcome'],
+      curriculum: ['Unit one'],
+      tracks: [
+        {
+          title: 'Track',
+          summary: 'Summary',
+          level: 'B1',
+          highlights: ['Practice'],
+        },
+      ],
+    })),
+  };
+  const save = `mutation($input:AdminSaveCourseContentInput!){adminSaveCourseContent(input:$input)}`;
+  await assert.rejects(executeGraphql(studentToken, save, { input }));
+  const result = await executeGraphql(adminToken, save, { input });
+  const id = String(result.adminSaveCourseContent);
+  const row = await db.publicCourse.findUniqueOrThrow({
+    where: { id },
+    include: { translations: true, tracks: true, contentItems: true },
+  });
+  assert.equal(row.translations.length, 3);
+  assert.equal(row.tracks.length, 1);
+  assert.equal(row.contentItems.length, 4);
+  await executeGraphql(
+    adminToken,
+    `mutation($input:SetPublicCourseStatusInput!){setCourseStatus(input:$input){course{id}}}`,
+    { input: { courseId: id, status: 'PUBLISHED' } },
+  );
+  const pub = await executeGraphql(
+    undefined,
+    `query($slug:String!){publicCourse(slug:$slug,language:EN){title duration overview tracks{title highlights}}}`,
+    { slug },
+  );
+  assert.equal(requireRecordField(pub, 'publicCourse').duration, '12 weeks');
+  const reg = await executeGraphql(
+    undefined,
+    `mutation($input:RegisterForCourseInput!){registerForCourse(input:$input){receiptId}}`,
+    {
+      input: {
+        courseSlug: slug,
+        name: 'Reserved Applicant',
+        phone: '+998000000011',
+        email: 'reserved@example.com',
+        locale: 'EN',
+        consent: true,
+      },
+    },
+  );
+  const requestId = String(
+    requireRecordField(reg, 'registerForCourse').receiptId,
+  );
+  const requests = await executeGraphql(
+    adminToken,
+    `query($input:AdminDirectoryInput!){adminRequestDirectory(input:$input,language:EN){totalCount nodes{id kind subjectName updatedAt}}}`,
+    { input: { category: 'COURSE', groupId: id } },
+  );
+  const dir = requireRecordField(requests, 'adminRequestDirectory');
+  assert.equal(dir.totalCount, 1);
+  const req = requireEditorialArray(dir.nodes)[0];
+  assert.ok(isRecord(req));
+  assert.equal(req.kind, 'COURSE');
+  await executeGraphql(
+    adminToken,
+    `mutation($input:AdminReviewRequestInput!){adminReviewRequest(input:$input)}`,
+    {
+      input: {
+        id: requestId,
+        kind: 'COURSE',
+        status: 'RESOLVED',
+        note: 'Reserved review',
+        expectedUpdatedAt: req.updatedAt,
+      },
+    },
+  );
+  assert.equal(
+    (
+      await db.courseRegistration.findUniqueOrThrow({
+        where: { id: requestId },
+      })
+    ).status,
+    'RESOLVED',
+  );
+  await assert.rejects(
+    executeGraphql(adminToken, save, {
+      input: { ...input, id, expectedUpdatedAt: row.updatedAt.toISOString() },
+    }),
+  );
+  const latest = await db.publicCourse.findUniqueOrThrow({ where: { id } });
+  await executeGraphql(adminToken, save, {
+    input: {
+      ...input,
+      id,
+      expectedUpdatedAt: latest.updatedAt.toISOString(),
+      translations: input.translations.map((t) => ({
+        ...t,
+        duration: '16 weeks',
+      })),
+    },
+  });
+  assert.equal(
+    (
+      await db.publicCourseTranslation.findFirstOrThrow({
+        where: { courseId: id, language: 'EN' },
+      })
+    ).duration,
+    '16 weeks',
+  );
+  assert.equal(
+    await db.publicCourseTrack.count({ where: { courseId: id } }),
+    1,
+  );
+  assert.ok(
+    await db.auditLog.count({
+      where: { targetId: id, action: 'CONTENT_UPDATED' },
+    }),
+  );
+});
 
 
 
