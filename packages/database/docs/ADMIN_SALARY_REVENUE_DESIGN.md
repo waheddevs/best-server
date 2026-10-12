@@ -2,8 +2,10 @@
 
 Owner approved automatic, read-only revenue sharing: 70% teacher / 30% center.
 This replaces the manual statement UI, without deleting historical statements.
-No migration or money movement is involved. Existing manual statement contracts
-remain available while clients migrate to the read-only revenue report.
+No migration or money movement is involved. Unused manual statement queries,
+mutations, input/output types and frontend branches were retired during the
+pre-deployment cleanup. Historical TeacherSalaryStatement records and migrations
+remain intact; the Salary page only reads payment allocation reports.
 
 Source: positive PaymentAllocation amounts linked to TuitionCharge membership,
 group and teacher. Unallocated receipts, tuition rates, unpaid charges, credit/

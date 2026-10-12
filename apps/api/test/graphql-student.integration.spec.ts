@@ -6395,6 +6395,12 @@ void test('generated schema releases answer review only through the scored-resul
   assert.match(schema, /teacherGroupProgress/);
   assert.match(schema, /teacherAttemptReview/);
   for (const removedOperation of [
+    'adminSaveSalary',
+    'adminFinalizeSalary',
+    'adminSalaryDirectory',
+    'AdminSaveSalaryInput',
+    'AdminSalaryRow',
+    'AdminSalaryDirectory',
     'adminAcademicOverview',
     'adminAttendance',
     'adminAuditLogs',
@@ -6443,6 +6449,8 @@ void test('generated schema releases answer review only through the scored-resul
     'teacherDashboard',
     'myNotifications',
     'adminOperationalOverview',
+    'adminSalaryReport',
+    'adminSalaryHistory',
   ]) {
     assert.match(schema, new RegExp(operation));
   }
@@ -7417,65 +7425,20 @@ function requireStringField(
   return value;
 }
 
-void test('Admin operations: salary persistence, immutability, RBAC and pagination', async () => {
+void test('Retired manual salary operations are absent even for Admin', async () => {
   const database = requireEditorialApp().get(DatabaseService);
-  const input = {
-    teacherId,
-    month: '2026-11',
-    baseUzs: '1000000',
-    bonusUzs: '100000',
-    deductionUzs: '50000',
-    note: 'Fictional integration statement',
-  };
-  const save = `mutation($input:AdminSaveSalaryInput!){adminSaveSalary(input:$input){id version netUzs status}}`;
-  await assert.rejects(
-    executeGraphql(studentToken, save, { input }),
-    /FORBIDDEN/,
-  );
-  const created = await executeGraphql(adminToken, save, { input });
-  const row = requireRecordField(created, 'adminSaveSalary');
-  assert.equal(row.netUzs, '1050000');
-  assert.equal(row.status, 'DRAFT');
-  const id = String(row.id);
-  assert.equal(
-    (await database.teacherSalaryStatement.findUniqueOrThrow({ where: { id } }))
-      .baseUzs,
-    1000000n,
-  );
-  await assert.rejects(executeGraphql(adminToken, save, { input }));
-  const update = await executeGraphql(adminToken, save, {
-    input: { ...input, id, version: 1, bonusUzs: '200000' },
-  });
-  assert.equal(requireRecordField(update, 'adminSaveSalary').version, 2);
-  await assert.rejects(
-    executeGraphql(adminToken, save, { input: { ...input, id, version: 1 } }),
-  );
-  const finalized = await executeGraphql(
-    adminToken,
-    `mutation($id:ID!){adminFinalizeSalary(id:$id,version:2){status netUzs}}`,
-    { id },
-  );
-  assert.equal(
-    requireRecordField(finalized, 'adminFinalizeSalary').status,
-    'FINALIZED',
-  );
-  await assert.rejects(
-    executeGraphql(adminToken, save, { input: { ...input, id, version: 3 } }),
-  );
-  assert.equal(
-    await database.auditLog.count({
-      where: { targetId: id, targetType: 'SALARY' },
-    }),
-    3,
-  );
-  const listing = await executeGraphql(
-    adminToken,
-    `query{adminSalaryDirectory(input:{page:1,pageSize:1,month:"2026-11",status:"FINALIZED"}){totalCount nodes{id}}}`,
-  );
-  assert.equal(
-    requireRecordField(listing, 'adminSalaryDirectory').totalCount,
-    1,
-  );
+  const beforeCount = await database.teacherSalaryStatement.count();
+  for (const query of [
+    'mutation { adminSaveSalary { id } }',
+    'mutation { adminFinalizeSalary { id } }',
+    'query { adminSalaryDirectory { totalCount } }',
+  ]) {
+    await assert.rejects(
+      executeGraphql(adminToken, query),
+      /Cannot query field/,
+    );
+  }
+  assert.equal(await database.teacherSalaryStatement.count(), beforeCount);
 });
 
 void test('Admin operations: group save, conflict, soft deletion and audit', async () => {
@@ -9101,7 +9064,6 @@ void test('Admin event cover and removal preserve registrations and hide deleted
     }),
   );
 });
-
 void test('Salary revenue: exact 30/70 allocation, Tashkent month, filters, history, read-only and RBAC', async () => {
   const db = requireEditorialApp().get(DatabaseService);
   const teacher = await db.user.create({

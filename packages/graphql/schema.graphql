@@ -428,14 +428,6 @@ input AdminReviewRequestInput {
   status: IntakeStatus!
 }
 
-type AdminSalaryDirectory {
-  metrics: [AdminMetric!]!
-  nodes: [AdminSalaryRow!]!
-  page: Int!
-  pageCount: Int!
-  totalCount: Int!
-}
-
 type AdminSalaryGroup {
   centerUzs: String!
   id: String!
@@ -486,22 +478,6 @@ type AdminSalaryReportRow {
   teacherId: String!
   teacherName: String!
   teacherUzs: String!
-}
-
-type AdminSalaryRow {
-  baseUzs: String!
-  bonusUzs: String!
-  deductionUzs: String!
-  groupCount: Int!
-  id: String!
-  month: String!
-  netUzs: String!
-  note: String
-  status: String!
-  studentCount: Int!
-  teacherId: String!
-  teacherName: String!
-  version: Int!
 }
 
 input AdminSaveCourseContentInput {
@@ -576,17 +552,6 @@ input AdminSaveLessonInput {
   room: String
   startsAt: DateTime!
   translations: [LessonTranslationInput!]!
-}
-
-input AdminSaveSalaryInput {
-  baseUzs: String!
-  bonusUzs: String!
-  deductionUzs: String!
-  id: ID
-  month: String!
-  note: String
-  teacherId: ID!
-  version: Int
 }
 
 input AdminSetUserRoleInput {
@@ -1304,10 +1269,11 @@ type MembershipMutationPayload {
 
 type Mutation {
   addStudentToGroup(input: AddStudentToGroupInput!): MembershipMutationPayload!
-  adminAssignTeacherTask(input: AdminAssignTeacherTaskInput!): TeacherTaskPayload!
+  adminAssignTeacherTask(
+    input: AdminAssignTeacherTaskInput!
+  ): TeacherTaskPayload!
   adminDeleteStudent(input: AdminDeleteStudentInput!): AdminUserMutationPayload!
   adminDeleteTeacher(input: AdminDeleteTeacherInput!): AdminUserMutationPayload!
-  adminFinalizeSalary(id: ID!, version: Int!): AdminSalaryRow!
   adminProvisionUser(input: AdminProvisionUserInput!): AdminUserMutationPayload!
   adminRemoveCourse(input: AdminRemoveCourseInput!): ID!
   adminRemoveEvent(input: AdminRemoveEventInput!): ID!
@@ -1321,103 +1287,214 @@ type Mutation {
   adminSaveExamSession(input: AdminSaveExamSessionInput!): ID!
   adminSaveGroup(input: AdminSaveGroupInput!): Group!
   adminSaveLesson(input: AdminSaveLessonInput!): Lesson!
-  adminSaveSalary(input: AdminSaveSalaryInput!): AdminSalaryRow!
-  adminSetContactRequestStatus(input: SetIntakeStatusInput!): AdminIntakePayload!
-  adminSetEventRegistrationStatus(input: SetIntakeStatusInput!): AdminIntakePayload!
-  adminSetExamRegistrationStatus(input: SetIntakeStatusInput!): AdminIntakePayload!
+  adminSetContactRequestStatus(
+    input: SetIntakeStatusInput!
+  ): AdminIntakePayload!
+  adminSetEventRegistrationStatus(
+    input: SetIntakeStatusInput!
+  ): AdminIntakePayload!
+  adminSetExamRegistrationStatus(
+    input: SetIntakeStatusInput!
+  ): AdminIntakePayload!
   adminSetGroupStatus(groupId: ID!, status: String!): Group!
   adminSetLessonStatus(lessonId: ID!, reason: String!, status: String!): Lesson!
   adminSetUserRole(input: AdminSetUserRoleInput!): AdminUserMutationPayload!
   adminSetUserStatus(input: AdminSetUserStatusInput!): AdminUserMutationPayload!
-  beginCredentialLogin(input: BeginCredentialLoginInput!): CredentialLoginChallengePayload!
+  beginCredentialLogin(
+    input: BeginCredentialLoginInput!
+  ): CredentialLoginChallengePayload!
   changeMyPassword(input: ChangeMyPasswordInput!): ChangeMyPasswordPayload!
   closeAssignment(input: AssignmentIdInput!): AssignmentPayload!
   completeTeacherTask(input: CompleteTeacherTaskInput!): TeacherTaskPayload!
-  confirmAttemptAudioUpload(input: ConfirmAttemptAudioUploadInput!): ConfirmMediaUploadPayload!
-  confirmMediaUpload(input: MediaObjectReferenceInput!): ConfirmMediaUploadPayload!
+  confirmAttemptAudioUpload(
+    input: ConfirmAttemptAudioUploadInput!
+  ): ConfirmMediaUploadPayload!
+  confirmMediaUpload(
+    input: MediaObjectReferenceInput!
+  ): ConfirmMediaUploadPayload!
   createAssignment(input: CreateAssignmentInput!): AssignmentPayload!
-  createAttemptAudioUploadIntent(input: CreateAttemptAudioUploadInput!): CreateMediaUploadIntentPayload!
+  createAttemptAudioUploadIntent(
+    input: CreateAttemptAudioUploadInput!
+  ): CreateMediaUploadIntentPayload!
   createCourseDraft(input: UpsertCourseInput!): PublicCoursePayload!
   createEventDraft(input: UpsertEventInput!): PublicEventPayload!
   createLesson(input: CreateLessonInput!): LessonPayload!
-  createLessonMaterial(input: CreateLessonMaterialInput!): LessonMaterialPayload!
-  createLibraryCategory(input: CreateLibraryCategoryInput!): LibraryCategoryPayload!
+  createLessonMaterial(
+    input: CreateLessonMaterialInput!
+  ): LessonMaterialPayload!
+  createLibraryCategory(
+    input: CreateLibraryCategoryInput!
+  ): LibraryCategoryPayload!
   createLibraryItem(input: CreateLibraryItemInput!): LibraryItemPayload!
-  createMediaDownloadIntent(input: MediaObjectReferenceInput!): CreateMediaDownloadIntentPayload!
-  createMediaUploadIntent(input: CreateMediaUploadIntentInput!): CreateMediaUploadIntentPayload!
-  createNextTestVersion(input: CreateNextTestVersionInput!): TeacherTestVersionPayload!
-  createStudentLibraryDownloadIntent(input: CreateLibraryDownloadIntentInput!): LibraryDownloadIntentPayload!
+  createMediaDownloadIntent(
+    input: MediaObjectReferenceInput!
+  ): CreateMediaDownloadIntentPayload!
+  createMediaUploadIntent(
+    input: CreateMediaUploadIntentInput!
+  ): CreateMediaUploadIntentPayload!
+  createNextTestVersion(
+    input: CreateNextTestVersionInput!
+  ): TeacherTestVersionPayload!
+  createStudentLibraryDownloadIntent(
+    input: CreateLibraryDownloadIntentInput!
+  ): LibraryDownloadIntentPayload!
   createTeacherGroup(input: CreateTeacherGroupInput!): GroupMutationPayload!
-  createTeacherPracticeTest(input: CreateTeacherPracticeTestInput!): TeacherTestPaperPayload!
+  createTeacherPracticeTest(
+    input: CreateTeacherPracticeTestInput!
+  ): TeacherTestPaperPayload!
   createTestCategory(input: CreateTestCategoryInput!): TestCategoryPayload!
   createTestDraft(input: CreateTestDraftInput!): TeacherTestPayload!
-  createTestPaperSkillDraft(input: CreateTestPaperSkillDraftInput!): TeacherTestVersionPayload!
-  createTestQuestion(input: CreateTestQuestionInput!): TeacherTestVersionPayload!
+  createTestPaperSkillDraft(
+    input: CreateTestPaperSkillDraftInput!
+  ): TeacherTestVersionPayload!
+  createTestQuestion(
+    input: CreateTestQuestionInput!
+  ): TeacherTestVersionPayload!
   createTestSection(input: CreateTestSectionInput!): TeacherTestVersionPayload!
-  createTestSectionBlock(input: CreateTestSectionBlockInput!): TeacherTestVersionPayload!
+  createTestSectionBlock(
+    input: CreateTestSectionBlockInput!
+  ): TeacherTestVersionPayload!
   deleteMyAccount: DeleteMyAccountPayload!
   deleteTeacherGroup(groupId: ID!): GroupMutationPayload!
   deleteTeacherPracticeTest(testPaperId: ID!): TeacherTestPaperDeletionPayload!
-  deleteTestDraftQuestion(input: TestVersionIdInput!, questionId: ID!): TeacherTestVersionPayload!
-  deleteTestDraftSection(input: TestVersionIdInput!, testSectionId: ID!): TeacherTestVersionPayload!
-  deleteTestSectionBlock(testSectionBlockId: ID!, testSectionId: ID!): TeacherTestVersionPayload!
+  deleteTestDraftQuestion(
+    input: TestVersionIdInput!
+    questionId: ID!
+  ): TeacherTestVersionPayload!
+  deleteTestDraftSection(
+    input: TestVersionIdInput!
+    testSectionId: ID!
+  ): TeacherTestVersionPayload!
+  deleteTestSectionBlock(
+    testSectionBlockId: ID!
+    testSectionId: ID!
+  ): TeacherTestVersionPayload!
   discardTestAttempt(attemptId: ID!): Boolean!
-  endGroupMembership(input: EndGroupMembershipInput!): MembershipMutationPayload!
-  generateListeningAudio(input: GenerateListeningAudioInput!): GenerateListeningAudioPayload!
-  grantAdditionalTestAttempt(input: GrantAdditionalTestAttemptInput!): AttemptGrantPayload!
+  endGroupMembership(
+    input: EndGroupMembershipInput!
+  ): MembershipMutationPayload!
+  generateListeningAudio(
+    input: GenerateListeningAudioInput!
+  ): GenerateListeningAudioPayload!
+  grantAdditionalTestAttempt(
+    input: GrantAdditionalTestAttemptInput!
+  ): AttemptGrantPayload!
   markAllNotificationsRead: MarkAllNotificationsReadPayload!
   markNotificationRead(input: MarkNotificationReadInput!): NotificationPayload!
   profileAvatarDownloadIntents(userIds: [ID!]!): [ProfileAvatarDownloadIntent!]!
   publishAssignment(input: AssignmentIdInput!): AssignmentPayload!
   publishTestVersion(input: TestVersionIdInput!): TeacherTestVersionPayload!
-  recordLessonAttendance(input: RecordLessonAttendanceInput!): LessonAttendancePayload!
-  refreshCredentialSession(input: RefreshCredentialSessionInput!): CredentialLoginSuccessPayload!
+  recordLessonAttendance(
+    input: RecordLessonAttendanceInput!
+  ): LessonAttendancePayload!
+  refreshCredentialSession(
+    input: RefreshCredentialSessionInput!
+  ): CredentialLoginSuccessPayload!
   registerForCourse(input: RegisterForCourseInput!): PublicSubmissionReceipt!
   registerForEvent(input: RegisterForEventInput!): PublicSubmissionReceipt!
-  reorderTestQuestions(input: ReorderTestQuestionsInput!): TeacherTestVersionPayload!
-  reorderTestSectionBlocks(input: ReorderTestSectionBlocksInput!): TeacherTestVersionPayload!
-  reorderTestSections(input: ReorderTestSectionsInput!): TeacherTestVersionPayload!
-  replaceTestDraftTranslations(input: ReplaceTestDraftTranslationsInput!): TeacherTestVersionPayload!
-  resendCredentialLoginCode(input: ResendCredentialLoginCodeInput!): CredentialLoginChallengePayload!
-  reviewAssignmentSubmission(input: ReviewAssignmentSubmissionInput!): AssignmentSubmissionPayload!
+  reorderTestQuestions(
+    input: ReorderTestQuestionsInput!
+  ): TeacherTestVersionPayload!
+  reorderTestSectionBlocks(
+    input: ReorderTestSectionBlocksInput!
+  ): TeacherTestVersionPayload!
+  reorderTestSections(
+    input: ReorderTestSectionsInput!
+  ): TeacherTestVersionPayload!
+  replaceTestDraftTranslations(
+    input: ReplaceTestDraftTranslationsInput!
+  ): TeacherTestVersionPayload!
+  resendCredentialLoginCode(
+    input: ResendCredentialLoginCodeInput!
+  ): CredentialLoginChallengePayload!
+  reviewAssignmentSubmission(
+    input: ReviewAssignmentSubmissionInput!
+  ): AssignmentSubmissionPayload!
   revokeCredentialSession(input: RevokeCredentialSessionInput!): Boolean!
-  saveAttemptAnswer(input: SaveAttemptAnswerInput!, language: Language!): SaveAttemptAnswerPayload!
-  saveAttemptSectionNote(input: SaveAttemptSectionNoteInput!, language: Language!): SaveAttemptSectionNotePayload!
-  saveSpeakingAttemptReview(input: SaveSpeakingAttemptReviewInput!, language: Language!): TeacherSpeakingAttemptReview!
-  saveWritingAttemptReview(input: SaveWritingAttemptReviewInput!, language: Language!): TeacherWritingAttemptReview!
+  saveAttemptAnswer(
+    input: SaveAttemptAnswerInput!
+    language: Language!
+  ): SaveAttemptAnswerPayload!
+  saveAttemptSectionNote(
+    input: SaveAttemptSectionNoteInput!
+    language: Language!
+  ): SaveAttemptSectionNotePayload!
+  saveSpeakingAttemptReview(
+    input: SaveSpeakingAttemptReviewInput!
+    language: Language!
+  ): TeacherSpeakingAttemptReview!
+  saveWritingAttemptReview(
+    input: SaveWritingAttemptReviewInput!
+    language: Language!
+  ): TeacherWritingAttemptReview!
   setCourseStatus(input: SetPublicCourseStatusInput!): PublicCoursePayload!
   setEventStatus(input: SetPublicEventStatusInput!): PublicEventPayload!
-  setGroupMembershipParticipationStatus(input: SetGroupMembershipParticipationStatusInput!): MembershipMutationPayload!
+  setGroupMembershipParticipationStatus(
+    input: SetGroupMembershipParticipationStatusInput!
+  ): MembershipMutationPayload!
   setLessonArchived(input: SetLessonArchivedInput!): LessonPayload!
-  setLessonMaterialArchived(input: SetLessonMaterialArchivedInput!): LessonMaterialPayload!
+  setLessonMaterialArchived(
+    input: SetLessonMaterialArchivedInput!
+  ): LessonMaterialPayload!
   setLessonStatus(input: SetLessonStatusInput!): LessonPayload!
-  setLibraryCategoryArchived(input: SetLibraryCategoryArchivedInput!): LibraryCategoryPayload!
-  setLibraryItemArchived(input: SetLibraryItemArchivedInput!): LibraryItemPayload!
-  setPracticeBookmark(input: SetPracticeBookmarkInput!): PracticeBookmarkPayload!
-  setTeacherGroupArchived(input: SetTeacherGroupArchivedInput!): GroupMutationPayload!
+  setLibraryCategoryArchived(
+    input: SetLibraryCategoryArchivedInput!
+  ): LibraryCategoryPayload!
+  setLibraryItemArchived(
+    input: SetLibraryItemArchivedInput!
+  ): LibraryItemPayload!
+  setPracticeBookmark(
+    input: SetPracticeBookmarkInput!
+  ): PracticeBookmarkPayload!
+  setTeacherGroupArchived(
+    input: SetTeacherGroupArchivedInput!
+  ): GroupMutationPayload!
   setTestArchived(input: SetTestArchivedInput!): TeacherTestPayload!
   startTestAttempt(input: StartTestAttemptInput!): StartTestAttemptPayload!
   submitAssignment(input: SubmitAssignmentInput!): AssignmentSubmissionPayload!
-  submitContactRequest(input: SubmitContactRequestInput!): PublicSubmissionReceipt!
-  submitExamRegistration(input: SubmitExamRegistrationInput!): PublicSubmissionReceipt!
-  submitTestAttempt(input: SubmitTestAttemptInput!, language: Language!): SubmitTestAttemptPayload!
-  teacherCreateStudentInGroup(input: TeacherCreateStudentInGroupInput!): MembershipMutationPayload!
-  teacherDeleteStudent(input: TeacherDeleteStudentInput!): MembershipMutationPayload!
+  submitContactRequest(
+    input: SubmitContactRequestInput!
+  ): PublicSubmissionReceipt!
+  submitExamRegistration(
+    input: SubmitExamRegistrationInput!
+  ): PublicSubmissionReceipt!
+  submitTestAttempt(
+    input: SubmitTestAttemptInput!
+    language: Language!
+  ): SubmitTestAttemptPayload!
+  teacherCreateStudentInGroup(
+    input: TeacherCreateStudentInGroupInput!
+  ): MembershipMutationPayload!
+  teacherDeleteStudent(
+    input: TeacherDeleteStudentInput!
+  ): MembershipMutationPayload!
   updateAssignment(input: UpdateAssignmentInput!): AssignmentPayload!
   updateCourseDraft(input: UpdateCourseInput!): PublicCoursePayload!
   updateEventDraft(input: UpdateEventInput!): PublicEventPayload!
   updateLesson(input: UpdateLessonInput!): LessonPayload!
-  updateLessonMaterial(input: UpdateLessonMaterialInput!): LessonMaterialPayload!
-  updateLibraryCategory(input: UpdateLibraryCategoryInput!): LibraryCategoryPayload!
+  updateLessonMaterial(
+    input: UpdateLessonMaterialInput!
+  ): LessonMaterialPayload!
+  updateLibraryCategory(
+    input: UpdateLibraryCategoryInput!
+  ): LibraryCategoryPayload!
   updateLibraryItem(input: UpdateLibraryItemInput!): LibraryItemPayload!
   updateMyProfile(input: UpdateMyProfileInput!): UpdateMyProfilePayload!
   updateTeacherGroup(input: UpdateTeacherGroupInput!): GroupMutationPayload!
   updateTestCategory(input: UpdateTestCategoryInput!): TestCategoryPayload!
-  updateTestDraftSettings(input: UpdateTestDraftSettingsInput!): TeacherTestVersionPayload!
-  updateTestQuestion(input: UpdateTestQuestionInput!): TeacherTestVersionPayload!
+  updateTestDraftSettings(
+    input: UpdateTestDraftSettingsInput!
+  ): TeacherTestVersionPayload!
+  updateTestQuestion(
+    input: UpdateTestQuestionInput!
+  ): TeacherTestVersionPayload!
   updateTestSection(input: UpdateTestSectionInput!): TeacherTestVersionPayload!
-  updateTestSectionBlock(input: UpdateTestSectionBlockInput!): TeacherTestVersionPayload!
-  verifyCredentialLogin(input: VerifyCredentialLoginInput!): CredentialLoginSuccessPayload!
+  updateTestSectionBlock(
+    input: UpdateTestSectionBlockInput!
+  ): TeacherTestVersionPayload!
+  verifyCredentialLogin(
+    input: VerifyCredentialLoginInput!
+  ): CredentialLoginSuccessPayload!
 }
 
 type Notification {
@@ -1670,105 +1747,286 @@ type PublicSubmissionReceipt {
 }
 
 type Query {
-  adminContactRequests(after: String, first: Int, status: IntakeStatus): AdminIntakeConnection!
+  adminContactRequests(
+    after: String
+    first: Int
+    status: IntakeStatus
+  ): AdminIntakeConnection!
   adminCourse(language: Language!, slug: String!): PublicCourse!
   adminCourseCatalog(input: AdminDirectoryInput!): AdminCourseCatalog!
   adminCourseCover(courseId: String!): MediaDownloadIntent
-  adminCourses(after: String, first: Int, language: Language!): PublicCourseConnection!
+  adminCourses(
+    after: String
+    first: Int
+    language: Language!
+  ): PublicCourseConnection!
   adminDirectoryOptions: AdminDirectoryOptions!
   adminEvent(language: Language!, slug: String!): PublicEvent!
   adminEventCatalog(input: AdminDirectoryInput!): AdminEventCatalog!
   adminEventCover(eventId: String!): MediaDownloadIntent
-  adminEventRegistrations(after: String, first: Int, status: IntakeStatus): AdminIntakeConnection!
-  adminEvents(after: String, first: Int, language: Language!): PublicEventConnection!
+  adminEventRegistrations(
+    after: String
+    first: Int
+    status: IntakeStatus
+  ): AdminIntakeConnection!
+  adminEvents(
+    after: String
+    first: Int
+    language: Language!
+  ): PublicEventConnection!
   adminExamCatalog(input: AdminDirectoryInput!): AdminExamCatalog!
-  adminExamRegistrations(after: String, first: Int, status: IntakeStatus): AdminIntakeConnection!
-  adminExamSessionDirectory(input: AdminDirectoryInput!, language: Language!): AdminExamSessionDirectory!
+  adminExamRegistrations(
+    after: String
+    first: Int
+    status: IntakeStatus
+  ): AdminIntakeConnection!
+  adminExamSessionDirectory(
+    input: AdminDirectoryInput!
+    language: Language!
+  ): AdminExamSessionDirectory!
   adminGroup(groupId: ID!): Group!
   adminGroupDirectory(input: AdminDirectoryInput!): AdminGroupDirectory!
-  adminGroups(after: String, first: Int, search: String, status: ContentStatus, teacherId: ID): GroupConnection!
+  adminGroups(
+    after: String
+    first: Int
+    search: String
+    status: ContentStatus
+    teacherId: ID
+  ): GroupConnection!
   adminLessonDirectory(input: AdminDirectoryInput!): AdminLessonDirectory!
   adminNoticeDirectory(input: AdminDirectoryInput!): AdminNoticeDirectory!
   adminOperationalOverview: AdminOperationalOverview!
   adminOverview(language: Language!): AdminOverview!
   adminPaymentDetail(id: ID!): AdminPaymentRow!
   adminPaymentDirectory(input: AdminDirectoryInput!): AdminPaymentDirectory!
-  adminRequestDirectory(input: AdminDirectoryInput!, language: Language!): AdminRequestDirectory!
-  adminSalaryDirectory(input: AdminDirectoryInput!): AdminSalaryDirectory!
+  adminRequestDirectory(
+    input: AdminDirectoryInput!
+    language: Language!
+  ): AdminRequestDirectory!
   adminSalaryHistory(input: AdminDirectoryInput!): AdminSalaryHistory!
   adminSalaryReport(input: AdminDirectoryInput!): AdminSalaryReport!
   adminSchedule(from: DateTime!, to: DateTime!): [Lesson!]!
-  adminTuitionLedger(after: String, first: Int, studentId: ID): TuitionLedgerConnection!
+  adminTuitionLedger(
+    after: String
+    first: Int
+    studentId: ID
+  ): TuitionLedgerConnection!
   adminUser(userId: ID!): AdminUser!
-  adminUsers(after: String, first: Int, role: UserRole, search: String, status: UserStatus): AdminUserConnection!
-  myNotifications(after: String, first: Int, unreadOnly: Boolean = false): NotificationConnection!
+  adminUsers(
+    after: String
+    first: Int
+    role: UserRole
+    search: String
+    status: UserStatus
+  ): AdminUserConnection!
+  myNotifications(
+    after: String
+    first: Int
+    unreadOnly: Boolean = false
+  ): NotificationConnection!
   myProfile: UserProfile!
   myUnreadNotificationCount: Int!
   publicCourse(language: Language!, slug: String!): PublicCourse!
   publicCourseCover(courseId: String!): MediaDownloadIntent
-  publicCourses(after: String, first: Int, language: Language!): PublicCourseConnection!
+  publicCourses(
+    after: String
+    first: Int
+    language: Language!
+  ): PublicCourseConnection!
   publicEvent(language: Language!, slug: String!): PublicEvent!
   publicEventCover(eventId: String!): MediaDownloadIntent
-  publicEvents(after: String, first: Int, language: Language!): PublicEventConnection!
+  publicEvents(
+    after: String
+    first: Int
+    language: Language!
+  ): PublicEventConnection!
   publicExamOfferings(language: Language!): [PublicExamOffering!]!
   publicFaq(language: Language!): [PublicFaqItem!]!
   publicResultVideos(language: Language!): [PublicResultVideo!]!
   studentAssignment(assignmentId: ID!): Assignment!
-  studentAssignments(after: String, first: Int, status: AssignmentStatus): AssignmentConnection!
+  studentAssignments(
+    after: String
+    first: Int
+    status: AssignmentStatus
+  ): AssignmentConnection!
   studentAttempt(attemptId: ID!, language: Language!): StudentAttempt!
-  studentAttemptMediaDownload(attemptId: ID!, mediaObjectId: ID!): MediaDownloadIntent!
-  studentAvailableTests(after: String, first: Int, language: Language!): StudentTestConnection!
+  studentAttemptMediaDownload(
+    attemptId: ID!
+    mediaObjectId: ID!
+  ): MediaDownloadIntent!
+  studentAvailableTests(
+    after: String
+    first: Int
+    language: Language!
+  ): StudentTestConnection!
   studentCurrentGroup: StudentCurrentGroup
-  studentGroupLessons(after: String, first: Int, groupId: ID!): LessonConnection!
-  studentGroupMaterials(after: String, first: Int, groupId: ID!, language: Language! = EN): LessonMaterialConnection!
+  studentGroupLessons(
+    after: String
+    first: Int
+    groupId: ID!
+  ): LessonConnection!
+  studentGroupMaterials(
+    after: String
+    first: Int
+    groupId: ID!
+    language: Language! = EN
+  ): LessonMaterialConnection!
   studentLesson(lessonId: ID!): Lesson!
-  studentLibraryItem(language: Language!, libraryItemId: ID!): StudentLibraryItem!
-  studentLibraryItems(after: String, categoryId: ID, first: Int, language: Language!): StudentLibraryItemConnection!
+  studentLibraryItem(
+    language: Language!
+    libraryItemId: ID!
+  ): StudentLibraryItem!
+  studentLibraryItems(
+    after: String
+    categoryId: ID
+    first: Int
+    language: Language!
+  ): StudentLibraryItemConnection!
   studentProgress: StudentProgress!
   studentReleasedAttemptResult(attemptId: ID!): StudentReleasedAttemptResult!
-  studentResults(after: String, first: Int, language: Language!): StudentResultConnection!
+  studentResults(
+    after: String
+    first: Int
+    language: Language!
+  ): StudentResultConnection!
   studentSchedule(from: DateTime!, to: DateTime!): [Lesson!]!
-  studentSpeakingResult(attemptId: ID!, language: Language!): StudentSpeakingResult
+  studentSpeakingResult(
+    attemptId: ID!
+    language: Language!
+  ): StudentSpeakingResult
   studentTest(language: Language!, testId: ID!): StudentTest!
   studentTestPaper(paperId: ID!): StudentTestPaper!
   studentTestPapers(after: String, first: Int): StudentTestPaperConnection!
   studentTuitionLedger(after: String, first: Int): TuitionLedgerConnection!
-  studentWritingResult(attemptId: ID!, language: Language!): StudentWritingResult
+  studentWritingResult(
+    attemptId: ID!
+    language: Language!
+  ): StudentWritingResult
   teacherAssignment(assignmentId: ID!): Assignment!
-  teacherAssignmentSubmissions(after: String, assignmentId: ID!, first: Int, status: SubmissionStatus): AssignmentSubmissionConnection!
-  teacherAttemptGrants(after: String, first: Int, testId: ID!): AttemptGrantConnection!
-  teacherAttemptReview(attemptId: ID!, language: Language!): TeacherAttemptReview!
+  teacherAssignmentSubmissions(
+    after: String
+    assignmentId: ID!
+    first: Int
+    status: SubmissionStatus
+  ): AssignmentSubmissionConnection!
+  teacherAttemptGrants(
+    after: String
+    first: Int
+    testId: ID!
+  ): AttemptGrantConnection!
+  teacherAttemptReview(
+    attemptId: ID!
+    language: Language!
+  ): TeacherAttemptReview!
   teacherAttendance(lessonId: ID!): [LessonAttendance!]!
   teacherDashboard: TeacherDashboard!
   teacherFinanceSnapshots(year: Int!): TeacherFinanceYear!
   teacherGroup(groupId: ID!): Group!
-  teacherGroupAssignments(after: String, first: Int, groupId: ID!, status: AssignmentStatus): AssignmentConnection!
-  teacherGroupLessons(after: String, first: Int, groupId: ID!, status: LessonStatus): LessonConnection!
-  teacherGroupMaterials(after: String, first: Int, groupId: ID!, language: Language! = EN): LessonMaterialConnection!
+  teacherGroupAssignments(
+    after: String
+    first: Int
+    groupId: ID!
+    status: AssignmentStatus
+  ): AssignmentConnection!
+  teacherGroupLessons(
+    after: String
+    first: Int
+    groupId: ID!
+    status: LessonStatus
+  ): LessonConnection!
+  teacherGroupMaterials(
+    after: String
+    first: Int
+    groupId: ID!
+    language: Language! = EN
+  ): LessonMaterialConnection!
   teacherGroupOverview(groupId: ID!): TeacherGroupOverview!
   teacherGroupProgress(groupId: ID!): TeacherGroupProgress!
-  teacherGroupRoster(after: String, first: Int, groupId: ID!, includeEnded: Boolean = false, search: String): GroupRosterConnection!
+  teacherGroupRoster(
+    after: String
+    first: Int
+    groupId: ID!
+    includeEnded: Boolean = false
+    search: String
+  ): GroupRosterConnection!
   teacherGroupRosterSummary(groupId: ID!): TeacherGroupRosterSummary!
-  teacherGroupStudents(after: String, first: Int, groupId: ID!): TeacherStudentProgressConnection!
-  teacherGroups(after: String, first: Int, search: String, status: ContentStatus): GroupConnection!
+  teacherGroupStudents(
+    after: String
+    first: Int
+    groupId: ID!
+  ): TeacherStudentProgressConnection!
+  teacherGroups(
+    after: String
+    first: Int
+    search: String
+    status: ContentStatus
+  ): GroupConnection!
   teacherLesson(lessonId: ID!): Lesson!
-  teacherLibraryCategories(includeArchived: Boolean = false): [LibraryCategory!]!
-  teacherLibraryItems(after: String, categoryId: ID, first: Int, includeArchived: Boolean = false): TeacherLibraryItemConnection!
-  teacherObjectiveAttemptResult(attemptId: ID!, language: Language!): TeacherObjectiveAttemptResult!
+  teacherLibraryCategories(
+    includeArchived: Boolean = false
+  ): [LibraryCategory!]!
+  teacherLibraryItems(
+    after: String
+    categoryId: ID
+    first: Int
+    includeArchived: Boolean = false
+  ): TeacherLibraryItemConnection!
+  teacherObjectiveAttemptResult(
+    attemptId: ID!
+    language: Language!
+  ): TeacherObjectiveAttemptResult!
   teacherResultAttemptSkill(attemptId: ID!): TestSkill!
-  teacherResultInbox(after: String, first: Int, groupId: ID, language: Language!, paperId: ID, search: String, skill: TestSkill, status: AttemptStatus): TeacherResultInboxConnection!
+  teacherResultInbox(
+    after: String
+    first: Int
+    groupId: ID
+    language: Language!
+    paperId: ID
+    search: String
+    skill: TestSkill
+    status: AttemptStatus
+  ): TeacherResultInboxConnection!
   teacherSchedule(from: DateTime!, to: DateTime!): [Lesson!]!
-  teacherSpeakingAttemptReview(attemptId: ID!, language: Language!): TeacherSpeakingAttemptReview!
-  teacherStudentAttempts(after: String, first: Int, groupId: ID!, language: Language!, studentId: ID!): TeacherAttemptConnection!
-  teacherStudentTests(after: String, first: Int, groupId: ID!, language: Language!, studentId: ID!): TeacherStudentTestProgressConnection!
-  teacherTasks(after: String, first: Int, kind: TeacherTaskKind, status: TeacherTaskStatus): TeacherTaskConnection!
+  teacherSpeakingAttemptReview(
+    attemptId: ID!
+    language: Language!
+  ): TeacherSpeakingAttemptReview!
+  teacherStudentAttempts(
+    after: String
+    first: Int
+    groupId: ID!
+    language: Language!
+    studentId: ID!
+  ): TeacherAttemptConnection!
+  teacherStudentTests(
+    after: String
+    first: Int
+    groupId: ID!
+    language: Language!
+    studentId: ID!
+  ): TeacherStudentTestProgressConnection!
+  teacherTasks(
+    after: String
+    first: Int
+    kind: TeacherTaskKind
+    status: TeacherTaskStatus
+  ): TeacherTaskConnection!
   teacherTestCategories: [TestCategory!]!
   teacherTestDraft(testId: ID!): TeacherTestVersion!
   teacherTestPaper(groupId: ID!, practiceNumber: Int!): TeacherTestPaper!
   teacherTestPapers(groupId: ID!, page: Int! = 1): TeacherTestPaperPage!
   teacherTestVersion(testVersionId: ID!): TeacherTestVersion!
-  teacherTests(after: String, first: Int, groupId: ID, search: String, status: ContentStatus): TeacherTestConnection!
-  teacherWritingAttemptReview(attemptId: ID!, language: Language!): TeacherWritingAttemptReview!
+  teacherTests(
+    after: String
+    first: Int
+    groupId: ID
+    search: String
+    status: ContentStatus
+  ): TeacherTestConnection!
+  teacherWritingAttemptReview(
+    attemptId: ID!
+    language: Language!
+  ): TeacherWritingAttemptReview!
   validateTeacherTestDraft(testVersionId: ID!): TeacherTestDraftValidation!
   viewer: Viewer!
 }
