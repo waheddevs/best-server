@@ -7469,6 +7469,43 @@ void test('Admin operations: group save, conflict, soft deletion and audit', asy
   );
 });
 
+void test('Admin operations: schedule writes, collision, cancellation and restore', async () => {
+  const input = {
+    groupId,
+    startsAt: '2026-12-20T05:00:00.000Z',
+    endsAt: '2026-12-20T06:00:00.000Z',
+    room: 'Reserved test room',
+    translations: [{ language: 'EN', title: 'Admin integration lesson' }],
+  };
+  const save = `mutation($input:AdminSaveLessonInput!){adminSaveLesson(input:$input){id status updatedAt}}`;
+  const created = await executeGraphql(adminToken, save, { input });
+  const row = requireRecordField(created, 'adminSaveLesson');
+  const id = String(row.id);
+  assert.equal(row.status, 'SCHEDULED');
+  await assert.rejects(executeGraphql(adminToken, save, { input }));
+  const status = `mutation($id:ID!,$status:String!){adminSetLessonStatus(lessonId:$id,status:$status,reason:"Integration correction"){status}}`;
+  assert.equal(
+    requireRecordField(
+      await executeGraphql(adminToken, status, { id, status: 'CANCELLED' }),
+      'adminSetLessonStatus',
+    ).status,
+    'CANCELLED',
+  );
+  assert.equal(
+    requireRecordField(
+      await executeGraphql(adminToken, status, { id, status: 'SCHEDULED' }),
+      'adminSetLessonStatus',
+    ).status,
+    'SCHEDULED',
+  );
+  const list = await executeGraphql(
+    adminToken,
+    `query{adminLessonDirectory(input:{from:"2026-12-20T00:00:00Z",to:"2026-12-21T00:00:00Z",page:1,pageSize:15}){totalCount nodes{id groupName teacherName}}}`,
+  );
+  assert.ok(
+    Number(requireRecordField(list, 'adminLessonDirectory').totalCount) > 0,
+  );
+});
 
 
 
