@@ -30,6 +30,15 @@ import { ResultsResolver } from '../components/results/results.resolver';
 import { TestsAuthoringResolver } from '../components/tests/tests-authoring.resolver';
 import { TestsResolver } from '../components/tests/tests.resolver';
 import { UsersResolver } from '../components/users/users.resolver';
+import { AdminOverviewResolver } from '../components/audit/admin-overview.resolver';
+import { AdminCourseContentResolver } from '../components/courses/admin-course-content.resolver';
+import { AdminEventContentResolver } from '../components/events/admin-event-content.resolver';
+import { AdminRequestsResolver } from '../components/events/admin-requests.resolver';
+import { AdminFinanceResolver } from '../components/finance/admin-finance.resolver';
+import { AdminGroupsResolver } from '../components/groups/admin-groups.resolver';
+import { AdminLessonsResolver } from '../components/lessons/admin-lessons.resolver';
+import { AdminNoticesResolver } from '../components/notifications/admin-notices.resolver';
+import { AdminExamsResolver } from '../components/public-content/admin-exams.resolver';
 
 async function main(): Promise<void> {
   const app = await NestFactory.createApplicationContext(
@@ -42,6 +51,15 @@ async function main(): Promise<void> {
     const schema = await app
       .get(GraphQLSchemaFactory)
       .create([
+        AdminOverviewResolver,
+        AdminCourseContentResolver,
+        AdminEventContentResolver,
+        AdminRequestsResolver,
+        AdminFinanceResolver,
+        AdminGroupsResolver,
+        AdminLessonsResolver,
+        AdminNoticesResolver,
+        AdminExamsResolver,
         AuditResolver,
         AssignmentsResolver,
         AssetsResolver,
