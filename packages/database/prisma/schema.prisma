@@ -1453,6 +1453,7 @@ model ContactRequest {
 
   @@index([status, createdAt])
   @@map("contact_requests")
+  deletedAt       DateTime?                 @map("deleted_at") @db.Timestamptz(3)
 
 }
 

@@ -1,8 +1,17 @@
 import { IntakeStatus, Language, UserRole } from '@best/database';
 import { UseGuards } from '@nestjs/common';
-import { Args, Context, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
+import {
+  Args,
+  Context,
+  ID,
+  Int,
+  Mutation,
+  Query,
+  Resolver,
+} from '@nestjs/graphql';
 import type { ApiGraphqlContext } from '../../libs/types/authenticated-request.type';
 import {
+  AdminRemoveMessageInput,
   RegisterForEventInput,
   SetIntakeStatusInput,
   SetPublicEventStatusInput,
@@ -35,7 +44,7 @@ export class EventsResolver {
   ) {
     return this.service.list(language, first, after);
   }
-  
+
   @Query(() => PublicEventObject, { name: 'publicEvent' }) one(
     @Args('slug') slug: string,
     @Args('language', { type: () => Language }) language: Language,
@@ -129,7 +138,7 @@ export class EventsResolver {
     @Args('first', { nullable: true, type: () => Int }) first?: number,
     @Args('after', { nullable: true }) after?: string,
     @Args('status', { nullable: true, type: () => IntakeStatus })
-    status?: IntakeStatus,
+    status?: IntakeStatus | null,
   ) {
     return this.service.intakeList('CONTACT', first, after, status);
   }
@@ -140,7 +149,7 @@ export class EventsResolver {
     @Args('first', { nullable: true, type: () => Int }) first?: number,
     @Args('after', { nullable: true }) after?: string,
     @Args('status', { nullable: true, type: () => IntakeStatus })
-    status?: IntakeStatus,
+    status?: IntakeStatus | null,
   ) {
     return this.service.intakeList('EXAM', first, after, status);
   }
@@ -151,9 +160,19 @@ export class EventsResolver {
     @Args('first', { nullable: true, type: () => Int }) first?: number,
     @Args('after', { nullable: true }) after?: string,
     @Args('status', { nullable: true, type: () => IntakeStatus })
-    status?: IntakeStatus,
+    status?: IntakeStatus | null,
   ) {
     return this.service.intakeList('EVENT', first, after, status);
+  }
+  @Mutation(() => ID, { name: 'adminRemoveMessage' })
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  removeMessage(
+    @AuthMember('id') id: string,
+    @Args('input') input: AdminRemoveMessageInput,
+    @Context() ctx: ApiGraphqlContext,
+  ) {
+    return this.service.removeMessage(id, input.messageId, ctx.req.requestId);
   }
   @Mutation(() => AdminIntakePayloadObject, {
     name: 'adminSetContactRequestStatus',

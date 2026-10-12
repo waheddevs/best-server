@@ -59,3 +59,8 @@ export class SetIntakeStatusInput {
   @Field(() => IntakeStatus) status!: IntakeStatus;
   @Field(() => String) reviewNote!: string;
 }
+
+@InputType('AdminRemoveMessageInput')
+export class AdminRemoveMessageInput {
+  @Field(() => ID) messageId!: string;
+}

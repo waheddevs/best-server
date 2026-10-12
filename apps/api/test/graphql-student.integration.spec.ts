@@ -7789,3 +7789,177 @@ void test('Admin request removal preserves rows, excludes queues, guards roles a
     assert.ok(!JSON.stringify(overview).includes(row.id));
   }
 });
+void test('Admin Messages status changes persist and reject non-admin roles', async () => {
+  const db = requireEditorialApp().get(DatabaseService);
+  const receipt = requireRecordField(
+    await executeGraphql(
+      undefined,
+      `mutation($input:SubmitContactRequestInput!){submitContactRequest(input:$input){accepted receiptId}}`,
+      {
+        input: {
+          name: 'Reserved Message Tester',
+          email: 'message-status@example.com',
+          subject: 'Reserved schedule enquiry',
+          message: 'Fictional message for Admin status integration testing.',
+          consent: true,
+          locale: 'EN',
+        },
+      },
+    ),
+    'submitContactRequest',
+  );
+  const id = requireStringField(receipt, 'receiptId');
+  const mutation = `mutation($input:SetIntakeStatusInput!){adminSetContactRequestStatus(input:$input){intake{id name email subject message status reviewNote createdAt}}}`;
+  const input = {
+    intakeId: id,
+    status: 'IN_REVIEW',
+    reviewNote: 'Reserved review note',
+  };
+  for (const token of [undefined, studentToken, teacherToken]) {
+    await assert.rejects(executeGraphql(token, mutation, { input }));
+  }
+  assert.equal(
+    (await db.contactRequest.findUniqueOrThrow({ where: { id } })).status,
+    'NEW',
+  );
+  await assert.rejects(
+    executeGraphql(adminToken, mutation, {
+      input: { ...input, reviewNote: '' },
+    }),
+  );
+  for (const status of ['IN_REVIEW', 'RESOLVED', 'REJECTED', 'NEW'] as const) {
+    const payload = requireRecordField(
+      await executeGraphql(adminToken, mutation, {
+        input: { ...input, status },
+      }),
+      'adminSetContactRequestStatus',
+    );
+    const updated = requireRecordField(payload, 'intake');
+    assert.equal(updated.id, id);
+    assert.equal(updated.status, status);
+    assert.equal(updated.subject, 'Reserved schedule enquiry');
+    const row = await db.contactRequest.findUniqueOrThrow({ where: { id } });
+    assert.equal(row.status, status);
+    assert.equal(row.reviewNote, input.reviewNote);
+    assert.equal(
+      row.message,
+      'Fictional message for Admin status integration testing.',
+    );
+    assert.equal(
+      await db.auditLog.count({
+        where: {
+          actorId: adminId,
+          targetId: id,
+          action: `CONTACT_INTAKE_${status}`,
+        },
+      }),
+      1,
+    );
+    const connection = requireRecordField(
+      await executeGraphql(
+        adminToken,
+        `query($status:IntakeStatus!){adminContactRequests(first:100,status:$status){edges{node{id status reviewNote}}}}`,
+        { status },
+      ),
+      'adminContactRequests',
+    );
+    const nodes = requireArrayField(connection, 'edges').map((edge) =>
+      requireRecordField(requireRecord(edge, 'edge'), 'node'),
+    );
+    assert.ok(nodes.some((node) => node.id === id && node.status === status));
+  }
+});
+void test('Admin message removal retains data, hides lists and counts, and enforces roles', async () => {
+  const db = requireEditorialApp().get(DatabaseService);
+  const row = await db.contactRequest.create({
+    data: {
+      name: 'Reserved Delete Message',
+      email: 'delete-message@example.com',
+      subject: 'Reserved enquiry',
+      message: 'Fictional removal test message',
+      consent: true,
+    },
+  });
+  const mutation = `mutation($input:AdminRemoveMessageInput!){adminRemoveMessage(input:$input)}`;
+  const input = { messageId: row.id };
+  for (const token of [undefined, studentToken, teacherToken]) {
+    await assert.rejects(executeGraphql(token, mutation, { input }));
+  }
+  assert.equal(
+    (await db.contactRequest.findUniqueOrThrow({ where: { id: row.id } }))
+      .deletedAt,
+    null,
+  );
+  await assert.rejects(
+    executeGraphql(adminToken, mutation, {
+      input: { messageId: 'not-a-uuid' },
+    }),
+  );
+  await assert.rejects(
+    executeGraphql(adminToken, mutation, {
+      input: { messageId: randomUUID() },
+    }),
+  );
+  const overview = `query{adminOperationalOverview{pendingIntakes}}`;
+  const before = requireRecordField(
+    await executeGraphql(adminToken, overview),
+    'adminOperationalOverview',
+  );
+  const results = await Promise.all([
+    executeGraphql(adminToken, mutation, { input }),
+    executeGraphql(adminToken, mutation, { input }),
+  ]);
+  for (const result of results) assert.equal(result.adminRemoveMessage, row.id);
+  const persisted = await db.contactRequest.findUniqueOrThrow({
+    where: { id: row.id },
+  });
+  assert.ok(persisted.deletedAt);
+  assert.equal(persisted.message, row.message);
+  assert.equal(persisted.status, row.status);
+  assert.equal(persisted.consent, true);
+  assert.equal(
+    await db.auditLog.count({
+      where: {
+        actorId: adminId,
+        targetId: row.id,
+        action: 'CONTACT_MESSAGE_REMOVED',
+      },
+    }),
+    1,
+  );
+  const afterRemoval = requireRecordField(
+    await executeGraphql(adminToken, overview),
+    'adminOperationalOverview',
+  );
+  assert.equal(
+    Number(afterRemoval.pendingIntakes),
+    Number(before.pendingIntakes) - 1,
+  );
+  for (const status of [null, 'NEW']) {
+    const connection = requireRecordField(
+      await executeGraphql(
+        adminToken,
+        `query($status:IntakeStatus){adminContactRequests(first:100,status:$status){edges{node{id}}}}`,
+        { status },
+      ),
+      'adminContactRequests',
+    );
+    const nodes = requireArrayField(connection, 'edges').map((edge) =>
+      requireRecordField(requireRecord(edge, 'edge'), 'node'),
+    );
+    assert.ok(!nodes.some((node) => node.id === row.id));
+  }
+  await assert.rejects(
+    executeGraphql(
+      adminToken,
+      `mutation($input:SetIntakeStatusInput!){adminSetContactRequestStatus(input:$input){intake{id}}}`,
+      {
+        input: {
+          intakeId: row.id,
+          status: 'IN_REVIEW',
+          reviewNote: 'Cannot restore deleted message',
+        },
+      },
+    ),
+  );
+});

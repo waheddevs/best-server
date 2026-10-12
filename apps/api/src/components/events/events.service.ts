@@ -337,29 +337,29 @@ export class EventsService {
     kind: 'CONTACT' | 'EXAM' | 'EVENT',
     first?: number,
     after?: string,
-    status?: IntakeStatus,
+    status?: IntakeStatus | null,
   ): Promise<AdminIntakeConnectionObject> {
     const size = parsePageSize(first);
     const afterId = decodeCursor(after);
     const where = {
-      ...(status === undefined ? {} : { status }),
+      ...(status === undefined || status === null ? {} : { status }),
       ...(afterId === undefined ? {} : { id: { gt: afterId } }),
     };
     const rows =
       kind === 'CONTACT'
         ? await this.db.contactRequest.findMany({
-            where,
+            where: { ...where, deletedAt: null },
             orderBy: { id: 'asc' },
             take: size + 1,
           })
         : kind === 'EXAM'
           ? await this.db.examRegistration.findMany({
-              where,
+              where: { ...where, deletedAt: null },
               orderBy: { id: 'asc' },
               take: size + 1,
             })
           : await this.db.eventRegistration.findMany({
-              where,
+              where: { ...where, deletedAt: null },
               orderBy: { id: 'asc' },
               take: size + 1,
             });
@@ -370,6 +370,8 @@ export class EventsService {
       kind,
       name: row.name,
       phone: row.phone,
+      subject: 'subject' in row ? row.subject : null,
+      message: 'message' in row ? row.message : null,
       reviewNote: row.reviewNote,
       status: row.status,
     }));
@@ -380,6 +382,33 @@ export class EventsService {
       edges,
       pageInfo: { endCursor: edges.at(-1)?.cursor ?? null, hasNextPage },
     };
+  }
+  async removeMessage(
+    adminId: string,
+    idInput: string,
+    correlationId?: string,
+  ): Promise<string> {
+    const id = parseUuid(idInput, 'messageId');
+    return this.db.$transaction(async (tx) => {
+      const current = await tx.contactRequest.findUnique({ where: { id } });
+      if (!current) throw notFound();
+      const removed = await tx.contactRequest.updateMany({
+        where: { id, deletedAt: null },
+        data: { deletedAt: new Date() },
+      });
+      if (removed.count) {
+        await tx.auditLog.create({
+          data: {
+            action: 'CONTACT_MESSAGE_REMOVED',
+            actorId: adminId,
+            correlationId: correlationId ?? null,
+            targetId: id,
+            targetType: 'CONTACT_INTAKE',
+          },
+        });
+      }
+      return id;
+    });
   }
   async setIntake(
     adminId: string,
@@ -395,10 +424,19 @@ export class EventsService {
     const row = await this.db.$transaction(async (tx) => {
       const updated =
         kind === 'CONTACT'
-          ? await tx.contactRequest.update({ where: { id }, data })
+          ? await tx.contactRequest.update({
+              where: { id, deletedAt: null },
+              data,
+            })
           : kind === 'EXAM'
-            ? await tx.examRegistration.update({ where: { id }, data })
-            : await tx.eventRegistration.update({ where: { id }, data });
+            ? await tx.examRegistration.update({
+                where: { id, deletedAt: null },
+                data,
+              })
+            : await tx.eventRegistration.update({
+                where: { id, deletedAt: null },
+                data,
+              });
       await tx.auditLog.create({
         data: {
           action: `${kind}_INTAKE_${status}`,
@@ -418,6 +456,8 @@ export class EventsService {
       kind,
       name: row.name,
       phone: row.phone,
+      subject: 'subject' in row ? row.subject : null,
+      message: 'message' in row ? row.message : null,
       reviewNote: row.reviewNote,
       status: row.status,
     };
