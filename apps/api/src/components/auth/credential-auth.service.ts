@@ -22,6 +22,7 @@ import type {
   VerifyCredentialLoginInput,
 } from '../../schemas/auth/credential-login.input';
 import type {
+  CredentialLoginPayloadObject,
   CredentialLoginChallengePayloadObject,
   CredentialLoginSuccessPayloadObject,
 } from '../../schemas/auth/credential-login.object';
@@ -29,13 +30,13 @@ import { AUTH_ENVIRONMENT, CREDENTIAL_EMAIL_SENDER } from './auth.constants';
 import { AuthService } from './auth.service';
 import type { CredentialEmailSender } from './credential-email-sender.type';
 import { CredentialPasswordService } from './credential-password.service';
+import { isValidLoginEmail } from './login-email';
 
 const CHALLENGE_TTL_MILLISECONDS = 5 * 60 * 1000;
 const RESEND_COOLDOWN_MILLISECONDS = 60 * 1000;
 const LOGIN_LOCK_MILLISECONDS = 15 * 60 * 1000;
 const MAXIMUM_LOGIN_FAILURES = 5;
 const MAXIMUM_CODE_ATTEMPTS = 5;
-const MAXIMUM_EMAIL_LENGTH = 320;
 const MAXIMUM_NAME_LENGTH = 160;
 const MAXIMUM_PASSWORD_LENGTH = 128;
 const GENERIC_LOGIN_MESSAGE = 'The supplied login details are invalid';
@@ -75,10 +76,22 @@ export class CredentialAuthService {
     private readonly environment: AuthEnvironment,
   ) {}
 
-  async beginLogin(
+  async login(
     input: BeginCredentialLoginInput,
-  ): Promise<CredentialLoginChallengePayloadObject> {
-    const email = normalizeEmail(input.email);
+    correlationId?: string,
+  ): Promise<CredentialLoginPayloadObject> {
+    if (this.environment.requireEmailVerification) {
+      return { challenge: await this.beginLogin(input) };
+    }
+    const user = await this.validateCredentials(input);
+    return { session: await this.createSession(user, correlationId) };
+  }
+
+  private async validateCredentials(input: BeginCredentialLoginInput) {
+    const email = normalizeEmail(
+      input.email,
+      this.environment.allowReservedLoginEmails,
+    );
     const name = normalizeName(input.name);
     const separateName =
       input.firstName === undefined && input.lastName === undefined
@@ -158,6 +171,14 @@ export class CredentialAuthService {
       where: { keyHash: throttleKey },
     });
 
+    return { ...user, email: user.email };
+  }
+
+  async beginLogin(
+    input: BeginCredentialLoginInput,
+  ): Promise<CredentialLoginChallengePayloadObject> {
+    const user = await this.validateCredentials(input);
+    const now = new Date();
     const challengeId = randomUUID();
     const code = generateSixDigitCode();
     const expiresAt = new Date(now.getTime() + CHALLENGE_TTL_MILLISECONDS);
@@ -352,6 +373,22 @@ export class CredentialAuthService {
       throw loginFieldError('code');
     }
 
+    return this.createSession(challenge.user, correlationId, {
+      challengeId,
+      codeHash: expectedHash,
+    });
+  }
+
+  private async createSession(
+    identity: {
+      id: string;
+      role: UserRole;
+      credentialPasswordHash: string | null;
+    },
+    correlationId?: string,
+    verification?: { challengeId: string; codeHash: string },
+  ): Promise<CredentialLoginSuccessPayloadObject> {
+    const now = new Date();
     const refreshToken = createRefreshTokenMaterial();
     const refreshExpiresAt = new Date(
       now.getTime() + REFRESH_SESSION_ABSOLUTE_TTL_MILLISECONDS,
@@ -360,25 +397,28 @@ export class CredentialAuthService {
       now.getTime() + REFRESH_SESSION_IDLE_TTL_MILLISECONDS,
     );
     const user = await this.database.$transaction(async (transaction) => {
-      const consumed = await transaction.credentialLoginChallenge.updateMany({
-        where: {
-          attempts: { lt: MAXIMUM_CODE_ATTEMPTS },
-          codeHash: expectedHash,
-          expiresAt: { gt: now },
-          id: challengeId,
-          usedAt: null,
-        },
-        data: { usedAt: now },
-      });
+      if (verification) {
+        const consumed = await transaction.credentialLoginChallenge.updateMany({
+          where: {
+            attempts: { lt: MAXIMUM_CODE_ATTEMPTS },
+            codeHash: verification.codeHash,
+            expiresAt: { gt: now },
+            id: verification.challengeId,
+            usedAt: null,
+          },
+          data: { usedAt: now },
+        });
 
-      if (consumed.count !== 1) {
-        throw loginFieldError('code');
+        if (consumed.count !== 1) {
+          throw loginFieldError('code');
+        }
       }
 
       const activeUser = await transaction.user.findFirst({
         where: {
-          credentialPasswordHash: { not: null },
-          id: challenge.user.id,
+          credentialPasswordHash: identity.credentialPasswordHash,
+          id: identity.id,
+          role: identity.role,
           status: UserStatus.ACTIVE,
         },
         select: { displayName: true, id: true, role: true },
@@ -388,9 +428,9 @@ export class CredentialAuthService {
         throw genericLoginError();
       }
 
-      if (challenge.user.emailVerifiedAt === null) {
-        await transaction.user.update({
-          where: { id: activeUser.id },
+      if (verification) {
+        await transaction.user.updateMany({
+          where: { id: activeUser.id, emailVerifiedAt: null },
           data: { emailVerifiedAt: now },
         });
       }
@@ -416,7 +456,9 @@ export class CredentialAuthService {
 
       await transaction.auditLog.create({
         data: {
-          action: 'AUTH_CREDENTIAL_LOGIN_VERIFIED',
+          action: verification
+            ? 'AUTH_CREDENTIAL_LOGIN_VERIFIED'
+            : 'AUTH_CREDENTIAL_LOGIN_SUCCEEDED',
           actorId: activeUser.id,
           correlationId: correlationId ?? null,
           targetId: activeUser.id,
@@ -671,14 +713,10 @@ export class CredentialAuthService {
   }
 }
 
-function normalizeEmail(value: string): string {
+function normalizeEmail(value: string, allowReservedDomains: boolean): string {
   const email = value.trim().toLowerCase();
 
-  if (
-    email.length < 3 ||
-    email.length > MAXIMUM_EMAIL_LENGTH ||
-    !/^[^\s@]+@[^\s@]+$/.test(email)
-  ) {
+  if (!isValidLoginEmail(email, allowReservedDomains)) {
     throw loginFieldError('email');
   }
 

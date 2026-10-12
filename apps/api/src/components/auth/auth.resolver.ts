@@ -9,6 +9,7 @@ import {
   VerifyCredentialLoginInput,
 } from '../../schemas/auth/credential-login.input';
 import {
+  CredentialLoginPayloadObject,
   CredentialLoginChallengePayloadObject,
   CredentialLoginSuccessPayloadObject,
 } from '../../schemas/auth/credential-login.object';
@@ -17,6 +18,14 @@ import { CredentialAuthService } from './credential-auth.service';
 @Resolver()
 export class AuthResolver {
   constructor(private readonly credentialAuthService: CredentialAuthService) {}
+
+  @Mutation(() => CredentialLoginPayloadObject, { name: 'credentialLogin' })
+  credentialLogin(
+    @Args('input') input: BeginCredentialLoginInput,
+    @Context() context: ApiGraphqlContext,
+  ): Promise<CredentialLoginPayloadObject> {
+    return this.credentialAuthService.login(input, context.req.requestId);
+  }
 
   @Mutation(() => CredentialLoginChallengePayloadObject, {
     name: 'beginCredentialLogin',

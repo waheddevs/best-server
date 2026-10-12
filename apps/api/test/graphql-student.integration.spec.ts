@@ -17,7 +17,10 @@ import { resolve } from 'node:path';
 import { after, before, test } from 'node:test';
 import { promisify } from 'node:util';
 
-import { loadInfrastructureEnvironment } from '@best/config';
+import {
+  loadInfrastructureEnvironment,
+  type AuthEnvironment,
+} from '@best/config';
 import {
   AssignmentStatus,
   AttemptStatus,
@@ -51,7 +54,10 @@ import { Pool } from 'pg';
 import { AppModule } from '../src/app.module';
 import { AuthService } from '../src/components/auth/auth.service';
 import { CredentialPasswordService } from '../src/components/auth/credential-password.service';
-import { CREDENTIAL_EMAIL_SENDER } from '../src/components/auth/auth.constants';
+import {
+  AUTH_ENVIRONMENT,
+  CREDENTIAL_EMAIL_SENDER,
+} from '../src/components/auth/auth.constants';
 import type {
   CredentialEmailSender,
   CredentialLoginCodeMessage,
@@ -96,6 +102,7 @@ class FakeListeningAudioGateway extends ListeningAudioGateway {
 
 const RUNTIME_ENVIRONMENT_NAMES = [
   'AUTH_EMAIL_DELIVERY_MODE',
+  'AUTH_REQUIRE_EMAIL_VERIFICATION',
   'AUTH_OTP_HASH_SECRET',
   'CLAMAV_CONNECT_TIMEOUT_MS',
   'CLAMAV_HOST',
@@ -149,6 +156,7 @@ before(async () => {
   await applyMigrations(testDatabaseUrl);
   process.env.DATABASE_URL = testDatabaseUrl;
   process.env.AUTH_EMAIL_DELIVERY_MODE = 'disabled';
+  process.env.AUTH_REQUIRE_EMAIL_VERIFICATION = 'false';
   process.env.AUTH_OTP_HASH_SECRET =
     'integration-otp-secret-that-is-longer-than-32-characters';
   const testingModule = await Test.createTestingModule({ imports: [AppModule] })
@@ -9186,5 +9194,130 @@ void test('Salary revenue: exact 30/70 allocation, Tashkent month, filters, hist
     (await db.tuitionCharge.findUniqueOrThrow({ where: { id: charge.id } }))
       .amountUzs,
     900000n,
+  );
+});
+
+void test('password login persists an unverified session and respects the server email-code policy', async () => {
+  const database = requireApp().get(DatabaseService);
+  const environment = requireApp().get<AuthEnvironment>(AUTH_ENVIRONMENT);
+  const password = 'reserved-password-login-2026';
+  const email = `password-login-${randomUUID()}@example.com`;
+  const user = await database.user.create({
+    data: {
+      email,
+      displayName: 'Reserved Password Student',
+      role: UserRole.STUDENT,
+      credentialPasswordHash: await requireApp()
+        .get(CredentialPasswordService)
+        .hashPassword(password),
+    },
+  });
+  const query = `mutation Login($input: BeginCredentialLoginInput!) {
+    credentialLogin(input: $input) {
+      challenge { challengeId }
+      session { accessToken refreshToken user { id role } }
+    }
+  }`;
+  const input = {
+    email,
+    name: user.displayName,
+    password,
+    expectedRole: 'STUDENT',
+  };
+  credentialEmailSender.clear();
+  const loggedIn = requireRecordField(
+    await executeGraphql(undefined, query, { input }),
+    'credentialLogin',
+  );
+  assert.equal(loggedIn.challenge, null);
+  const session = requireRecordField(loggedIn, 'session');
+  assert.equal(requireRecordField(session, 'user').id, user.id);
+  assert.ok(requireStringField(session, 'accessToken'));
+  assert.ok(requireStringField(session, 'refreshToken'));
+  assert.equal(credentialEmailSender.getLatestMessage(), undefined);
+  assert.equal(
+    await database.credentialLoginChallenge.count({
+      where: { userId: user.id },
+    }),
+    0,
+  );
+  assert.equal(
+    await database.credentialSession.count({ where: { userId: user.id } }),
+    1,
+  );
+  assert.equal(
+    (await database.user.findUniqueOrThrow({ where: { id: user.id } }))
+      .emailVerifiedAt,
+    null,
+  );
+  assert.equal(
+    await database.auditLog.count({
+      where: { actorId: user.id, action: 'AUTH_CREDENTIAL_LOGIN_SUCCEEDED' },
+    }),
+    1,
+  );
+
+  const reject = async (changed: Record<string, string>, expected: string) => {
+    const result = await executeGraphqlExpectingErrors(undefined, query, {
+      input: { ...input, ...changed },
+    });
+    const error = requireRecord(
+      requireArrayField(result, 'errors')[0],
+      'login error',
+    );
+    assert.equal(requireRecordField(error, 'extensions').code, expected);
+  };
+  await reject({ password: 'incorrect-password' }, 'LOGIN_PASSWORD_INVALID');
+  await reject({ expectedRole: 'ADMIN' }, 'UNAUTHENTICATED');
+  await reject({ email: 'invalid@host' }, 'LOGIN_EMAIL_INVALID');
+  await reject(
+    { email: `missing-${randomUUID()}@example.com` },
+    'LOGIN_EMAIL_INVALID',
+  );
+  await database.user.update({
+    where: { id: user.id },
+    data: { status: UserStatus.INACTIVE },
+  });
+  await reject({}, 'UNAUTHENTICATED');
+  await database.user.update({
+    where: { id: user.id },
+    data: { status: UserStatus.ACTIVE },
+  });
+
+  const previousReserved = environment.allowReservedLoginEmails;
+  const previousVerification = environment.requireEmailVerification;
+  try {
+    environment.allowReservedLoginEmails = false;
+    await reject({}, 'LOGIN_EMAIL_INVALID');
+    environment.allowReservedLoginEmails = previousReserved;
+    environment.requireEmailVerification = true;
+    const withCode = requireRecordField(
+      await executeGraphql(undefined, query, { input }),
+      'credentialLogin',
+    );
+    assert.equal(withCode.session, null);
+    assert.ok(
+      requireStringField(
+        requireRecordField(withCode, 'challenge'),
+        'challengeId',
+      ),
+    );
+    assert.ok(credentialEmailSender.getLatestMessage());
+    assert.equal(
+      await database.credentialSession.count({ where: { userId: user.id } }),
+      1,
+    );
+  } finally {
+    environment.allowReservedLoginEmails = previousReserved;
+    environment.requireEmailVerification = previousVerification;
+  }
+
+  // Successful credential validation above reset the failed-attempt counter.
+  for (let index = 0; index < 5; index += 1)
+    await reject({ password: 'incorrect-password' }, 'LOGIN_PASSWORD_INVALID');
+  await reject({}, 'UNAUTHENTICATED');
+  assert.equal(
+    await database.credentialSession.count({ where: { userId: user.id } }),
+    1,
   );
 });

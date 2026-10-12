@@ -1,3 +1,15 @@
+# Current deployment policy (2026-10-13)
+
+The owner deferred email-code verification. `credentialLogin` validates the
+existing account, password, profile name, active status and backend-owned role,
+then creates an audited credential session. It never marks the email verified.
+`AUTH_REQUIRE_EMAIL_VERIFICATION=false` is the default. Set it to `true` with
+working SMTP to have the same operation return an email challenge instead.
+The existing code verification/resend contracts remain available. SMTP is
+required when verification is enabled; disabled delivery never fakes a send.
+Login email syntax is validated on both sides. Reserved test domains are
+rejected in production and allowed in development/integration fixtures.
+
 # Auth component
 
 Owns Admin-provisioned credential login, email-code challenges, short-lived
@@ -40,6 +52,6 @@ Student and Teacher credentials through `adminProvisionUser`; that mutation
 cannot create another Admin. Existing deployment-provisioned Admin credentials
 may use the same login challenge.
 
-SMTP delivery is mandatory in production. When delivery is explicitly disabled
+SMTP delivery is mandatory when email-code verification is enabled. When delivery is explicitly disabled
 for local development, login fails with `SERVICE_UNAVAILABLE`; it never reports
 a fake successful send. Tests inject a capturing sender and use reserved data.

@@ -33,6 +33,8 @@ void test('auth environment parses the bearer access-token contract', () => {
       accessTokenSecret: 'a-development-secret-with-32-characters',
       accessTokenTtlSeconds: 3600,
       credentialEmail: undefined,
+      requireEmailVerification: false,
+      allowReservedLoginEmails: true,
       otpHashSecret: 'a-different-otp-secret-with-32-characters',
     },
   );
@@ -76,7 +78,7 @@ void test('auth environment rejects weak secrets and invalid token TTLs', () => 
   );
 });
 
-void test('auth environment parses SMTP delivery and requires it in production', () => {
+void test('auth environment requires SMTP only when email verification is enabled', () => {
   const shared = {
     AUTH_OTP_HASH_SECRET: 'a-different-otp-secret-with-32-characters',
     JWT_ACCESS_AUDIENCE: 'best-clients',
@@ -102,8 +104,20 @@ void test('auth environment parses SMTP delivery and requires it in production',
     secure: false,
     user: 'mailer',
   });
+  const passwordOnly = parseAuthEnvironment({
+    ...shared,
+    NODE_ENV: 'production',
+  });
+  assert.equal(passwordOnly.requireEmailVerification, false);
+  assert.equal(passwordOnly.credentialEmail, undefined);
+  assert.equal(passwordOnly.allowReservedLoginEmails, false);
   assert.throws(
-    () => parseAuthEnvironment({ ...shared, NODE_ENV: 'production' }),
+    () =>
+      parseAuthEnvironment({
+        ...shared,
+        NODE_ENV: 'production',
+        AUTH_REQUIRE_EMAIL_VERIFICATION: 'true',
+      }),
     EnvironmentValidationError,
   );
 });

@@ -14,6 +14,8 @@ export interface AuthEnvironment {
   accessTokenSecret: string;
   accessTokenTtlSeconds: number;
   credentialEmail: CredentialEmailEnvironment | undefined;
+  requireEmailVerification: boolean;
+  allowReservedLoginEmails: boolean;
   otpHashSecret: string;
 }
 
@@ -110,6 +112,11 @@ export function parseAuthEnvironment(
   source: EnvironmentSource,
 ): AuthEnvironment {
   const nodeEnvironment = parseNodeEnvironment(source.NODE_ENV);
+  const requireEmailVerification = parseBoolean(
+    source.AUTH_REQUIRE_EMAIL_VERIFICATION,
+    'AUTH_REQUIRE_EMAIL_VERIFICATION',
+    false,
+  );
   const accessTokenSecret = parseRequiredString(
     source.JWT_ACCESS_SECRET,
     'JWT_ACCESS_SECRET',
@@ -158,26 +165,30 @@ export function parseAuthEnvironment(
       3_600,
       DEFAULT_ACCESS_TOKEN_TTL_SECONDS,
     ),
-    credentialEmail: parseCredentialEmailEnvironment(source, nodeEnvironment),
+    credentialEmail: parseCredentialEmailEnvironment(
+      source,
+      requireEmailVerification,
+    ),
+    requireEmailVerification,
+    allowReservedLoginEmails: nodeEnvironment !== 'production',
     otpHashSecret,
   };
 }
 
 function parseCredentialEmailEnvironment(
   source: EnvironmentSource,
-  nodeEnvironment: NodeEnvironment,
+  required: boolean,
 ): CredentialEmailEnvironment | undefined {
   const mode = parseOptionalString(
     source.AUTH_EMAIL_DELIVERY_MODE,
   )?.toLowerCase();
-  const normalizedMode =
-    mode ?? (nodeEnvironment === 'production' ? 'smtp' : 'disabled');
+  const normalizedMode = mode ?? (required ? 'smtp' : 'disabled');
 
   if (normalizedMode === 'disabled') {
-    if (nodeEnvironment === 'production') {
+    if (required) {
       throw new EnvironmentValidationError(
         'AUTH_EMAIL_DELIVERY_MODE',
-        'SMTP delivery is required in production',
+        'SMTP delivery is required when email verification is enabled',
       );
     }
 

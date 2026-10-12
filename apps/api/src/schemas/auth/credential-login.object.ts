@@ -40,3 +40,12 @@ export class CredentialLoginSuccessPayloadObject {
   @Field(() => ViewerObject)
   user!: ViewerObject;
 }
+
+@ObjectType('CredentialLoginPayload')
+export class CredentialLoginPayloadObject {
+  @Field(() => CredentialLoginChallengePayloadObject, { nullable: true })
+  challenge?: CredentialLoginChallengePayloadObject;
+
+  @Field(() => CredentialLoginSuccessPayloadObject, { nullable: true })
+  session?: CredentialLoginSuccessPayloadObject;
+}
