@@ -11,7 +11,6 @@ import {
   Resolver,
 } from '@nestjs/graphql';
 import type { ApiGraphqlContext } from '../../libs/types/authenticated-request.type';
-import { AdminLocationSummaryObject } from '../../schemas/lessons/admin-location-summary.object';
 import { LessonConnectionObject } from '../../schemas/lessons/lesson-connection.object';
 import {
   CreateLessonInput,
@@ -43,18 +42,6 @@ export class LessonsResolver {
     @Args('to', { type: () => GraphQLISODateTime }) to: Date,
   ) {
     return this.service.getAdminSchedule(from, to);
-  }
-  @Query(() => [LessonAttendanceObject], { name: 'adminAttendance' })
-  @UseGuards(AuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
-  adminAttendance(@Args('lessonId', { type: () => ID }) lessonId: string) {
-    return this.service.getAdminAttendance(lessonId);
-  }
-  @Query(() => [AdminLocationSummaryObject], { name: 'adminLocations' })
-  @UseGuards(AuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
-  adminLocations() {
-    return this.service.getAdminLocations();
   }
   @Query(() => [LessonObject], { name: 'teacherSchedule' })
   @UseGuards(AuthGuard, RolesGuard)

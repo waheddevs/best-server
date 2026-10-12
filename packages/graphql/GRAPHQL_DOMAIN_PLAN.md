@@ -342,30 +342,8 @@ answers.
 
 ## Step 8C Admin academic monitoring contract
 
-All 8C operations require the authenticated `ADMIN` role and are read-only.
-They support operational oversight across Teachers and groups without exposing
-selected options, correct options, question review, provider identities, or
-other Teacher-only detail.
-
-- `adminAcademicOverview` returns active Teacher, Student, group, and assigned
-  test counts plus global current-assignment completion and best-score
-  statistics. PostgreSQL performs the aggregate so the API does not load every
-  attempt into memory.
-- `adminGroupProgresses(first, after)` returns cursor-paginated group summaries
-  with owner identity, lifecycle status, active memberships, current assigned
-  tests, completion, and best-score aggregates.
-- `adminStudents(first, after)` returns cursor-paginated Student identities,
-  lifecycle status, optional current group, scored-attempt count, and
-  historical best-per-test score aggregates.
-- `adminStudentResults(studentId, language, first, after)` returns one
-  Student's cursor-paginated scored attempt history with its original group and
-  localized test title. An unknown or non-Student identity returns `NOT_FOUND`.
-
-Global and group current progress uses active groups/tests, published versions
-whose availability has started, and active memberships. Student score history
-remains historical across previous memberships. Students and Teachers cannot
-call Admin operations. No 8C type contains answer-option or correct-answer
-fields.
+This Admin-only contract was removed on 2026-10-11. Student and Teacher result
+contracts remain active and continue to enforce their existing ownership rules.
 
 ## Primary implementation references
 

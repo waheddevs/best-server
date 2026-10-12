@@ -9,7 +9,6 @@ import {
   parsePageSize,
   parseUuid,
 } from '../../libs/pagination/cursor-pagination';
-import type { AdminLocationSummaryObject } from '../../schemas/lessons/admin-location-summary.object';
 import type { LessonConnectionObject } from '../../schemas/lessons/lesson-connection.object';
 import type {
   CreateLessonInput,
@@ -42,68 +41,6 @@ export class LessonsService {
       orderBy: [{ startsAt: 'asc' }, { id: 'asc' }],
     });
     return rows.map(mapLesson);
-  }
-
-  async getAdminAttendance(
-    lessonIdInput: string,
-  ): Promise<LessonAttendanceObject[]> {
-    const lessonId = parseUuid(lessonIdInput, 'lessonId');
-    const exists = await this.database.lesson.count({
-      where: { id: lessonId },
-    });
-    if (exists !== 1) throw notFound();
-    return this.getAttendanceRows(lessonId);
-  }
-
-  async getAdminLocations(): Promise<AdminLocationSummaryObject[]> {
-    const now = new Date();
-    const groups = await this.database.group.findMany({
-      where: { room: { not: null }, status: 'ACTIVE' },
-      select: { room: true },
-    });
-    const lessons = await this.database.lesson.findMany({
-      where: {
-        archivedAt: null,
-        group: { room: { not: null } },
-        startsAt: { gte: now },
-        status: LessonStatus.SCHEDULED,
-      },
-      orderBy: { startsAt: 'asc' },
-      select: { group: { select: { room: true } }, startsAt: true },
-    });
-    const rooms = new Map<string, AdminLocationSummaryObject>();
-
-    for (const group of groups) {
-      if (group.room === null) continue;
-      const current = rooms.get(group.room);
-      rooms.set(group.room, {
-        activeGroupCount: (current?.activeGroupCount ?? 0) + 1,
-        nextLessonAt: current?.nextLessonAt ?? null,
-        room: group.room,
-        scheduledLessonCount: current?.scheduledLessonCount ?? 0,
-      });
-    }
-
-    for (const lesson of lessons) {
-      const room = lesson.group.room;
-      if (room === null) continue;
-      const current = rooms.get(room) ?? {
-        activeGroupCount: 0,
-        nextLessonAt: null,
-        room,
-        scheduledLessonCount: 0,
-      };
-      rooms.set(room, {
-        activeGroupCount: current.activeGroupCount,
-        nextLessonAt: current.nextLessonAt ?? lesson.startsAt,
-        room: current.room,
-        scheduledLessonCount: current.scheduledLessonCount + 1,
-      });
-    }
-
-    return [...rooms.values()].sort((left, right) =>
-      left.room.localeCompare(right.room),
-    );
   }
 
   async getTeacherSchedule(
@@ -250,6 +187,7 @@ export class LessonsService {
     const groupId = parseUuid(input.groupId, 'groupId');
     await this.requireGroup(teacherId, groupId);
     const row = await this.database.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('lesson-schedule-write'))`;
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${groupId}))`;
       const sequence = await tx.lesson.aggregate({
         where: { groupId },
@@ -284,6 +222,16 @@ export class LessonsService {
     const groupId = parseUuid(input.groupId, 'groupId');
     await this.requireGroup(teacherId, groupId);
     const row = await this.database.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('lesson-schedule-write'))`;
+      const latest = await tx.lesson.findUnique({
+        where: { id: existing.id },
+        select: { updatedAt: true, status: true },
+      });
+      if (
+        latest?.updatedAt.getTime() !== existing.updatedAt.getTime() ||
+        latest.status === LessonStatus.COMPLETED
+      )
+        throw conflict('Lesson changed; reload before editing');
       await tx.lessonTranslation.deleteMany({
         where: { lessonId: existing.id },
       });
@@ -512,7 +460,7 @@ export class LessonsService {
   }
 }
 
-function parseLesson(input: CreateLessonInput) {
+export function parseLesson(input: CreateLessonInput) {
   validateRange(input.startsAt, input.endsAt);
   return {
     endsAt: input.endsAt,
@@ -520,7 +468,7 @@ function parseLesson(input: CreateLessonInput) {
     startsAt: input.startsAt,
   };
 }
-function parseTranslations(rows: CreateLessonInput['translations']) {
+export function parseTranslations(rows: CreateLessonInput['translations']) {
   if (
     rows.length < 1 ||
     rows.length > 3 ||
@@ -533,7 +481,7 @@ function parseTranslations(rows: CreateLessonInput['translations']) {
     title: required(title, 'title', 240),
   }));
 }
-function mapLesson(row: LessonRecord): LessonObject {
+export function mapLesson(row: LessonRecord) {
   return {
     archivedAt: row.archivedAt,
     createdAt: row.createdAt,
@@ -548,7 +496,7 @@ function mapLesson(row: LessonRecord): LessonObject {
     updatedAt: row.updatedAt,
   };
 }
-function validateRange(from: Date, to: Date): void {
+export function validateRange(from: Date, to: Date): void {
   if (
     !Number.isFinite(from.getTime()) ||
     !Number.isFinite(to.getTime()) ||

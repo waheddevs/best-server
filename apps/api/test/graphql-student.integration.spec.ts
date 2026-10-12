@@ -42,6 +42,7 @@ import {
   TestSectionBlockKind,
   TestVersionStatus,
   UserRole,
+  UserStatus,
 } from '@best/database';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
@@ -125,6 +126,7 @@ let app: INestApplication | undefined;
 let fakeStorageServer: Server | undefined;
 let fakeMalwareScannerServer: TcpServer | undefined;
 let apiUrl: string;
+let adminId: string;
 let adminToken: string;
 let studentToken: string;
 let teacherToken: string;
@@ -163,7 +165,7 @@ before(async () => {
   const database = app.get(DatabaseService);
   const authService = app.get(AuthService);
   const fixture = await createStudentTestFixture(database);
-  const adminId = randomUUID();
+  adminId = randomUUID();
   await database.user.create({
     data: {
       displayName: 'Fake Admin',
@@ -2649,6 +2651,8 @@ void test('Teacher soft-deletes only an owned Student and preserves their record
   assert.ok(requireArrayField(repeated, 'errors').length > 0);
 });
 
+
+
 void test('Teacher group roster exposes persisted status summary, overview, and pause', async () => {
   const database = requireApp().get(DatabaseService);
   const suffix = randomUUID().slice(0, 8);
@@ -4501,184 +4505,6 @@ void test('Student role cannot call Teacher result operations', async () => {
   assert.equal(requireRecordField(firstError, 'extensions').code, 'FORBIDDEN');
 });
 
-void test('Admin can monitor academic aggregates and Student scores only', async () => {
-  const database = requireApp().get(DatabaseService);
-  const fixture = await createStudentProgressFixture(database, teacherId);
-  const overviewResponse = await executeGraphql(
-    adminToken,
-    `query AdminAcademicOverview {
-      adminAcademicOverview {
-        activeTeacherCount activeStudentCount activeGroupCount assignedTestCount
-        totalAssignmentCount completedAssignmentCount remainingAssignmentCount
-        awaitingScoreAssignmentCount scoredAssignmentCount
-        passedAssignmentCount failedAssignmentCount completionPercentage
-        averagePercentage highestPercentage lowestPercentage
-      }
-    }`,
-  );
-  const overview = requireRecordField(
-    overviewResponse,
-    'adminAcademicOverview',
-  );
-  assert.equal(Number(overview.activeTeacherCount) >= 1, true);
-  assert.equal(Number(overview.activeStudentCount) >= 1, true);
-  assert.equal(Number(overview.activeGroupCount) >= 1, true);
-  assert.equal(Number(overview.assignedTestCount) >= 4, true);
-  assert.equal(
-    overview.remainingAssignmentCount,
-    Number(overview.totalAssignmentCount) -
-      Number(overview.completedAssignmentCount),
-  );
-  assert.equal(Number(overview.highestPercentage) >= 80, true);
-  assert.equal(Number(overview.lowestPercentage) <= 50, true);
-
-  const groupsResponse = await executeGraphql(
-    adminToken,
-    `query AdminGroupProgresses {
-      adminGroupProgresses(first: 100) {
-        edges {
-          node {
-            groupId groupName groupStatus teacherId teacherDisplayName
-            activeStudentCount assignedTestCount totalAssignmentCount
-            completedAssignmentCount remainingAssignmentCount
-            awaitingScoreAssignmentCount scoredAssignmentCount
-            passedAssignmentCount failedAssignmentCount completionPercentage
-            averagePercentage highestPercentage lowestPercentage
-          }
-        }
-        pageInfo { hasNextPage }
-      }
-    }`,
-  );
-  const groupEdges = requireArrayField(
-    requireRecordField(groupsResponse, 'adminGroupProgresses'),
-    'edges',
-  );
-  const fixtureGroup = requireRecord(
-    groupEdges
-      .map((edge) =>
-        requireRecordField(requireRecord(edge, 'admin group edge'), 'node'),
-      )
-      .find(
-        ({ groupId: candidateGroupId }) => candidateGroupId === fixture.groupId,
-      ),
-    'fixture admin group',
-  );
-  assert.equal(fixtureGroup.teacherId, teacherId);
-  assert.equal(fixtureGroup.groupStatus, 'ACTIVE');
-  assert.equal(fixtureGroup.activeStudentCount, 1);
-  assert.equal(fixtureGroup.assignedTestCount, 4);
-  assert.equal(fixtureGroup.completedAssignmentCount, 3);
-  assert.equal(fixtureGroup.completionPercentage, 75);
-  assert.equal(fixtureGroup.averagePercentage, 65);
-  assert.equal(fixtureGroup.highestPercentage, 80);
-  assert.equal(fixtureGroup.lowestPercentage, 50);
-
-  const studentsResponse = await executeGraphql(
-    adminToken,
-    `query AdminStudents {
-      adminStudents(first: 100) {
-        edges {
-          node {
-            studentId displayName status currentGroupId currentGroupName
-            scoredAttemptCount scoredTestCount passedTestCount failedTestCount
-            averagePercentage highestPercentage lowestPercentage latestResultAt
-          }
-        }
-        pageInfo { hasNextPage }
-      }
-    }`,
-  );
-  const studentEdges = requireArrayField(
-    requireRecordField(studentsResponse, 'adminStudents'),
-    'edges',
-  );
-  const fixtureStudent = requireRecord(
-    studentEdges
-      .map((edge) =>
-        requireRecordField(requireRecord(edge, 'admin student edge'), 'node'),
-      )
-      .find(
-        ({ studentId: candidateStudentId }) =>
-          candidateStudentId === fixture.studentId,
-      ),
-    'fixture admin student',
-  );
-  assert.equal(fixtureStudent.status, 'ACTIVE');
-  assert.equal(fixtureStudent.currentGroupId, fixture.groupId);
-  assert.equal(fixtureStudent.scoredAttemptCount, 3);
-  assert.equal(fixtureStudent.scoredTestCount, 2);
-  assert.equal(fixtureStudent.passedTestCount, 1);
-  assert.equal(fixtureStudent.failedTestCount, 1);
-  assert.equal(fixtureStudent.averagePercentage, 65);
-  assert.equal(fixtureStudent.highestPercentage, 80);
-  assert.equal(fixtureStudent.lowestPercentage, 50);
-  assert.equal(typeof fixtureStudent.latestResultAt, 'string');
-
-  const resultsResponse = await executeGraphql(
-    adminToken,
-    `query AdminStudentResults($studentId: ID!, $language: Language!) {
-      adminStudentResults(studentId: $studentId, language: $language) {
-        edges {
-          node {
-            attemptId testId title groupId groupName attemptNumber
-            correctAnswerCount totalQuestionCount percentage
-            highestPercentage passed submittedAt
-          }
-        }
-      }
-    }`,
-    { language: 'UZ', studentId: fixture.studentId },
-  );
-  const resultEdges = requireArrayField(
-    requireRecordField(resultsResponse, 'adminStudentResults'),
-    'edges',
-  );
-  assert.equal(resultEdges.length, 3);
-  assert.equal(
-    resultEdges.every((edge) => {
-      const node = requireRecordField(
-        requireRecord(edge, 'admin result edge'),
-        'node',
-      );
-      return node.groupId === fixture.groupId;
-    }),
-    true,
-  );
-
-  const forbiddenReview = await executeGraphqlExpectingErrors(
-    adminToken,
-    `query AdminCannotReviewAnswers($attemptId: ID!) {
-      teacherAttemptReview(attemptId: $attemptId, language: UZ) { attemptId }
-    }`,
-    { attemptId: fixture.reviewAttemptId },
-  );
-  const reviewError = requireRecord(
-    requireArrayField(forbiddenReview, 'errors')[0],
-    'admin review error',
-  );
-  assert.equal(requireRecordField(reviewError, 'extensions').code, 'FORBIDDEN');
-});
-
-void test('Teacher and Student roles cannot call Admin academic operations', async () => {
-  for (const token of [teacherToken, studentToken]) {
-    const response = await executeGraphqlExpectingErrors(
-      token,
-      `query NonAdminCannotReadOverview {
-        adminAcademicOverview { activeStudentCount }
-      }`,
-    );
-    const firstError = requireRecord(
-      requireArrayField(response, 'errors')[0],
-      'admin authorization error',
-    );
-    assert.equal(
-      requireRecordField(firstError, 'extensions').code,
-      'FORBIDDEN',
-    );
-  }
-});
-
 void test('Student settings persist profile image, contact details, and password', async () => {
   const database = requireApp().get(DatabaseService);
   const authService = requireApp().get(AuthService);
@@ -6275,6 +6101,36 @@ void test('public registration and contact endpoints persist validated submissio
     requireRecordField(contactResponse, 'submitContactRequest').accepted,
     true,
   );
+  const contactReceiptId = requireStringField(
+    requireRecordField(contactResponse, 'submitContactRequest'),
+    'receiptId',
+  );
+  const adminMessagesResponse = await executeGraphql(
+    adminToken,
+    `query AdminMessages($first: Int) {
+      adminContactRequests(first: $first) {
+        edges { node { id name email phone subject message status createdAt } }
+      }
+    }`,
+    { first: 100 },
+  );
+  const adminMessageEdges = requireArrayField(
+    requireRecordField(adminMessagesResponse, 'adminContactRequests'),
+    'edges',
+  );
+  const persistedAdminMessage = requireRecord(
+    adminMessageEdges
+      .map((edge) =>
+        requireRecordField(requireRecord(edge, 'message edge'), 'node'),
+      )
+      .find((node) => node.id === contactReceiptId),
+    'persisted admin message',
+  );
+  assert.equal(persistedAdminMessage.subject, 'API integration test');
+  assert.equal(
+    persistedAdminMessage.message,
+    'Fake contact request for integration testing.',
+  );
 
   assert.equal(
     await database.courseRegistration.count({ where: { courseId: course.id } }),
@@ -6334,10 +6190,23 @@ void test('generated schema releases answer review only through the scored-resul
   assert.match(schema, /studentProgress/);
   assert.match(schema, /teacherGroupProgress/);
   assert.match(schema, /teacherAttemptReview/);
-  assert.match(schema, /adminAcademicOverview/);
-  assert.match(schema, /adminGroupProgresses/);
-  assert.match(schema, /adminStudents/);
-  assert.match(schema, /adminStudentResults/);
+  for (const removedOperation of [
+    'adminAcademicOverview',
+    'adminAttendance',
+    'adminAuditLogs',
+    'adminGroupProgresses',
+    'adminLibraryItems',
+    'adminLocations',
+    'adminMediaObjects',
+    'adminRejectMediaObject',
+    'adminSetLibraryItemArchived',
+    'adminStudentResults',
+    'adminStudents',
+    'adminTest',
+    'adminTests',
+  ]) {
+    assert.doesNotMatch(schema, new RegExp(`\b${removedOperation}\b`));
+  }
   for (const operation of [
     'beginCredentialLogin',
     'verifyCredentialLogin',
@@ -6370,9 +6239,6 @@ void test('generated schema releases answer review only through the scored-resul
     'teacherDashboard',
     'myNotifications',
     'adminOperationalOverview',
-    'adminLibraryItems',
-    'adminMediaObjects',
-    'adminAuditLogs',
   ]) {
     assert.match(schema, new RegExp(operation));
   }
@@ -6968,6 +6834,12 @@ async function applyMigrations(connectionString: string): Promise<void> {
       '20260930010000_accepted_answer_display_value',
       '20260930011000_accepted_answer_display_value_version_backfill',
       '20261008010000_user_name_fields',
+      '20261011020000_admin_salary_statements',
+      '20261011160000_admin_request_soft_delete',
+      '20261012010000_admin_message_soft_delete',
+      '20261012150000_admin_course_soft_delete',
+      '20261012160000_admin_exam_soft_delete',
+      '20261012170000_admin_event_soft_delete',
     ]) {
       const sql = await readFile(
         resolve(
@@ -7339,4 +7211,24 @@ function requireStringField(
   }
 
   return value;
+}
+
+
+
+
+
+
+
+
+
+
+
+function requireEditorialArray(value: unknown): unknown[] {
+  assert.ok(Array.isArray(value));
+  return value;
+}
+
+function requireEditorialApp(): INestApplication {
+  assert.ok(app);
+  return app;
 }

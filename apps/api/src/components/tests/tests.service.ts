@@ -32,8 +32,6 @@ import type { TeacherTestPaperDeletionPayloadObject } from '../../schemas/tests/
 import type { TeacherTestPaperObject } from '../../schemas/tests/teacher-test-paper.object';
 import type { PracticeBookmarkPayloadObject } from '../../schemas/tests/practice-bookmark-payload.object';
 import type { SetPracticeBookmarkInput } from '../../schemas/tests/set-practice-bookmark.input';
-import type { AdminTestSummaryConnectionObject } from '../../schemas/tests/admin-test-summary.object';
-import type { AdminTestSummaryObject } from '../../schemas/tests/admin-test-summary.object';
 
 const TEACHER_PRACTICE_PAGE_SIZE = 16;
 
@@ -387,128 +385,6 @@ export class TestsService {
     }
 
     return mapStudentTestPaper(paper);
-  }
-
-  async getAdminTest(
-    testId: string,
-    language: Language,
-  ): Promise<AdminTestSummaryObject> {
-    const id = parseUuid(testId, 'testId');
-    const test = await this.database.test.findUnique({
-      where: { id },
-      include: {
-        group: {
-          select: {
-            id: true,
-            name: true,
-            teacher: { select: { displayName: true, id: true } },
-          },
-        },
-        versions: {
-          orderBy: { version: 'desc' },
-          take: 1,
-          include: {
-            _count: { select: { questions: true } },
-            attempts: { select: { status: true } },
-            translations: { where: { language }, select: { title: true } },
-          },
-        },
-      },
-    });
-
-    if (test === null) {
-      throw new ApplicationError(
-        ErrorCode.NOT_FOUND,
-        'The requested test was not found',
-        404,
-      );
-    }
-
-    const version = test.versions[0];
-    return {
-      attemptCount: version?.attempts.length ?? 0,
-      awaitingReviewCount:
-        version?.attempts.filter(
-          ({ status }) =>
-            status === AttemptStatus.SUBMITTED ||
-            status === AttemptStatus.REVIEW_REQUIRED,
-        ).length ?? 0,
-      groupId: test.group.id,
-      groupName: test.group.name,
-      id: test.id,
-      language,
-      latestVersionNumber: version?.version ?? null,
-      latestVersionStatus: version?.status ?? null,
-      questionCount: version?._count.questions ?? 0,
-      status: test.status,
-      teacherDisplayName: test.group.teacher.displayName,
-      teacherId: test.group.teacher.id,
-      title: version?.translations[0]?.title ?? test.id,
-    };
-  }
-
-  async getAdminTests(
-    language: Language,
-    first: number | undefined,
-    after: string | undefined,
-  ): Promise<AdminTestSummaryConnectionObject> {
-    const pageSize = parsePageSize(first);
-    const afterId = decodeCursor(after);
-    const tests = await this.database.test.findMany({
-      where: afterId === undefined ? {} : { id: { gt: afterId } },
-      orderBy: { id: 'asc' },
-      take: pageSize + 1,
-      include: {
-        group: {
-          select: {
-            id: true,
-            name: true,
-            teacher: { select: { displayName: true, id: true } },
-          },
-        },
-        versions: {
-          orderBy: { version: 'desc' },
-          take: 1,
-          include: {
-            _count: { select: { questions: true } },
-            attempts: { select: { status: true } },
-            translations: { where: { language }, select: { title: true } },
-          },
-        },
-      },
-    });
-    const hasNextPage = tests.length > pageSize;
-    const page = hasNextPage ? tests.slice(0, pageSize) : tests;
-    const edges = page.map((test) => {
-      const version = test.versions[0];
-      return {
-        cursor: encodeCursor(test.id),
-        node: {
-          attemptCount: version?.attempts.length ?? 0,
-          awaitingReviewCount:
-            version?.attempts.filter(
-              ({ status }) =>
-                status === AttemptStatus.SUBMITTED ||
-                status === AttemptStatus.REVIEW_REQUIRED,
-            ).length ?? 0,
-          groupId: test.group.id,
-          groupName: test.group.name,
-          id: test.id,
-          language,
-          latestVersionNumber: version?.version ?? null,
-          latestVersionStatus: version?.status ?? null,
-          questionCount: version?._count.questions ?? 0,
-          status: test.status,
-          teacherDisplayName: test.group.teacher.displayName,
-          teacherId: test.group.teacher.id,
-          title: version?.translations[0]?.title ?? test.id,
-        },
-      };
-    });
-    return {
-      edges,
-      pageInfo: { endCursor: edges.at(-1)?.cursor ?? null, hasNextPage },
-    };
   }
 
   async getAvailableTests(

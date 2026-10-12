@@ -22,10 +22,6 @@ import { TeacherTestPaperPayloadObject } from '../../schemas/tests/teacher-test-
 import { TeacherTestPaperObject } from '../../schemas/tests/teacher-test-paper.object';
 import { PracticeBookmarkPayloadObject } from '../../schemas/tests/practice-bookmark-payload.object';
 import { SetPracticeBookmarkInput } from '../../schemas/tests/set-practice-bookmark.input';
-import {
-  AdminTestSummaryConnectionObject,
-  AdminTestSummaryObject,
-} from '../../schemas/tests/admin-test-summary.object';
 import { AuthMember } from '../auth/decorators/auth-member.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { AuthGuard } from '../auth/guards/auth.guard';
@@ -133,27 +129,6 @@ export class TestsResolver {
     @Args('paperId', { type: () => ID }) paperId: string,
   ): Promise<StudentTestPaperObject> {
     return this.testsService.getStudentTestPaper(studentId, paperId);
-  }
-
-  @Query(() => AdminTestSummaryConnectionObject, { name: 'adminTests' })
-  @UseGuards(AuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
-  getAdminTests(
-    @Args('language', { type: () => Language }) language: Language,
-    @Args('first', { nullable: true, type: () => Int }) first?: number,
-    @Args('after', { nullable: true, type: () => String }) after?: string,
-  ): Promise<AdminTestSummaryConnectionObject> {
-    return this.testsService.getAdminTests(language, first, after);
-  }
-
-  @Query(() => AdminTestSummaryObject, { name: 'adminTest' })
-  @UseGuards(AuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
-  getAdminTest(
-    @Args('testId', { type: () => ID }) testId: string,
-    @Args('language', { type: () => Language }) language: Language,
-  ): Promise<AdminTestSummaryObject> {
-    return this.testsService.getAdminTest(testId, language);
   }
 
   @Query(() => StudentTestConnectionObject, {

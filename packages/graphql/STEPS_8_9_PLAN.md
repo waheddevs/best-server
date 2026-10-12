@@ -68,15 +68,9 @@ allowed. Operation names must describe the domain action.
 - `teacherStudentAttempts`
 - `teacherAttemptReview`
 
-### 8C — Admin academic monitoring (complete)
+### 8C — Admin academic monitoring (removed 2026-10-11)
 
-- `adminAcademicOverview`
-- `adminGroupProgresses`
-- `adminStudents`
-- `adminStudentResults`
-
-Admin result views remain aggregate/history views and never expose selected or
-correct answers.
+The Admin-only academic monitoring contract is no longer part of the product.
 
 ### 8D — identity, profiles, and operational users
 
@@ -277,29 +271,11 @@ Notifications require versioned event payloads, idempotent delivery, bounded
 retry/backoff, and a dead-letter path. Subscriptions remain optional; polling
 is the required fallback.
 
-### 8K — operational Admin, Library oversight, and audit
+### 8K — operational Admin overview
 
-Purpose: complete the non-payment operational controls required to run the
-platform.
-
-Planned queries:
-
-- `adminOperationalOverview`
-- `adminLibraryItems(first, after, status, ownerId, search)`
-- `adminMediaObjects(first, after, status, malwareStatus, ownerId)`
-- `adminAuditLogs(first, after, actorId, action, targetType, from, to)`
-
-Planned mutations:
-
-- `adminSetLibraryItemArchived(input)` with a mandatory reason
-- `adminRejectMediaObject(input)` with a mandatory reason
-- narrowly scoped retry/recovery operations for approved failed media or
-  notification jobs
-
-Audit output must be redacted, cursor-paginated, and Admin-only. Audit rows are
-append-only. Admins do not receive Student answer selections, correct answers,
-provider credentials, raw authorization headers, or unrestricted JSON
-payloads. Permanent deletion remains outside this step.
+Only `adminOperationalOverview` remains active. Admin Library/media moderation
+and Audit-log read contracts were removed on 2026-10-11. Internal audit writes
+and shared media processing remain active.
 
 ### Step 8 completion gate
 

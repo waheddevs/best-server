@@ -43,26 +43,21 @@ bearer token only after the code succeeds.
 
 ## Operational Admin Workspace
 
+The Admin Attendance, Tests, Results, Locations, Library, Imports, Reports, and
+Audit routes and their Admin-only GraphQL contracts were removed on 2026-10-11.
+
 | Frontend route                                      | Backend operations                                                                                              |
 | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `/admin`                                            | `adminOperationalOverview`, `adminAcademicOverview`, `myUnreadNotificationCount`                                |
+| `/admin`                                            | `adminOperationalOverview`, `myUnreadNotificationCount`                                                         |
 | `/admin/requests`                                   | `adminContactRequests`, `adminExamRegistrations`, `adminEventRegistrations` and their reviewed-status mutations |
-| `/admin/students` and `/admin/students/[studentId]` | `adminProvisionUser`, `adminStudents`, `adminUser`, `adminStudentResults`, `adminSetUserStatus`                 |
+| `/admin/students` and `/admin/students/[studentId]` | `adminProvisionUser`, `adminUsers(role: STUDENT)`, `adminUser`, `adminDeleteStudent`, `adminSetUserStatus`      |
 | `/admin/teachers` and `/admin/teachers/[teacherId]` | `adminProvisionUser`, `adminUsers(role: TEACHER)`, `adminUser`, `adminSetUserStatus`                            |
-| `/admin/groups` and `/admin/groups/[slug]`          | `adminGroups`, `adminGroup`, `adminGroupProgresses`                                                             |
+| `/admin/groups` and `/admin/groups/[slug]`          | `adminGroups`, `adminGroup`                                                                                     |
 | `/admin/courses` and `/admin/courses/[slug]`        | `adminCourses`, `adminCourse`, course draft/status mutations                                                    |
 | `/admin/events` and `/admin/events/[slug]`          | `adminEvents`, `adminEvent`, `adminEventRegistrations`, event draft/status mutations                            |
-| `/admin/locations`                                  | `adminLocations`                                                                                                |
 | `/admin/schedule`                                   | `adminSchedule`                                                                                                 |
-| `/admin/attendance`                                 | `adminAttendance`                                                                                               |
 | `/admin/payments` and `/admin/payments/[recordId]`  | `adminTuitionLedger` (read-only; no payment-provider operation)                                                 |
-| `/admin/tests` and `/admin/tests/[testId]`          | `adminTests`, `adminTest`, `adminAcademicOverview`, `adminStudentResults`                                       |
-| `/admin/results`                                    | `adminAcademicOverview`, `adminGroupProgresses`, `adminStudentResults`                                          |
-| `/admin/library` and `/admin/library/[resourceId]`  | `adminLibraryItems`, `adminMediaObjects`, `adminSetLibraryItemArchived`, `adminRejectMediaObject`               |
-| `/admin/imports` and `/admin/imports/[jobId]`       | `adminMediaObjects`; the approved local-export vocabulary pilot remains offline and review-only                 |
 | `/admin/notifications`                              | `myNotifications`, `markNotificationRead`, `markAllNotificationsRead`                                           |
-| `/admin/audit`                                      | `adminAuditLogs`                                                                                                |
-| `/admin/reports`                                    | `adminOperationalOverview`, `adminAcademicOverview`, `adminGroupProgresses`                                     |
 | `/admin/settings`                                   | `myProfile`, `updateMyProfile`                                                                                  |
 
 ## Safety boundary
@@ -74,3 +69,49 @@ bearer token only after the code succeeds.
   and payroll are intentionally absent.
 - Parent/Guardian, Super Admin, chat, public signup/password reset,
   certificates, and AI grading are not part of this contract.
+
+
+## Admin operations expansion (2026-10-11)
+
+| Route | Read contracts | Write contracts |
+| --- | --- | --- |
+| /admin/groups | adminGroupDirectory, adminDirectoryOptions, adminGroup | adminSaveGroup, adminSetGroupStatus |
+| /admin/schedule | adminLessonDirectory | adminSaveLesson, adminSetLessonStatus |
+| /admin/payments | adminPaymentDirectory, adminPaymentDetail | Read-only ledger |
+| /admin/salary | adminSalaryDirectory | adminSaveSalary, adminFinalizeSalary |
+| /admin/settings | myProfile | updateMyProfile, changeMyPassword |
+
+All operations require a current database-resolved Admin role, except the existing
+self-profile contracts shared at the transport layer. Admin presentation remains
+role-owned. Salary finalization does not execute a payment. Lists paginate on the
+server; summary totals apply to the complete filtered result, not the visible page.
+
+
+## Admin public-content operations (2026-10-11)
+
+| Route | Read contracts | Write contracts |
+| --- | --- | --- |
+| /admin | adminOverview, recipient-scoped adminOperationalOverview | None |
+| /admin/courses | adminCourseCatalog, adminCourse | adminSaveCourseContent, setCourseStatus, adminRemoveCourse |
+| /admin/events | adminEventCatalog, adminEvent | adminSaveEventContent, setEventStatus, adminRemoveEvent |
+| /admin/exams | adminExamCatalog, adminExamSessionDirectory | adminSaveExam, adminSaveExamSession, adminRemoveExam |
+| /admin/requests | adminRequestDirectory (COURSE/EVENT/EXAM) | adminReviewRequest |
+| /admin/notifications | adminNoticeDirectory | markNotificationRead, markAllNotificationsRead |
+
+These contracts reuse the existing PostgreSQL public-content, translation,
+registration and notification tables; no new migration is required. Contact
+submissions remain in Messages. All Admin operations require the database-resolved
+ADMIN role. Public registration still requires consent and uses its existing API.
+
+Content edits persist all three translations and nested lists atomically. Course
+and event edits compare updatedAt, offering/session edits compare a content
+revision, and request reviews compare updatedAt. Public registrations and Admin
+capacity changes serialize against the same lock; capacity cannot be lowered
+below existing registrations. Archive retains content and registration history.
+Public pages retain their existing Next.js revalidation policy (no new Next API
+route or server action). Notifications and unread counts are recipient-scoped.
+
+Verification: four Admin editorial GraphQL integration tests cover public reads,
+registrations, request review, stale edits, concurrent capacity limits, RBAC,
+notification ownership and database persistence. They run with the existing
+isolated GraphQL integration harness.

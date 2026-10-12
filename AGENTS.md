@@ -1,5 +1,13 @@
 # BEST Server — Backend Instructions
 
+## Approved Admin operations expansion — 2026-10-11
+
+The owner approved Admin Groups and Schedule management, ledger-backed Payments,
+Salary statement creation/editing/finalization, and Settings. Salary statements
+are administrative calculations only; payroll execution remains excluded.
+New Admin contracts live in the existing groups, lessons, finance and users modules.
+The additive salary design is recorded in packages/database/docs/ADMIN_SALARY_DATA_DESIGN.md.
+
 ## Current milestone
 
 The user has approved connected Teacher group creation. An authenticated
@@ -26,6 +34,19 @@ Teacher/Admin transfer navigation, routes, GraphQL operations, review actions,
 or operational queue metrics. Preserve the historical Prisma model and applied
 migration until a separately reviewed data-retention migration authorizes their
 removal.
+
+The Admin Attendance, Tests, Results, Locations, Library, Imports, Reports, and
+Audit product surfaces were removed on 2026-10-11. Do not expose their Admin
+routes or GraphQL read/write contracts. Shared Student and Teacher learning and
+Library flows, schedule room fields, media processing, and internal append-only
+audit writes remain active. Historical Admin plans for these eight surfaces are
+superseded by this decision.
+
+The Admin Messages surface is approved as a read projection of the existing
+public Contact message flow. Reuse `ContactRequest` and the protected Admin
+intake query; expose its subject and message without adding a duplicate model or
+migration. Public submission remains consent-gated, and Admin reads remain
+role-protected.
 
 Each group has a fixed maximum of 15 active learners. Teacher roster additions
 must reject a full group inside a transaction; all membership writers must
@@ -1027,3 +1048,7 @@ Phase 8 — future AI evaluation:
 
 - Begin only after separate requirements, privacy, rubric, model, cost, human
   review, and implementation approval.
+
+## Approved Admin editorial expansion â€” 2026-10-11
+
+The owner approved connected Overview, Requests (course/event/exam registrations), Notifications, Courses, public Exam offerings/sessions, and Events. Reuse existing persisted public content; Admin editing includes all translations and nested content. Contact submissions stay in Messages. Admin dropdowns and styles remain Admin-owned copies of the approved directory design. No public test-taking or payment execution is introduced.

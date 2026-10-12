@@ -6,10 +6,6 @@ import { StudentResultConnectionObject } from '../../schemas/results/student-res
 import { StudentProgressObject } from '../../schemas/results/student-progress.object';
 import { StudentSpeakingResultObject } from '../../schemas/results/student-speaking-result.object';
 import { StudentWritingResultObject } from '../../schemas/results/student-writing-result.object';
-import { AdminAcademicOverviewObject } from '../../schemas/results/admin-academic-overview.object';
-import { AdminGroupProgressConnectionObject } from '../../schemas/results/admin-group-progress.object';
-import { AdminStudentResultConnectionObject } from '../../schemas/results/admin-student-result.object';
-import { AdminStudentConnectionObject } from '../../schemas/results/admin-student.object';
 import { TeacherAttemptConnectionObject } from '../../schemas/results/teacher-attempt.object';
 import { TeacherResultInboxConnectionObject } from '../../schemas/results/teacher-result-inbox.object';
 import { TeacherObjectiveAttemptResultObject } from '../../schemas/results/teacher-objective-attempt-result.object';
@@ -27,13 +23,11 @@ import { AuthGuard } from '../auth/guards/auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 
 import { ResultsService } from './results.service';
-import { AdminResultsService } from './admin-results.service';
 import { TeacherResultsService } from './teacher-results.service';
 
 @Resolver()
 export class ResultsResolver {
   constructor(
-    private readonly adminResultsService: AdminResultsService,
     private readonly resultsService: ResultsService,
     private readonly teacherResultsService: TeacherResultsService,
   ) {}
@@ -93,54 +87,6 @@ export class ResultsResolver {
       skill,
       status,
       search,
-      first,
-      after,
-    );
-  }
-
-  @Query(() => AdminAcademicOverviewObject, { name: 'adminAcademicOverview' })
-  @UseGuards(AuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
-  getAdminAcademicOverview(): Promise<AdminAcademicOverviewObject> {
-    return this.adminResultsService.getAcademicOverview();
-  }
-
-  @Query(() => AdminGroupProgressConnectionObject, {
-    name: 'adminGroupProgresses',
-  })
-  @UseGuards(AuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
-  getAdminGroupProgresses(
-    @Args('first', { nullable: true, type: () => Int }) first?: number,
-    @Args('after', { nullable: true, type: () => String }) after?: string,
-  ): Promise<AdminGroupProgressConnectionObject> {
-    return this.adminResultsService.getGroupProgresses(first, after);
-  }
-
-  @Query(() => AdminStudentConnectionObject, { name: 'adminStudents' })
-  @UseGuards(AuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
-  getAdminStudents(
-    @Args('first', { nullable: true, type: () => Int }) first?: number,
-    @Args('after', { nullable: true, type: () => String }) after?: string,
-  ): Promise<AdminStudentConnectionObject> {
-    return this.adminResultsService.getStudents(first, after);
-  }
-
-  @Query(() => AdminStudentResultConnectionObject, {
-    name: 'adminStudentResults',
-  })
-  @UseGuards(AuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
-  getAdminStudentResults(
-    @Args('studentId', { type: () => ID }) studentId: string,
-    @Args('language', { type: () => Language }) language: Language,
-    @Args('first', { nullable: true, type: () => Int }) first?: number,
-    @Args('after', { nullable: true, type: () => String }) after?: string,
-  ): Promise<AdminStudentResultConnectionObject> {
-    return this.adminResultsService.getStudentResults(
-      studentId,
-      language,
       first,
       after,
     );
