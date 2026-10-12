@@ -25,6 +25,12 @@ export class AdminDeleteStudentInput {
   studentId!: string;
 }
 
+@InputType('AdminDeleteTeacherInput')
+export class AdminDeleteTeacherInput {
+  @Field(() => ID)
+  teacherId!: string;
+}
+
 @InputType('AdminSetUserStatusInput')
 export class AdminSetUserStatusInput {
   @Field(() => ID)

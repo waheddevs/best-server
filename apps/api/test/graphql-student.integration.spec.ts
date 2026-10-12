@@ -2758,6 +2758,80 @@ void test('Admin soft-deletes a Student and hides the retained account from Admi
   );
 });
 
+void test('Admin soft-deletes a Teacher and hides the retained account from the Admin directory', async () => {
+  const database = requireApp().get(DatabaseService);
+  const suffix = randomUUID().slice(0, 8);
+  const teacher = await database.user.create({
+    data: {
+      displayName: 'Fictional Admin Delete Teacher',
+      email: `admin-delete-teacher-${suffix}@example.com`,
+      role: UserRole.TEACHER,
+    },
+  });
+  const mutation = `mutation AdminDeleteTeacher($input: AdminDeleteTeacherInput!) {
+    adminDeleteTeacher(input: $input) { user { id role status } }
+  }`;
+
+  const denied = await executeGraphqlExpectingErrors(studentToken, mutation, {
+    input: { teacherId: teacher.id },
+  });
+  assert.ok(requireArrayField(denied, 'errors').length > 0);
+
+  const deleted = await executeGraphql(adminToken, mutation, {
+    input: { teacherId: teacher.id },
+  });
+  const deletedUser = requireRecordField(
+    requireRecordField(deleted, 'adminDeleteTeacher'),
+    'user',
+  );
+  assert.equal(deletedUser.id, teacher.id);
+  assert.equal(deletedUser.role, 'TEACHER');
+  assert.equal(deletedUser.status, 'DELETED');
+  assert.equal(
+    (await database.user.findUniqueOrThrow({ where: { id: teacher.id } }))
+      .status,
+    UserStatus.DELETED,
+  );
+  assert.equal(
+    await database.auditLog.count({
+      where: {
+        action: 'ADMIN_TEACHER_SOFT_DELETED',
+        actorId: adminId,
+        targetId: teacher.id,
+      },
+    }),
+    1,
+  );
+
+  const adminDirectory = await executeGraphql(
+    adminToken,
+    `query ActiveAdminTeachers {
+      adminUsers(first: 100, role: TEACHER) { edges { node { id } } }
+    }`,
+  );
+  assert.equal(
+    requireArrayField(
+      requireRecordField(adminDirectory, 'adminUsers'),
+      'edges',
+    ).some(
+      (edge) =>
+        requireRecordField(requireRecord(edge, 'admin teacher edge'), 'node')
+          .id === teacher.id,
+    ),
+    false,
+  );
+
+  const repeated = await executeGraphqlExpectingErrors(adminToken, mutation, {
+    input: { teacherId: teacher.id },
+  });
+  assert.equal(
+    requireRecordField(
+      requireRecord(requireArrayField(repeated, 'errors')[0], 'repeat error'),
+      'extensions',
+    ).code,
+    'NOT_FOUND',
+  );
+});
 
 void test('Teacher group roster exposes persisted status summary, overview, and pause', async () => {
   const database = requireApp().get(DatabaseService);

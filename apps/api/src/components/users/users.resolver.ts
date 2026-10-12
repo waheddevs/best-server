@@ -13,6 +13,7 @@ import {
 import type { ApiGraphqlContext } from '../../libs/types/authenticated-request.type';
 import {
   AdminDeleteStudentInput,
+  AdminDeleteTeacherInput,
   AdminProvisionUserInput,
   AdminSetUserRoleInput,
   AdminSetUserStatusInput,
@@ -156,6 +157,25 @@ export class UsersResolver {
       user: await this.usersService.deleteAdminStudent(
         adminId,
         input.studentId,
+        context.req.requestId,
+      ),
+    };
+  }
+
+  @Mutation(() => AdminUserMutationPayloadObject, {
+    name: 'adminDeleteTeacher',
+  })
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async deleteAdminTeacher(
+    @AuthMember('id') adminId: string,
+    @Args('input') input: AdminDeleteTeacherInput,
+    @Context() context: ApiGraphqlContext,
+  ): Promise<AdminUserMutationPayloadObject> {
+    return {
+      user: await this.usersService.deleteAdminTeacher(
+        adminId,
+        input.teacherId,
         context.req.requestId,
       ),
     };

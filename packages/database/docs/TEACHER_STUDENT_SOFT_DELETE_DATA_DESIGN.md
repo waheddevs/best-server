@@ -16,6 +16,15 @@ record. The generic Admin status mutation cannot set or restore `DELETED`;
 restoration needs a separately reviewed workflow. An unknown, other-owned, or
 already-deleted Student is not exposed to the Teacher.
 
+Operational Admin may also soft-delete a Student through the dedicated
+`adminDeleteStudent` mutation. The mutation accepts only Student accounts,
+changes the User status to `DELETED`, clears the credential hash, revokes active
+credential sessions, removes unused login challenges, and writes an
+`ADMIN_STUDENT_SOFT_DELETED` audit event. It does not delete the User,
+membership, finance, attempt, or audit rows. Default Admin user listings and
+Teacher roster projections omit deleted Students; an explicit Admin status
+filter can still retrieve retained deleted records for operational review.
+
 ## Migration and rollback
 
 Apply an additive PostgreSQL enum migration before deploying code that writes
