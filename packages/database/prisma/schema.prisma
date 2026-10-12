@@ -321,6 +321,8 @@ model User {
   teacherTasks              TeacherTask[]              @relation("TeacherTaskOwner")
   notifications             Notification[]
   practiceBookmarks         PracticeBookmark[]
+  salaryStatements TeacherSalaryStatement[] @relation("SalaryTeacher")
+  salaryStatementsCreated TeacherSalaryStatement[] @relation("SalaryCreator")
   teacherFinanceSnapshots   TeacherFinanceSnapshot[]   @relation("TeacherFinanceSnapshotOwner")
 
   @@index([role, status])
@@ -1451,6 +1453,7 @@ model ContactRequest {
 
   @@index([status, createdAt])
   @@map("contact_requests")
+
 }
 
 model ExamRegistration {
@@ -1474,6 +1477,7 @@ model ExamRegistration {
   @@unique([offeringId, phone])
   @@index([status, createdAt])
   @@map("exam_registrations")
+
 }
 
 model EventRegistration {
@@ -1494,6 +1498,7 @@ model EventRegistration {
   @@unique([eventId, phone])
   @@index([status, createdAt])
   @@map("event_registrations")
+
 }
 
 model CourseRegistration {
@@ -1515,6 +1520,7 @@ model CourseRegistration {
   @@unique([courseId, phone])
   @@index([status, createdAt])
   @@map("course_registrations")
+
 }
 
 model TeacherTask {
@@ -1802,4 +1808,24 @@ model OutboxEvent {
 
   @@unique([eventType, aggregateId])
   @@map("outbox_events")
+}
+
+model TeacherSalaryStatement {
+  id String @id @default(uuid()) @db.Uuid
+  teacherId String @map("teacher_id") @db.Uuid
+  month String @db.VarChar(7)
+  baseUzs BigInt @map("base_uzs")
+  bonusUzs BigInt @default(0) @map("bonus_uzs")
+  deductionUzs BigInt @default(0) @map("deduction_uzs")
+  note String? @db.VarChar(1000)
+  finalizedAt DateTime? @map("finalized_at") @db.Timestamptz(3)
+  version Int @default(1)
+  createdById String @map("created_by_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  teacher User @relation("SalaryTeacher", fields: [teacherId], references: [id], onDelete: Restrict)
+  createdBy User @relation("SalaryCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  @@unique([teacherId, month])
+  @@index([month, finalizedAt])
+  @@map("teacher_salary_statements")
 }
