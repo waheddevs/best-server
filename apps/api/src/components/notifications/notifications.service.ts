@@ -306,7 +306,7 @@ export class NotificationsService {
     ).count;
   }
 }
-function notificationObject(row: {
+export function notificationObject(row: {
   id: string;
   kind: string;
   title: string;
@@ -341,7 +341,11 @@ function notificationObject(row: {
   };
 }
 function notificationPayloadId(payload: unknown, key: string): string | null {
-  if (payload === null || typeof payload !== 'object' || Array.isArray(payload)) {
+  if (
+    payload === null ||
+    typeof payload !== 'object' ||
+    Array.isArray(payload)
+  ) {
     return null;
   }
   const value: unknown = Reflect.get(payload, key);

@@ -7671,6 +7671,69 @@ void test('Admin operations: settings profile persists with audit', async () => 
 
 
 
+void test('Admin editorial: notices and overview are scoped to current recipient', async () => {
+  const db = requireEditorialApp().get(DatabaseService);
+  const marker = 'editorial-' + randomUUID();
+  const mine = await db.notification.create({
+    data: {
+      recipientId: adminId,
+      eventKey: marker,
+      kind: 'ADMIN_TEST',
+      title: marker,
+      payload: { studentId, groupId },
+    },
+  });
+  const other = await db.notification.create({
+    data: {
+      recipientId: studentId,
+      eventKey: marker,
+      kind: 'ADMIN_TEST',
+      title: marker,
+    },
+  });
+  const query = `query($input:AdminDirectoryInput!){adminNoticeDirectory(input:$input){totalCount unreadCount nodes{id studentId groupId}}}`;
+  await assert.rejects(
+    executeGraphql(studentToken, query, { input: { search: marker } }),
+  );
+  const page = requireRecordField(
+    await executeGraphql(adminToken, query, {
+      input: { search: marker, status: 'UNREAD' },
+    }),
+    'adminNoticeDirectory',
+  );
+  assert.equal(page.totalCount, 1);
+  const notice = requireEditorialArray(page.nodes)[0];
+  assert.ok(isRecord(notice));
+  assert.equal(notice.id, mine.id);
+  assert.equal(notice.studentId, studentId);
+  const overview = requireRecordField(
+    await executeGraphql(
+      adminToken,
+      `query{adminOverview(language:EN){metrics{key value}} adminOperationalOverview{unreadNotifications}}`,
+    ),
+    'adminOperationalOverview',
+  );
+  assert.equal(
+    overview.unreadNotifications,
+    await db.notification.count({
+      where: { recipientId: adminId, readAt: null },
+    }),
+  );
+  await executeGraphql(
+    adminToken,
+    `mutation($input:MarkNotificationReadInput!){markNotificationRead(input:$input){notification{id readAt}}}`,
+    { input: { notificationId: mine.id } },
+  );
+  assert.ok(
+    (await db.notification.findUniqueOrThrow({ where: { id: mine.id } }))
+      .readAt,
+  );
+  assert.equal(
+    (await db.notification.findUniqueOrThrow({ where: { id: other.id } }))
+      .readAt,
+    null,
+  );
+});
 
 function requireEditorialArray(value: unknown): unknown[] {
   assert.ok(Array.isArray(value));
