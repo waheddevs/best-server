@@ -40,11 +40,13 @@ export const eventContentInclude = {
   },
   translations: { orderBy: { language: 'asc' } },
 } satisfies Prisma.PublicEventInclude;
-type Event = Prisma.PublicEventGetPayload<{ include: typeof include }>;
+type Event = Prisma.PublicEventGetPayload<{
+  include: typeof eventContentInclude;
+}>;
 @Injectable()
 export class EventsService {
   constructor(private readonly db: DatabaseService) {}
- 
+
   async list(
     language: Language,
     first?: number,
@@ -55,6 +57,7 @@ export class EventsService {
     const afterId = decodeCursor(after);
     const rows = await this.db.publicEvent.findMany({
       where: {
+        deletedAt: null,
         ...(admin ? {} : { status: PublicContentStatus.PUBLISHED }),
         ...(afterId === undefined ? {} : { id: { gt: afterId } }),
         translations: { some: { language } },
@@ -74,7 +77,7 @@ export class EventsService {
       pageInfo: { endCursor: edges.at(-1)?.cursor ?? null, hasNextPage },
     };
   }
-  
+
   async one(
     slug: string,
     language: Language,
@@ -83,6 +86,7 @@ export class EventsService {
     const row = await this.db.publicEvent.findFirst({
       where: {
         slug: parseSlug(slug),
+        deletedAt: null,
         ...(admin ? {} : { status: PublicContentStatus.PUBLISHED }),
         translations: { some: { language } },
       },
@@ -123,10 +127,16 @@ export class EventsService {
     correlationId?: string,
   ): Promise<PublicEventObject> {
     const id = parseUuid(idInput, 'eventId');
-    if ((await this.db.publicEvent.count({ where: { id } })) !== 1)
+    if (
+      (await this.db.publicEvent.count({ where: { id, deletedAt: null } })) !==
+      1
+    )
       throw notFound();
     const values = await this.values(adminId, input);
     return this.db.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${'public-event-' + id}))`;
+      if (!(await tx.publicEvent.findFirst({ where: { id, deletedAt: null } })))
+        throw notFound();
       await tx.publicEventTranslation.deleteMany({ where: { eventId: id } });
       const row = await tx.publicEvent.update({
         where: { id },
@@ -155,15 +165,15 @@ export class EventsService {
     correlationId?: string,
   ): Promise<PublicEventObject> {
     const id = parseUuid(idInput, 'eventId');
-    const existing = await this.db.publicEvent.findUnique({
-      where: { id },
-      include,
-    });
-    if (existing === null) throw notFound();
     if (status === PublicContentStatus.ARCHIVED && clean(reason, 1000) === null)
       throw bad('An archive reason is required');
     const now = new Date();
     const row = await this.db.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${'public-event-' + id}))`;
+      const existing = await tx.publicEvent.findFirst({
+        where: { id, deletedAt: null },
+      });
+      if (!existing) throw notFound();
       const updated = await tx.publicEvent.update({
         where: { id },
         data: {
@@ -215,123 +225,137 @@ export class EventsService {
   async exam(
     input: SubmitExamRegistrationInput,
   ): Promise<PublicSubmissionReceiptObject> {
-    consent(input.consent);
-    const key = parseSlug(input.offeringKey);
-    const offering = await this.db.publicExamOffering.findFirst({
-      where: { key, status: PublicContentStatus.PUBLISHED },
-      select: { id: true, key: true },
+    return this.db.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('public-exam-write'))`;
+      consent(input.consent);
+      const key = parseSlug(input.offeringKey);
+      const offering = await tx.publicExamOffering.findFirst({
+        where: { key, deletedAt: null, status: PublicContentStatus.PUBLISHED },
+        select: { id: true, key: true },
+      });
+      if (offering === null) throw examNotFound();
+      const sessionId =
+        input.sessionId === undefined
+          ? null
+          : parseUuid(input.sessionId, 'sessionId');
+      if (offering.key === 'mock' && sessionId === null)
+        throw bad('A MOCK exam session is required');
+      if (sessionId !== null) {
+        const session = await tx.publicExamSession.findFirst({
+          where: {
+            active: true,
+            id: sessionId,
+            offeringId: offering.id,
+            startsAt: { gt: new Date() },
+          },
+          select: {
+            capacity: true,
+            _count: { select: { registrations: true } },
+          },
+        });
+        if (session === null) throw examNotFound();
+        if (
+          session.capacity !== null &&
+          session._count.registrations >= session.capacity
+        )
+          throw new ApplicationError(
+            ErrorCode.CONFLICT,
+            'The exam session is full',
+            409,
+          );
+      }
+      try {
+        const row = await tx.examRegistration.create({
+          data: {
+            consent: true,
+            currentLevel: required(input.currentLevel, 80),
+            email: emailValue(input.email),
+            locale: input.locale,
+            name: required(input.name, 160),
+            offeringId: offering.id,
+            phone: required(input.phone, 32),
+            sessionId,
+          },
+        });
+        return { accepted: true, receiptId: row.id };
+      } catch (error: unknown) {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2002'
+        )
+          throw new ApplicationError(
+            ErrorCode.CONFLICT,
+            'Exam registration has already been received',
+            409,
+          );
+        throw error;
+      }
     });
-    if (offering === null) throw examNotFound();
-    const sessionId =
-      input.sessionId === undefined
-        ? null
-        : parseUuid(input.sessionId, 'sessionId');
-    if (offering.key === 'mock' && sessionId === null)
-      throw bad('A MOCK exam session is required');
-    if (sessionId !== null) {
-      const session = await this.db.publicExamSession.findFirst({
-        where: {
-          active: true,
-          id: sessionId,
-          offeringId: offering.id,
-          startsAt: { gt: new Date() },
-        },
-        select: {
-          capacity: true,
-          _count: { select: { registrations: true } },
-        },
-      });
-      if (session === null) throw examNotFound();
-      if (
-        session.capacity !== null &&
-        session._count.registrations >= session.capacity
-      )
-        throw new ApplicationError(
-          ErrorCode.CONFLICT,
-          'The exam session is full',
-          409,
-        );
-    }
-    try {
-      const row = await this.db.examRegistration.create({
-        data: {
-          consent: true,
-          currentLevel: required(input.currentLevel, 80),
-          email: emailValue(input.email),
-          locale: input.locale,
-          name: required(input.name, 160),
-          offeringId: offering.id,
-          phone: required(input.phone, 32),
-          sessionId,
-        },
-      });
-      return { accepted: true, receiptId: row.id };
-    } catch (error: unknown) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      )
-        throw new ApplicationError(
-          ErrorCode.CONFLICT,
-          'Exam registration has already been received',
-          409,
-        );
-      throw error;
-    }
   }
   async register(
     input: RegisterForEventInput,
   ): Promise<PublicSubmissionReceiptObject> {
-    consent(input.consent);
-    const eventId = parseUuid(input.eventId, 'eventId');
-    if (
-      !Number.isInteger(input.participantCount) ||
-      input.participantCount < 1 ||
-      input.participantCount > 4
-    )
-      throw bad('participantCount is invalid');
-    const event = await this.db.publicEvent.findFirst({
-      where: { id: eventId, status: PublicContentStatus.PUBLISHED },
-      select: {
-        capacity: true,
-        registrations: { select: { participantCount: true } },
-      },
-    });
-    if (event === null) throw notFound();
-    const registeredCount = event.registrations.reduce(
-      (total, registration) => total + registration.participantCount,
-      0,
-    );
-    if (
-      event.capacity !== null &&
-      registeredCount + input.participantCount > event.capacity
-    )
-      throw new ApplicationError(ErrorCode.CONFLICT, 'The event is full', 409);
-    try {
-      const row = await this.db.eventRegistration.create({
-        data: {
-          consent: true,
-          email: emailValue(input.email),
-          eventId,
-          locale: input.locale,
-          name: required(input.name, 160),
-          participantCount: input.participantCount,
-          phone: required(input.phone, 32),
+    return this.db.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${'public-event-' + input.eventId}))`;
+      consent(input.consent);
+      const eventId = parseUuid(input.eventId, 'eventId');
+      if (
+        !Number.isInteger(input.participantCount) ||
+        input.participantCount < 1 ||
+        input.participantCount > 4
+      )
+        throw bad('participantCount is invalid');
+      const event = await tx.publicEvent.findFirst({
+        where: {
+          id: eventId,
+          deletedAt: null,
+          status: PublicContentStatus.PUBLISHED,
+        },
+        select: {
+          capacity: true,
+          registrations: { select: { participantCount: true } },
         },
       });
-      return { accepted: true, receiptId: row.id };
-    } catch (error: unknown) {
+      if (event === null) throw notFound();
+      const registeredCount = event.registrations.reduce(
+        (total, registration) => total + registration.participantCount,
+        0,
+      );
       if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
+        event.capacity !== null &&
+        registeredCount + input.participantCount > event.capacity
       )
         throw new ApplicationError(
           ErrorCode.CONFLICT,
-          'Registration has already been received',
+          'The event is full',
           409,
         );
-      throw error;
-    }
+      try {
+        const row = await tx.eventRegistration.create({
+          data: {
+            consent: true,
+            email: emailValue(input.email),
+            eventId,
+            locale: input.locale,
+            name: required(input.name, 160),
+            participantCount: input.participantCount,
+            phone: required(input.phone, 32),
+          },
+        });
+        return { accepted: true, receiptId: row.id };
+      } catch (error: unknown) {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2002'
+        )
+          throw new ApplicationError(
+            ErrorCode.CONFLICT,
+            'Registration has already been received',
+            409,
+          );
+        throw error;
+      }
+    });
   }
   async intakeList(
     kind: 'CONTACT' | 'EXAM' | 'EVENT',

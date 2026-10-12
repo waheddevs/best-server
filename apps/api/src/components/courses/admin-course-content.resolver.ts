@@ -22,6 +22,12 @@ export class AdminCourseContentResolver {
   ) {
     return this.service.catalog(input);
   }
+  @Mutation(() => ID) adminRemoveCourse(
+    @AuthMember('id') actor: string,
+    @Args('input') input: AdminRemoveCourseInput,
+  ) {
+    return this.service.remove(actor, input);
+  }
   @Mutation(() => ID) adminSaveCourseContent(
     @AuthMember('id') actor: string,
     @Args('input') input: AdminSaveCourseContentInput,

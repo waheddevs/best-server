@@ -24,7 +24,7 @@ import type {
   PublicCourseObject,
 } from '../../schemas/courses/course.object';
 
-const include = {
+export const courseContentInclude = {
   contentItems: {
     include: { translations: { orderBy: { language: 'asc' } } },
     orderBy: [{ kind: 'asc' }, { position: 'asc' }],
@@ -36,7 +36,9 @@ const include = {
   translations: { orderBy: { language: 'asc' } },
 } satisfies Prisma.PublicCourseInclude;
 
-type Course = Prisma.PublicCourseGetPayload<{ include: typeof include }>;
+type Course = Prisma.PublicCourseGetPayload<{
+  include: typeof courseContentInclude;
+}>;
 
 @Injectable()
 export class CoursesService {
@@ -52,6 +54,7 @@ export class CoursesService {
     const afterId = decodeCursor(after);
     const courseRows = await this.db.publicCourse.findMany({
       where: {
+        deletedAt: null,
         ...(admin ? {} : { status: PublicContentStatus.PUBLISHED }),
         ...(afterId === undefined ? {} : { id: { gt: afterId } }),
         translations: { some: { language } },
@@ -64,7 +67,7 @@ export class CoursesService {
     const page = hasNextPage ? rows.slice(0, size) : rows;
     const edges = page.map((row) => ({
       cursor: encodeCursor(row.id),
-      node: map(row, language),
+      node: mapCourseContent(row, language),
     }));
     return {
       edges,
@@ -80,13 +83,14 @@ export class CoursesService {
     const courseRow = await this.db.publicCourse.findFirst({
       where: {
         slug: parseSlug(slug),
+        deletedAt: null,
         ...(admin ? {} : { status: PublicContentStatus.PUBLISHED }),
         translations: { some: { language } },
       },
     });
     if (courseRow === null) throw notFound();
     const row = await this.withRelationsForOne(courseRow);
-    return map(row, language);
+    return mapCourseContent(row, language);
   }
 
   async create(
@@ -107,7 +111,10 @@ export class CoursesService {
       return row.id;
     });
     const row = await this.findWithRelations(id);
-    return map(row, input.translations[0]?.language ?? Language.UZ);
+    return mapCourseContent(
+      row,
+      input.translations[0]?.language ?? Language.UZ,
+    );
   }
 
   async update(
@@ -117,10 +124,16 @@ export class CoursesService {
     correlationId?: string,
   ): Promise<PublicCourseObject> {
     const id = parseUuid(idInput, 'courseId');
-    if ((await this.db.publicCourse.count({ where: { id } })) !== 1)
+    if (
+      (await this.db.publicCourse.count({ where: { id, deletedAt: null } })) !==
+      1
+    )
       throw notFound();
     const values = await this.values(adminId, input);
     await this.db.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${'public-course-' + id}))`;
+      if (!(await tx.publicCourse.count({ where: { id, deletedAt: null } })))
+        throw notFound();
       await tx.publicCourseTranslation.deleteMany({ where: { courseId: id } });
       await tx.publicCourse.update({
         where: { id },
@@ -132,7 +145,10 @@ export class CoursesService {
       await audit(tx, adminId, 'PUBLIC_COURSE_UPDATED', id, correlationId);
     });
     const row = await this.findWithRelations(id);
-    return map(row, input.translations[0]?.language ?? Language.UZ);
+    return mapCourseContent(
+      row,
+      input.translations[0]?.language ?? Language.UZ,
+    );
   }
 
   async setStatus(
@@ -143,15 +159,16 @@ export class CoursesService {
     correlationId?: string,
   ): Promise<PublicCourseObject> {
     const id = parseUuid(idInput, 'courseId');
-    const existing = await this.db.publicCourse.findUnique({
-      where: { id },
-      include,
-    });
-    if (existing === null) throw notFound();
+
     if (status === PublicContentStatus.ARCHIVED && clean(reason, 1000) === null)
       throw bad('An archive reason is required');
     const now = new Date();
     await this.db.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${'public-course-' + id}))`;
+      const existing = await tx.publicCourse.findFirst({
+        where: { id, deletedAt: null },
+      });
+      if (!existing) throw notFound();
       await tx.publicCourse.update({
         where: { id },
         data: {
@@ -175,7 +192,7 @@ export class CoursesService {
       });
     });
     const row = await this.findWithRelations(id);
-    return map(row, row.translations[0]?.language ?? Language.UZ);
+    return mapCourseContent(row, row.translations[0]?.language ?? Language.UZ);
   }
 
   async register(input: RegisterForCourseInput) {
@@ -183,23 +200,37 @@ export class CoursesService {
     const course = await this.db.publicCourse.findFirst({
       where: {
         slug: parseSlug(input.courseSlug),
+        deletedAt: null,
         status: PublicContentStatus.PUBLISHED,
       },
       select: { id: true },
     });
     if (course === null) throw notFound();
     try {
-      const row = await this.db.courseRegistration.create({
-        data: {
-          consent: true,
-          courseId: course.id,
-          currentLevel: clean(input.currentLevel, 80),
-          email: emailValue(input.email),
-          locale: input.locale,
-          message: clean(input.message, 5000),
-          name: required(input.name, 160),
-          phone: required(input.phone, 32),
-        },
+      const row = await this.db.$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${'public-course-' + course.id}))`;
+        if (
+          !(await tx.publicCourse.count({
+            where: {
+              id: course.id,
+              deletedAt: null,
+              status: PublicContentStatus.PUBLISHED,
+            },
+          }))
+        )
+          throw notFound();
+        return tx.courseRegistration.create({
+          data: {
+            consent: true,
+            courseId: course.id,
+            currentLevel: clean(input.currentLevel, 80),
+            email: emailValue(input.email),
+            locale: input.locale,
+            message: clean(input.message, 5000),
+            name: required(input.name, 160),
+            phone: required(input.phone, 32),
+          },
+        });
       });
       return { accepted: true, receiptId: row.id };
     } catch (error: unknown) {
@@ -238,7 +269,9 @@ export class CoursesService {
   }
 
   private async findWithRelations(id: string): Promise<Course> {
-    const row = await this.db.publicCourse.findUnique({ where: { id } });
+    const row = await this.db.publicCourse.findFirst({
+      where: { id, deletedAt: null },
+    });
     if (row === null) throw notFound();
     return this.withRelationsForOne(row);
   }
@@ -323,7 +356,10 @@ function translations(input: UpsertCourseInput) {
   }));
 }
 
-function map(row: Course, language: Language): PublicCourseObject {
+export function mapCourseContent(
+  row: Course,
+  language: Language,
+): PublicCourseObject {
   const t = row.translations.find((x) => x.language === language);
   if (t === undefined) throw notFound();
   return {

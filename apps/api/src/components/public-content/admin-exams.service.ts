@@ -151,6 +151,26 @@ export class AdminExamsService {
       ],
     };
   }
+  async remove(actor: string, input: AdminRemoveExamInput) {
+    const id = parseUuid(input.offeringId, 'offeringId');
+    return this.db.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('public-exam-write'))`;
+      const current = await tx.publicExamOffering.findUnique({
+        where: { id },
+        include: examInclude,
+      });
+      if (!current) throw directoryError('Exam is unavailable');
+      if (current.deletedAt) return id;
+      if (revision(current) !== input.revision)
+        throw directoryError('Exam changed; reload', true);
+      await tx.publicExamOffering.update({
+        where: { id },
+        data: { deletedAt: new Date() },
+      });
+      await contentAudit(tx, actor, 'PUBLIC_EXAM', id, 'EXAM_DELETED');
+      return id;
+    });
+  }
   async save(actor: string, input: AdminSaveExamInput) {
     contentTranslations(input.translations);
     const id = input.id ? parseUuid(input.id, 'id') : undefined;

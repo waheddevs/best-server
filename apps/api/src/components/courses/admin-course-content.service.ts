@@ -83,6 +83,22 @@ export class AdminCourseContentService {
       })),
     };
   }
+  async remove(actorId: string, input: AdminRemoveCourseInput) {
+    const id = parseUuid(input.courseId, 'courseId');
+    return this.db.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${'public-course-' + id}))`;
+      const current = await tx.publicCourse.findUnique({ where: { id } });
+      if (!current) throw directoryError('Content is unavailable');
+      if (current.deletedAt) return id;
+      contentVersion(current.updatedAt, input.expectedUpdatedAt.toISOString());
+      await tx.publicCourse.update({
+        where: { id },
+        data: { deletedAt: new Date() },
+      });
+      await contentAudit(tx, actorId, 'PUBLIC_COURSE', id, 'CONTENT_DELETED');
+      return id;
+    });
+  }
   async save(actorId: string, input: AdminSaveCourseContentInput) {
     contentTranslations(input.translations);
     if (input.heroVariant && input.heroVariant !== 'immersive')

@@ -32,6 +32,12 @@ export class AdminExamsResolver {
   ) {
     return this.service.sessions(input, language);
   }
+  @Mutation(() => ID) adminRemoveExam(
+    @AuthMember('id') actor: string,
+    @Args('input') input: AdminRemoveExamInput,
+  ) {
+    return this.service.remove(actor, input);
+  }
   @Mutation(() => ID) adminSaveExam(
     @AuthMember('id') actor: string,
     @Args('input') input: AdminSaveExamInput,

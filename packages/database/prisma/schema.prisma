@@ -1145,6 +1145,7 @@ model AssignmentSubmission {
 }
 
 model PublicCourse {
+  deletedAt       DateTime?                 @map("deleted_at") @db.Timestamptz(3)
   id              String                    @id @default(uuid()) @db.Uuid
   slug            String                    @unique @db.VarChar(160)
   status          PublicContentStatus       @default(DRAFT)
@@ -1243,6 +1244,7 @@ model PublicCourseTrackTranslation {
 }
 
 model PublicEvent {
+  deletedAt      DateTime?                  @map("deleted_at") @db.Timestamptz(3)
   id             String                     @id @default(uuid()) @db.Uuid
   slug           String                     @unique @db.VarChar(160)
   status         PublicContentStatus        @default(DRAFT)
@@ -1364,6 +1366,7 @@ model PublicFaqTranslation {
 }
 
 model PublicExamOffering {
+  deletedAt     DateTime?                       @map("deleted_at") @db.Timestamptz(3)
   id            String                          @id @default(uuid()) @db.Uuid
   key           String                          @unique @db.VarChar(80)
   position      Int                             @default(0)

@@ -22,6 +22,12 @@ export class AdminEventContentResolver {
   ) {
     return this.service.catalog(input);
   }
+  @Mutation(() => ID) adminRemoveEvent(
+    @AuthMember('id') actor: string,
+    @Args('input') input: AdminRemoveEventInput,
+  ) {
+    return this.service.remove(actor, input);
+  }
   @Mutation(() => ID) adminSaveEventContent(
     @AuthMember('id') actor: string,
     @Args('input') input: AdminSaveEventContentInput,

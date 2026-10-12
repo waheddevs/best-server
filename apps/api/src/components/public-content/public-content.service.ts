@@ -43,6 +43,7 @@ export class PublicContentService {
   async exams(language: Language): Promise<PublicExamOfferingObject[]> {
     const rows = await this.db.publicExamOffering.findMany({
       where: {
+        deletedAt: null,
         status: PublicContentStatus.PUBLISHED,
         translations: { some: { language } },
       },

@@ -74,6 +74,22 @@ export class AdminEventContentService {
       })),
     };
   }
+  async remove(actorId: string, input: AdminRemoveEventInput) {
+    const id = parseUuid(input.eventId, 'eventId');
+    return this.db.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${'public-event-' + id}))`;
+      const current = await tx.publicEvent.findUnique({ where: { id } });
+      if (!current) throw directoryError('Event is unavailable');
+      if (current.deletedAt) return id;
+      contentVersion(current.updatedAt, input.expectedUpdatedAt.toISOString());
+      await tx.publicEvent.update({
+        where: { id },
+        data: { deletedAt: new Date() },
+      });
+      await contentAudit(tx, actorId, 'PUBLIC_EVENT', id, 'CONTENT_DELETED');
+      return id;
+    });
+  }
   async save(actorId: string, input: AdminSaveEventContentInput) {
     contentTranslations(input.translations);
     const id = input.id ? parseUuid(input.id, 'id') : undefined;

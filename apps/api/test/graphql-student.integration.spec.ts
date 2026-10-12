@@ -8340,3 +8340,352 @@ void test('Admin message removal retains data, hides lists and counts, and enfor
     ),
   );
 });
+
+
+void test('Admin course removal preserves registrations and hides deleted courses', async () => {
+  const db = requireEditorialApp().get(DatabaseService);
+  const slug = 'reserved-removal-' + randomUUID();
+  const input = {
+    slug,
+    position: 1,
+    category: 'EXAM',
+    accent: 'BLUE',
+    symbol: 'R',
+    featured: false,
+    translations: ['UZ', 'RU', 'EN'].map((language) => ({
+      language,
+      title: slug,
+      description: 'Reserved course description',
+      overview: ['Overview'],
+      highlights: ['Highlight'],
+      outcomes: ['Outcome'],
+      curriculum: ['Unit'],
+      tracks: [
+        {
+          title: 'Track',
+          summary: 'Summary',
+          level: 'A1',
+          highlights: ['Practice'],
+        },
+      ],
+    })),
+  };
+  const save = `mutation($input:AdminSaveCourseContentInput!){adminSaveCourseContent(input:$input)}`;
+  const remove = `mutation($input:AdminRemoveCourseInput!){adminRemoveCourse(input:$input)}`;
+  const id = String(
+    (await executeGraphql(adminToken, save, { input })).adminSaveCourseContent,
+  );
+  const created = await db.publicCourse.findUniqueOrThrow({ where: { id } });
+  const status = `mutation($input:SetPublicCourseStatusInput!){setCourseStatus(input:$input){course{id}}}`;
+  await executeGraphql(adminToken, status, {
+    input: { courseId: id, status: 'PUBLISHED' },
+  });
+  const registration = {
+    courseSlug: slug,
+    name: 'Reserved Applicant',
+    phone: '+998000000030',
+    email: 'course-removal@example.com',
+    locale: 'EN',
+    consent: true,
+  };
+  const register = `mutation($input:RegisterForCourseInput!){registerForCourse(input:$input){receiptId}}`;
+  const receipt = requireRecordField(
+    await executeGraphql(undefined, register, { input: registration }),
+    'registerForCourse',
+  );
+  const current = await db.publicCourse.findUniqueOrThrow({ where: { id } });
+  const removalInput = {
+    courseId: id,
+    expectedUpdatedAt: current.updatedAt.toISOString(),
+  };
+  for (const token of [undefined, studentToken, teacherToken]) {
+    await assert.rejects(
+      executeGraphql(token, remove, { input: removalInput }),
+    );
+  }
+  await assert.rejects(
+    executeGraphql(adminToken, remove, {
+      input: {
+        ...removalInput,
+        expectedUpdatedAt: created.updatedAt.toISOString(),
+      },
+    }),
+  );
+  assert.equal(
+    (await db.publicCourse.findUniqueOrThrow({ where: { id } })).deletedAt,
+    null,
+  );
+  const directory = `query($input:AdminDirectoryInput!){adminCourseCatalog(input:$input){totalCount metrics{key value} nodes{id}}}`;
+  assert.equal(
+    requireRecordField(
+      await executeGraphql(adminToken, directory, { input: { search: slug } }),
+      'adminCourseCatalog',
+    ).totalCount,
+    1,
+  );
+  const results = await Promise.all(
+    [1, 2].map(() =>
+      executeGraphql(adminToken, remove, { input: removalInput }),
+    ),
+  );
+  for (const result of results) assert.equal(result.adminRemoveCourse, id);
+  const deleted = await db.publicCourse.findUniqueOrThrow({
+    where: { id },
+    include: {
+      translations: true,
+      tracks: true,
+      contentItems: true,
+      registrations: true,
+    },
+  });
+  assert.ok(deleted.deletedAt);
+  assert.equal(deleted.status, 'PUBLISHED');
+  assert.equal(deleted.translations.length, 3);
+  assert.equal(deleted.tracks.length, 1);
+  assert.equal(deleted.contentItems.length, 4);
+  assert.equal(deleted.registrations.length, 1);
+  assert.equal(deleted.registrations[0]?.id, receipt.receiptId);
+  assert.equal(
+    await db.auditLog.count({
+      where: { targetId: id, action: 'CONTENT_DELETED', actorId: adminId },
+    }),
+    1,
+  );
+  const catalog = requireRecordField(
+    await executeGraphql(adminToken, directory, { input: { search: slug } }),
+    'adminCourseCatalog',
+  );
+  assert.equal(catalog.totalCount, 0);
+  assert.deepEqual(catalog.nodes, []);
+  for (const metric of requireArrayField(catalog, 'metrics'))
+    assert.equal(requireRecord(metric, 'metric').value, '0');
+  for (const field of ['publicCourse', 'adminCourse']) {
+    await assert.rejects(
+      executeGraphql(
+        field === 'adminCourse' ? adminToken : undefined,
+        `query($slug:String!){${field}(slug:$slug,language:EN){id}}`,
+        { slug },
+      ),
+    );
+  }
+  for (const field of ['publicCourses', 'adminCourses']) {
+    const result = requireRecordField(
+      await executeGraphql(
+        field === 'adminCourses' ? adminToken : undefined,
+        `{${field}(language:EN,first:100){edges{node{id}}}}`,
+      ),
+      field,
+    );
+    assert.ok(
+      requireArrayField(result, 'edges').every(
+        (edge) =>
+          requireRecordField(requireRecord(edge, 'edge'), 'node').id !== id,
+      ),
+    );
+  }
+  const requests = requireRecordField(
+    await executeGraphql(
+      adminToken,
+      `query($input:AdminDirectoryInput!){adminRequestDirectory(input:$input,language:EN){totalCount nodes{id subjectName}}}`,
+      { input: { category: 'COURSE', groupId: id } },
+    ),
+    'adminRequestDirectory',
+  );
+  assert.equal(requests.totalCount, 1);
+  assert.equal(
+    requireRecord(requireArrayField(requests, 'nodes')[0], 'request')
+      .subjectName,
+    slug,
+  );
+  await assert.rejects(
+    executeGraphql(undefined, register, {
+      input: { ...registration, phone: '+998000000031' },
+    }),
+  );
+  await assert.rejects(
+    executeGraphql(adminToken, status, {
+      input: { courseId: id, status: 'PUBLISHED' },
+    }),
+  );
+  await assert.rejects(
+    executeGraphql(adminToken, save, {
+      input: {
+        ...input,
+        id,
+        expectedUpdatedAt: deleted.updatedAt.toISOString(),
+      },
+    }),
+  );
+  await assert.rejects(
+    executeGraphql(
+      adminToken,
+      `mutation($input:UpdateCourseInput!){updateCourseDraft(input:$input){course{id}}}`,
+      {
+        input: {
+          courseId: id,
+          slug,
+          translations: input.translations.map((t) => ({
+            language: t.language,
+            title: t.title,
+            description: t.description,
+          })),
+        },
+      },
+    ),
+  );
+  assert.equal(
+    await db.courseRegistration.count({ where: { courseId: id } }),
+    1,
+  );
+});
+
+void test('Admin exam removal preserves registrations and sessions and hides deleted offerings', async () => {
+  const db = requireEditorialApp().get(DatabaseService);
+  const key = 'reserved-exam-removal-' + randomUUID();
+  const input = {
+    key,
+    position: 1,
+    status: 'PUBLISHED',
+    translations: ['UZ', 'RU', 'EN'].map((language) => ({
+      language,
+      title: key,
+      description: 'Reserved description',
+      formatLabel: 'Paper',
+      duration: '60 minutes',
+      level: 'B1',
+      highlights: ['Practice'],
+    })),
+  };
+  const save = `mutation($input:AdminSaveExamInput!){adminSaveExam(input:$input)}`;
+  const remove = `mutation($input:AdminRemoveExamInput!){adminRemoveExam(input:$input)}`;
+  const catalog = `query($input:AdminDirectoryInput!){adminExamCatalog(input:$input){totalCount nodes{id revision}}}`;
+  const id = String(
+    (await executeGraphql(adminToken, save, { input })).adminSaveExam,
+  );
+  const getRevision = async () => {
+    const page = requireRecordField(
+      await executeGraphql(adminToken, catalog, { input: { search: key } }),
+      'adminExamCatalog',
+    );
+    const row = requireEditorialArray(page.nodes)[0];
+    assert.ok(isRecord(row));
+    return String(row.revision);
+  };
+  const staleRevision = await getRevision();
+  const sessionInput = {
+    offeringId: id,
+    startsAt: new Date(Date.now() + 86400000 * 30).toISOString(),
+    capacity: 15,
+    active: true,
+  };
+  const sessionSave = `mutation($input:AdminSaveExamSessionInput!){adminSaveExamSession(input:$input)}`;
+  const sid = String(
+    (await executeGraphql(adminToken, sessionSave, { input: sessionInput }))
+      .adminSaveExamSession,
+  );
+  const register = `mutation($input:SubmitExamRegistrationInput!){submitExamRegistration(input:$input){receiptId}}`;
+  const registration = {
+    offeringKey: key,
+    sessionId: sid,
+    name: 'Reserved Exam Applicant',
+    phone: '+998000000030',
+    email: 'exam-removal@example.com',
+    currentLevel: 'B1',
+    locale: 'EN',
+    consent: true,
+  };
+  const receipt = requireRecordField(
+    await executeGraphql(undefined, register, { input: registration }),
+    'submitExamRegistration',
+  );
+  const currentRevision = await getRevision();
+  for (const token of [undefined, studentToken, teacherToken]) {
+    await assert.rejects(
+      executeGraphql(token, remove, {
+        input: { offeringId: id, revision: currentRevision },
+      }),
+    );
+  }
+  await assert.rejects(
+    executeGraphql(adminToken, remove, {
+      input: { offeringId: id, revision: staleRevision },
+    }),
+  );
+  assert.equal(
+    (await db.publicExamOffering.findUniqueOrThrow({ where: { id } }))
+      .deletedAt,
+    null,
+  );
+  const removed = await Promise.all(
+    [1, 2].map(() =>
+      executeGraphql(adminToken, remove, {
+        input: { offeringId: id, revision: currentRevision },
+      }),
+    ),
+  );
+  assert.ok(removed.every((result) => result.adminRemoveExam === id));
+  const retained = await db.publicExamOffering.findUniqueOrThrow({
+    where: { id },
+    include: { translations: true, sessions: true, registrations: true },
+  });
+  assert.ok(retained.deletedAt);
+  assert.equal(retained.status, 'PUBLISHED');
+  assert.equal(retained.translations.length, 3);
+  assert.equal(retained.sessions.length, 1);
+  assert.equal(retained.registrations.length, 1);
+  assert.equal(retained.registrations[0]?.id, receipt.receiptId);
+  assert.equal(
+    await db.auditLog.count({
+      where: { targetId: id, action: 'EXAM_DELETED' },
+    }),
+    1,
+  );
+  assert.equal(
+    requireRecordField(
+      await executeGraphql(adminToken, catalog, { input: { search: key } }),
+      'adminExamCatalog',
+    ).totalCount,
+    0,
+  );
+  const publicPage = await executeGraphql(
+    undefined,
+    `query{publicExamOfferings(language:EN){id}}`,
+  );
+  assert.ok(
+    !requireEditorialArray(publicPage.publicExamOfferings).some(
+      (row) => isRecord(row) && row.id === id,
+    ),
+  );
+  const sessionPage = requireRecordField(
+    await executeGraphql(
+      adminToken,
+      `query($input:AdminDirectoryInput!){adminExamSessionDirectory(input:$input,language:EN){totalCount offerings{id} nodes{id}}}`,
+      { input: { groupId: id, search: key } },
+    ),
+    'adminExamSessionDirectory',
+  );
+  assert.equal(sessionPage.totalCount, 0);
+  assert.ok(
+    !requireEditorialArray(sessionPage.offerings).some(
+      (row) => isRecord(row) && row.id === id,
+    ),
+  );
+  await assert.rejects(
+    executeGraphql(undefined, register, {
+      input: { ...registration, phone: '+998000000031' },
+    }),
+  );
+  await assert.rejects(
+    executeGraphql(adminToken, save, {
+      input: { ...input, id, revision: currentRevision },
+    }),
+  );
+  await assert.rejects(
+    executeGraphql(adminToken, sessionSave, {
+      input: {
+        ...sessionInput,
+        startsAt: new Date(Date.now() + 86400000 * 31).toISOString(),
+      },
+    }),
+  );
+});
