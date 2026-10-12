@@ -90,7 +90,7 @@ export class UsersResolver {
 
   @Mutation(() => ChangeMyPasswordPayloadObject, { name: 'changeMyPassword' })
   @UseGuards(AuthGuard, RolesGuard)
-  @Roles(UserRole.TEACHER, UserRole.STUDENT)
+  @Roles(UserRole.TEACHER, UserRole.STUDENT, UserRole.ADMIN)
   async changeMyPassword(
     @AuthMember('id') userId: string,
     @Args('input') input: ChangeMyPasswordInput,

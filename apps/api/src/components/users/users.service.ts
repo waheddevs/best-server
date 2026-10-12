@@ -1,4 +1,5 @@
 import {
+  ContentStatus,
   MediaMalwareStatus,
   MediaObjectStatus,
   MediaType,
@@ -48,6 +49,27 @@ const ADMIN_USER_SELECT = {
   updatedAt: true,
 } as const;
 
+const ADMIN_USER_DIRECTORY_SELECT = {
+  ...ADMIN_USER_SELECT,
+  groupMemberships: {
+    orderBy: { startedAt: 'desc' },
+    select: {
+      group: {
+        select: {
+          id: true,
+          name: true,
+          teacher: { select: { displayName: true, id: true } },
+        },
+      },
+      startedAt: true,
+    },
+    take: 1,
+    where: { endedAt: null },
+  },
+} satisfies Prisma.UserSelect;
+
+const GROUP_LEARNER_CAPACITY = 15;
+
 @Injectable()
 export class UsersService {
   constructor(
@@ -68,6 +90,18 @@ export class UsersService {
       );
     }
 
+    const groupId =
+      input.groupId === undefined
+        ? undefined
+        : parseUuid(input.groupId, 'groupId');
+    if (groupId !== undefined && input.role !== UserRole.STUDENT) {
+      throw new ApplicationError(
+        ErrorCode.BAD_USER_INPUT,
+        'Only Student accounts can be assigned to a group',
+        400,
+      );
+    }
+
     const displayName = parseRequiredText(
       input.displayName,
       'displayName',
@@ -79,6 +113,31 @@ export class UsersService {
       await this.passwordService.hashPassword(password);
 
     return this.database.$transaction(async (transaction) => {
+      if (groupId !== undefined) {
+        await transaction.$queryRaw`SELECT id FROM groups WHERE id = ${groupId}::uuid FOR UPDATE`;
+        const group = await transaction.group.findFirst({
+          where: { id: groupId, status: ContentStatus.ACTIVE },
+          select: { id: true },
+        });
+        if (group === null) {
+          throw new ApplicationError(
+            ErrorCode.NOT_FOUND,
+            'Active group was not found',
+            404,
+          );
+        }
+        const activeStudentCount = await transaction.groupMembership.count({
+          where: { endedAt: null, groupId },
+        });
+        if (activeStudentCount >= GROUP_LEARNER_CAPACITY) {
+          throw new ApplicationError(
+            ErrorCode.CONFLICT,
+            'The group has reached its 15-learner capacity',
+            409,
+          );
+        }
+      }
+
       const existing = await transaction.user.findUnique({
         where: { email },
         select: { id: true },
@@ -102,16 +161,37 @@ export class UsersService {
         select: ADMIN_USER_SELECT,
       });
 
+      const membership =
+        groupId === undefined
+          ? undefined
+          : await transaction.groupMembership.create({
+              data: { groupId, studentId: user.id },
+              select: { id: true },
+            });
+
       await transaction.auditLog.create({
         data: {
           action: 'ADMIN_USER_PROVISIONED',
           actorId: adminId,
           correlationId: correlationId ?? null,
-          newValues: { email, role: input.role },
+          newValues: { email, groupId: groupId ?? null, role: input.role },
           targetId: user.id,
           targetType: 'USER',
         },
       });
+
+      if (membership !== undefined) {
+        await transaction.auditLog.create({
+          data: {
+            action: 'ADMIN_STUDENT_CREATED_AND_ENROLLED',
+            actorId: adminId,
+            correlationId: correlationId ?? null,
+            newValues: { groupId, studentId: user.id },
+            targetId: membership.id,
+            targetType: 'GROUP_MEMBERSHIP',
+          },
+        });
+      }
 
       return user;
     });
@@ -380,8 +460,8 @@ export class UsersService {
     const cursor = decodeCursor(after);
     const normalizedSearch = parseOptionalSearch(search);
     const where: Prisma.UserWhereInput = {
+      status: status ?? { not: UserStatus.DELETED },
       ...(role === undefined ? {} : { role }),
-      ...(status === undefined ? {} : { status }),
       ...(normalizedSearch === undefined
         ? {}
         : {
@@ -402,16 +482,27 @@ export class UsersService {
       orderBy: { id: 'asc' },
       take: pageSize + 1,
       ...(cursor === undefined ? {} : { cursor: { id: cursor }, skip: 1 }),
-      select: ADMIN_USER_SELECT,
+      select: ADMIN_USER_DIRECTORY_SELECT,
     });
     const hasNextPage = users.length > pageSize;
     const page = hasNextPage ? users.slice(0, pageSize) : users;
 
     return {
-      edges: page.map((user) => ({
-        cursor: encodeCursor(user.id),
-        node: user,
-      })),
+      edges: page.map((user) => {
+        const { groupMemberships, ...profile } = user;
+        const membership = groupMemberships[0];
+        return {
+          cursor: encodeCursor(user.id),
+          node: {
+            ...profile,
+            activeGroupId: membership?.group.id ?? null,
+            activeGroupName: membership?.group.name ?? null,
+            activeMembershipStartedAt: membership?.startedAt ?? null,
+            activeTeacherId: membership?.group.teacher.id ?? null,
+            activeTeacherName: membership?.group.teacher.displayName ?? null,
+          },
+        };
+      }),
       pageInfo: {
         endCursor:
           page.at(-1) === undefined

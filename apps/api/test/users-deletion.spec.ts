@@ -1,4 +1,4 @@
-import { UserRole, UserStatus } from '@best/database';
+import { Language, UserRole, UserStatus } from '@best/database';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
@@ -84,4 +84,58 @@ void test('Teacher account deletion disables credentials and sessions with an au
   await assert.rejects(service.deleteMyTeacherAccount('reserved-teacher-id'));
   assert.equal(revokedSessions, 1);
   assert.equal(deletedChallenges, 1);
+});
+
+void test('Admin user directory projects the active group and teacher for student filters', async () => {
+  const startedAt = new Date('2026-09-01T09:00:00.000Z');
+  const createdAt = new Date('2026-08-20T09:00:00.000Z');
+  const database = {
+    user: {
+      findMany: () =>
+        Promise.resolve([
+          {
+            avatarMediaObjectId: null,
+            branchName: null,
+            createdAt,
+            displayName: 'Reserved Student',
+            email: 'student@example.com',
+            groupMemberships: [
+              {
+                group: {
+                  id: '00000000-0000-4000-8000-000000000011',
+                  name: 'Reserved CEFR Group',
+                  teacher: {
+                    displayName: 'Reserved Teacher',
+                    id: '00000000-0000-4000-8000-000000000012',
+                  },
+                },
+                startedAt,
+              },
+            ],
+            id: '00000000-0000-4000-8000-000000000010',
+            phone: null,
+            preferredLanguage: Language.EN,
+            role: UserRole.STUDENT,
+            status: UserStatus.ACTIVE,
+            teacherSubject: null,
+            updatedAt: createdAt,
+          },
+        ]),
+    },
+  } as unknown as DatabaseService;
+  const service = new UsersService(database, new CredentialPasswordService());
+
+  const result = await service.getAdminUsers(
+    10,
+    undefined,
+    UserRole.STUDENT,
+    undefined,
+    undefined,
+  );
+  const student = result.edges[0]?.node;
+
+  assert.ok(student);
+  assert.equal(student.activeGroupName, 'Reserved CEFR Group');
+  assert.equal(student.activeTeacherName, 'Reserved Teacher');
+  assert.equal(student.activeMembershipStartedAt, startedAt);
 });

@@ -12,6 +12,9 @@ export class AdminProvisionUserInput {
   @Field()
   password!: string;
 
+  @Field(() => ID, { nullable: true })
+  groupId?: string;
+
   @Field(() => UserRole)
   role!: UserRole;
 }

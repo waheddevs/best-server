@@ -2999,6 +2999,17 @@ void test('Teacher group roster exposes persisted status summary, overview, and 
 });
 
 void test('Admin provisions a credential user who completes email-code login', async () => {
+  const database = requireApp().get(DatabaseService);
+  const enrollmentGroup = await database.group.create({
+    data: {
+      category: GroupCategory.IELTS,
+      name: `Reserved Admin Enrollment ${randomUUID()}`,
+      slug: `reserved-admin-enrollment-${randomUUID()}`,
+      status: ContentStatus.ACTIVE,
+      teacherId,
+    },
+    select: { id: true },
+  });
   const email = `credential-${randomUUID()}@example.com`;
   const displayName = 'Reserved Credential Student';
   const password = 'reserved-password-2026';
@@ -3010,7 +3021,13 @@ void test('Admin provisions a credential user who completes email-code login', a
       }
     }`,
     {
-      input: { displayName, email, password, role: 'STUDENT' },
+      input: {
+        displayName,
+        email,
+        groupId: enrollmentGroup.id,
+        password,
+        role: 'STUDENT',
+      },
     },
   );
   const user = requireRecordField(
@@ -3020,14 +3037,21 @@ void test('Admin provisions a credential user who completes email-code login', a
   const userId = requireStringField(user, 'id');
   assert.equal(user.role, 'STUDENT');
 
-  const storedUser = await requireApp()
-    .get(DatabaseService)
-    .user.findUnique({
-      where: { id: userId },
-      select: { credentialPasswordHash: true },
-    });
+  const storedUser = await database.user.findUnique({
+    where: { id: userId },
+    select: { credentialPasswordHash: true },
+  });
   assert.match(storedUser?.credentialPasswordHash ?? '', /^\$argon2id\$/);
   assert.notEqual(storedUser?.credentialPasswordHash, password);
+  const storedMembership = await database.groupMembership.findFirst({
+    where: {
+      endedAt: null,
+      groupId: enrollmentGroup.id,
+      studentId: userId,
+    },
+    select: { id: true },
+  });
+  assert.ok(storedMembership);
 
   const deniedProvision = await executeGraphqlExpectingErrors(
     studentToken,
@@ -7218,6 +7242,33 @@ function requireStringField(
 
 
 
+void test('Admin operations: settings profile persists with audit', async () => {
+  const result = await executeGraphql(
+    adminToken,
+    `mutation($input:UpdateMyProfileInput!){updateMyProfile(input:$input){profile{displayName phone preferredLanguage}}}`,
+    {
+      input: {
+        displayName: 'Reserved Admin',
+        phone: '+998000000000',
+        preferredLanguage: 'UZ',
+      },
+    },
+  );
+  const profile = requireRecordField(
+    requireRecordField(result, 'updateMyProfile'),
+    'profile',
+  );
+  assert.equal(profile.preferredLanguage, 'UZ');
+  const db = requireEditorialApp().get(DatabaseService);
+  const row = await db.user.findUniqueOrThrow({ where: { id: adminId } });
+  assert.equal(row.displayName, 'Reserved Admin');
+  assert.equal(row.phone, '+998000000000');
+  assert.ok(
+    await db.auditLog.count({
+      where: { actorId: adminId, action: 'USER_PROFILE_UPDATED' },
+    }),
+  );
+});
 
 
 
