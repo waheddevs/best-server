@@ -7507,7 +7507,78 @@ void test('Admin operations: schedule writes, collision, cancellation and restor
   );
 });
 
+void test('Admin operations: payment projection keeps two statuses and rejects other roles', async () => {
+  const query = `query{adminPaymentDirectory(input:{page:1,pageSize:15}){totalCount nodes{id status amountUzs paidUzs balanceUzs} metrics{key value}}}`;
+  await assert.rejects(executeGraphql(studentToken, query));
+  const result = await executeGraphql(adminToken, query);
+  const page = requireRecordField(result, 'adminPaymentDirectory');
+  assert.ok(Array.isArray(page.nodes));
+  for (const row of page.nodes as { status: string }[])
+    assert.ok(['PAID', 'UNPAID'].includes(row.status));
+});
 
+void test('Admin operations: real ledger amounts, detail and student filters', async () => {
+  const db = requireEditorialApp().get(DatabaseService);
+  const sid = randomUUID();
+  await db.user.create({
+    data: {
+      id: sid,
+      displayName: 'Reserved Ledger Learner',
+      email: 'ledger-' + sid + '@example.com',
+      role: UserRole.STUDENT,
+      status: UserStatus.ACTIVE,
+      preferredLanguage: Language.EN,
+    },
+  });
+  const membership = await db.groupMembership.create({
+    data: { studentId: sid, groupId, startedAt: new Date('2026-01-01') },
+  });
+  const charge = await db.tuitionCharge.create({
+    data: {
+      studentId: sid,
+      groupMembershipId: membership.id,
+      billingMonth: new Date('2026-12-01'),
+      dueDate: new Date('2026-12-10'),
+      amountUzs: 300000n,
+    },
+  });
+  const query = `query($input:AdminDirectoryInput!){adminPaymentDirectory(input:$input){totalCount nodes{id status paidUzs balanceUzs} metrics{key value}}}`;
+  const first = await executeGraphql(adminToken, query, {
+    input: { studentId: sid, status: 'UNPAID', month: '2026-12' },
+  });
+  assert.equal(
+    requireRecordField(first, 'adminPaymentDirectory').totalCount,
+    1,
+  );
+  const payment = await db.payment.create({
+    data: {
+      studentId: sid,
+      recordedById: adminId,
+      amountUzs: 300000n,
+      method: 'CASH',
+      paidAt: new Date('2026-12-05'),
+      allocations: { create: { chargeId: charge.id, amountUzs: 300000n } },
+    },
+  });
+  const paid = await executeGraphql(
+    adminToken,
+    `query($id:ID!){adminPaymentDetail(id:$id){status paidUzs balanceUzs events{id amountUzs}}}`,
+    { id: charge.id },
+  );
+  const detail = requireRecordField(paid, 'adminPaymentDetail');
+  assert.equal(detail.status, 'PAID');
+  assert.equal(detail.paidUzs, '300000');
+  assert.equal(detail.balanceUzs, '0');
+  assert.ok(Array.isArray(detail.events) && detail.events.length === 1);
+  assert.ok(await db.payment.findUnique({ where: { id: payment.id } }));
+  const filtered = await executeGraphql(adminToken, query, {
+    input: { studentId: sid, status: 'UNPAID' },
+  });
+  assert.equal(
+    requireRecordField(filtered, 'adminPaymentDirectory').totalCount,
+    0,
+  );
+});
 
 void test('Admin operations: settings profile persists with audit', async () => {
   const result = await executeGraphql(
