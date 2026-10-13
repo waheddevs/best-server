@@ -249,6 +249,7 @@ void test('object storage environment rejects unsafe settings', () => {
   for (const invalidSource of [
     { S3_BUCKET: 'UPPERCASE' },
     { S3_ENDPOINT: 'ftp://127.0.0.1:8333' },
+    { S3_PUBLIC_ENDPOINT: 'https://user:password@example.test' },
     { S3_FORCE_PATH_STYLE: 'yes' },
     { S3_MAX_UPLOAD_BYTES: '0' },
     { S3_SECRET_ACCESS_KEY: 'too-short' },
@@ -331,4 +332,18 @@ void test('text-to-speech environment rejects unsafe provider settings', () => {
       EnvironmentValidationError,
     );
   }
+});
+
+void test('object storage keeps private transport and public signing endpoints separate', () => {
+  const parsed = parseObjectStorageEnvironment({
+    S3_ACCESS_KEY_ID: 'fictional-access-key',
+    S3_SECRET_ACCESS_KEY: 'fictional-secret-with-enough-length',
+    S3_BUCKET: 'best-private',
+    S3_ENDPOINT: 'http://object-storage:8333',
+    S3_PUBLIC_ENDPOINT: 'https://media.example.test:3102/',
+    S3_REGION: 'us-east-1',
+    S3_FORCE_PATH_STYLE: 'true',
+  });
+  assert.equal(parsed.endpoint, 'http://object-storage:8333');
+  assert.equal(parsed.publicEndpoint, 'https://media.example.test:3102');
 });

@@ -52,6 +52,7 @@ export interface ObjectStorageEnvironment {
   bucket: string;
   downloadUrlTtlSeconds: number;
   endpoint: string;
+  publicEndpoint?: string;
   forcePathStyle: boolean;
   maxUploadBytes: number;
   region: string;
@@ -289,6 +290,14 @@ export function parseObjectStorageEnvironment(
       DEFAULT_DOWNLOAD_URL_TTL_SECONDS,
     ),
     endpoint: parseHttpEndpoint(source.S3_ENDPOINT, 'S3_ENDPOINT'),
+    ...(source.S3_PUBLIC_ENDPOINT?.trim()
+      ? {
+          publicEndpoint: parseHttpEndpoint(
+            source.S3_PUBLIC_ENDPOINT,
+            'S3_PUBLIC_ENDPOINT',
+          ),
+        }
+      : {}),
     forcePathStyle: parseBoolean(
       source.S3_FORCE_PATH_STYLE,
       'S3_FORCE_PATH_STYLE',

@@ -50,9 +50,10 @@ const CONTENT_TYPE_PATTERN =
 
 export class ObjectStorageClient {
   private readonly client: S3Client;
+  private readonly signingClient: S3Client;
 
   constructor(private readonly environment: ObjectStorageEnvironment) {
-    this.client = new S3Client({
+    const configuration = {
       credentials: {
         accessKeyId: environment.accessKeyId,
         secretAccessKey: environment.secretAccessKey,
@@ -60,8 +61,12 @@ export class ObjectStorageClient {
       endpoint: environment.endpoint,
       forcePathStyle: environment.forcePathStyle,
       region: environment.region,
-      requestChecksumCalculation: 'WHEN_REQUIRED',
-    });
+      requestChecksumCalculation: 'WHEN_REQUIRED' as const,
+    };
+    this.client = new S3Client(configuration);
+    this.signingClient = environment.publicEndpoint
+      ? new S3Client({ ...configuration, endpoint: environment.publicEndpoint })
+      : this.client;
   }
 
   async assertBucketAvailable(): Promise<void> {
@@ -88,7 +93,7 @@ export class ObjectStorageClient {
 
     const expiresIn = this.environment.uploadUrlTtlSeconds;
     const url = await getSignedUrl(
-      this.client,
+      this.signingClient,
       new PutObjectCommand({
         Bucket: this.environment.bucket,
         ContentLength: contentLength,
@@ -116,7 +121,7 @@ export class ObjectStorageClient {
     assertStorageKey(key);
     const expiresIn = this.environment.downloadUrlTtlSeconds;
     const url = await getSignedUrl(
-      this.client,
+      this.signingClient,
       new GetObjectCommand({
         Bucket: this.environment.bucket,
         Key: key,
@@ -211,6 +216,7 @@ export class ObjectStorageClient {
 
   destroy(): void {
     this.client.destroy();
+    if (this.signingClient !== this.client) this.signingClient.destroy();
   }
 }
 

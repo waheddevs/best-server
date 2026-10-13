@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { createServer } from 'node:http';
+import { once } from 'node:events';
 
 import type { ObjectStorageEnvironment } from '@best/config';
 
@@ -93,5 +95,46 @@ void test('rejects unsafe upload constraints before signing', async () => {
     );
   } finally {
     storage.destroy();
+  }
+});
+
+void test('signs for the public origin while bucket checks use the internal endpoint', async () => {
+  const server = createServer((request, response) => {
+    assert.equal(request.method, 'HEAD');
+    response.writeHead(200).end();
+  });
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const address = server.address();
+  assert.ok(address && typeof address !== 'string');
+  const storage = new ObjectStorageClient({
+    ...environment,
+    endpoint: `http://127.0.0.1:${String(address.port)}`,
+    publicEndpoint: 'https://media.example.test:3102',
+  });
+  try {
+    await storage.assertBucketAvailable();
+    const key =
+      'private/4ad22eac-a5f4-475c-b180-948f81d75a67/3c87cd98-2e93-4dd4-8975-8b6d575639fc';
+    const download = await storage.createDownloadIntent(key);
+    const upload = await storage.createUploadIntent({
+      key,
+      contentLength: 12,
+      contentType: 'text/plain',
+    });
+    for (const intent of [download, upload]) {
+      const url = new URL(intent.url);
+      assert.equal(url.origin, 'https://media.example.test:3102');
+      assert.equal(url.pathname, `/best-private/${key}`);
+      assert.ok(url.searchParams.get('X-Amz-Signature'));
+    }
+  } finally {
+    storage.destroy();
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => {
+        if (error) reject(error);
+        else resolve();
+      }),
+    );
   }
 });
