@@ -1,0 +1,12 @@
+[Unit]
+Description=Check BEST certificate renewal twice daily
+
+[Timer]
+OnBootSec=5min
+OnCalendar=*-*-* 00,12:00:00
+RandomizedDelaySec=30min
+Persistent=true
+Unit=best-certificate.service
+
+[Install]
+WantedBy=timers.target

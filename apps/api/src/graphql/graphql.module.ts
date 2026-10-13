@@ -86,7 +86,7 @@ const SCHEMA_PATH = resolve(
         const allowSchemaExploration = nodeEnvironment !== 'production';
 
         return {
-          autoSchemaFile: SCHEMA_PATH,
+          autoSchemaFile: allowSchemaExploration ? SCHEMA_PATH : true,
           context: ({ req }: GraphqlContextInput): ApiGraphqlContext => ({
             req,
           }),

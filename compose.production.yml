@@ -1,0 +1,250 @@
+name: best-production
+
+x-service: &service
+  restart: unless-stopped
+  init: true
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: '3'
+
+x-database-environment: &database-environment
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: '5432'
+  POSTGRES_DB: best
+  POSTGRES_USER: best
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+  DATABASE_URL: postgresql://best:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@postgres:5432/best?schema=public
+  REDIS_HOST: redis
+  REDIS_PORT: '6379'
+
+services:
+  postgres:
+    <<: *service
+    mem_limit: 512m
+    image: postgres:18.6-alpine
+    environment:
+      POSTGRES_DB: best
+      POSTGRES_USER: best
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U best -d best']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    stop_grace_period: 60s
+
+  redis:
+    <<: *service
+    mem_limit: 192m
+    image: redis:8.10.1-alpine
+    command:
+      [
+        'redis-server',
+        '--appendonly',
+        'yes',
+        '--maxmemory-policy',
+        'noeviction',
+      ]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  object-storage:
+    <<: *service
+    mem_limit: 512m
+    image: chrislusf/seaweedfs:4.45
+    command: ['mini', '-dir=/data']
+    environment:
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?Set S3_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?Set S3_SECRET_ACCESS_KEY}
+      S3_BUCKET: best-private
+    volumes:
+      - object-storage-data:/data
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'wget',
+          '-q',
+          '--spider',
+          'http://127.0.0.1:9333/cluster/status',
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    stop_grace_period: 60s
+
+  malware-scanner:
+    <<: *service
+    mem_limit: 1536m
+    image: clamav/clamav:1.5.3_base
+    volumes:
+      - clamav-signatures:/var/lib/clamav
+    healthcheck:
+      test: ['CMD-SHELL', 'clamdscan --ping=1']
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 300s
+    stop_grace_period: 60s
+
+  api:
+    <<: *service
+    mem_limit: 1536m
+    image: best-api:${BEST_RELEASE:-local}
+    build:
+      context: .
+      target: runtime
+    environment:
+      <<: *database-environment
+      NODE_ENV: production
+      API_PORT: '4000'
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?Set JWT_ACCESS_SECRET}
+      JWT_ACCESS_ISSUER: best-api
+      JWT_ACCESS_AUDIENCE: best-clients
+      AUTH_OTP_HASH_SECRET: ${AUTH_OTP_HASH_SECRET:?Set AUTH_OTP_HASH_SECRET}
+      AUTH_REQUIRE_EMAIL_VERIFICATION: 'false'
+      AUTH_EMAIL_DELIVERY_MODE: disabled
+      S3_ENDPOINT: http://object-storage:8333
+      S3_PUBLIC_ENDPOINT: https://201.18.217.140:3102
+      S3_REGION: us-east-1
+      S3_BUCKET: best-private
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?Set S3_ACCESS_KEY_ID}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?Set S3_SECRET_ACCESS_KEY}
+      S3_FORCE_PATH_STYLE: 'true'
+      CLAMAV_HOST: malware-scanner
+      CLAMAV_PORT: '3310'
+    ports:
+      - '127.0.0.1:3103:4000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      object-storage:
+        condition: service_healthy
+      malware-scanner:
+        condition: service_healthy
+    healthcheck:
+      # Uses an existing public read, checks GraphQL and migrated database readiness.
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:4000/graphql',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({query:'{ publicFaq(language: EN) { id } }'}),signal:AbortSignal.timeout(4000)}).then(async r=>{const b=await r.json();if(!r.ok||b.errors||!Array.isArray(b.data?.publicFaq))process.exit(1)}).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 6s
+      retries: 5
+      start_period: 60s
+    stop_grace_period: 60s
+
+  scoring-worker:
+    <<: *service
+    mem_limit: 384m
+    image: best-api:${BEST_RELEASE:-local}
+    working_dir: /app/apps/scoring-worker
+    command: ['node', 'dist/main.js']
+    environment:
+      <<: *database-environment
+      NODE_ENV: production
+    depends_on:
+      api:
+        condition: service_healthy
+    stop_grace_period: 60s
+
+  migrate:
+    image: best-migrate:${BEST_RELEASE:-local}
+    build:
+      context: .
+      target: migrate
+    profiles: [operations]
+    environment:
+      <<: *database-environment
+      NODE_ENV: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    <<: *service
+    mem_limit: 768m
+    image: best-web:${BEST_RELEASE:-local}
+    build:
+      context: ../best-react
+      # Linux VPS: prerender against the restored API's loopback port.
+      network: host
+      args:
+        BEST_API_INTERNAL_URL: http://127.0.0.1:3103
+        BEST_SITE_URL: https://201.18.217.140:3102
+    environment:
+      NODE_ENV: production
+      BEST_API_INTERNAL_URL: http://api:4000
+      BEST_SITE_URL: https://201.18.217.140:3102
+      AUTH_URL: https://201.18.217.140:3102
+      AUTH_TRUST_HOST: 'true'
+      AUTH_SECRET: ${AUTH_SECRET:?Set AUTH_SECRET}
+      BEST_DASHBOARD_PREVIEW: 'false'
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/en/login',{signal:AbortSignal.timeout(8000)}).then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  nginx:
+    <<: *service
+    mem_limit: 128m
+    image: nginx:stable-alpine
+    ports:
+      - '0.0.0.0:3102:443'
+    volumes:
+      - ./infrastructure/production/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - /home/deploy/best/ssl/letsencrypt:/etc/letsencrypt:ro
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+    networks:
+      - default
+      - edge
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'wget',
+          '-q',
+          '-O',
+          '/dev/null',
+          'http://127.0.0.1:8080/healthz',
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+networks:
+  edge:
+    external: true
+    name: edge
+
+volumes:
+  postgres-data:
+  redis-data:
+  object-storage-data:
+  clamav-signatures:

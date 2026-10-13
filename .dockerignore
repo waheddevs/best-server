@@ -1,0 +1,16 @@
+.git
+**/node_modules
+**/dist
+**/.turbo
+**/*.tsbuildinfo
+.yarn
+.tmp
+tmp
+.env*
+**/.env*
+*.log
+**/*.dump
+**/*.pem
+**/*.key
+packages/database/src/generated
+.vscode
