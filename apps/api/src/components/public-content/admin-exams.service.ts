@@ -25,6 +25,7 @@ import {
   contentCapacity,
   contentAudit,
 } from '../../libs/validation/admin-content';
+
 const examInclude = {
   translations: { orderBy: { language: 'asc' } },
   sessions: {
@@ -33,6 +34,7 @@ const examInclude = {
   },
   _count: { select: { registrations: true } },
 } satisfies Prisma.PublicExamOfferingInclude;
+
 function revision(row: unknown) {
   return createHash('sha256')
     .update(
@@ -46,9 +48,11 @@ function revision(row: unknown) {
     )
     .digest('hex');
 }
+
 @Injectable()
 export class AdminExamsService {
   constructor(private readonly db: DatabaseService) {}
+
   async catalog(raw: AdminDirectoryInput) {
     const input = directoryInput(raw);
     const status = directoryEnum(
@@ -92,6 +96,7 @@ export class AdminExamsService {
       })),
     };
   }
+  
   async sessions(raw: AdminDirectoryInput, language: Language) {
     const input = directoryInput(raw);
     const status = directoryEnum(input.status, ['ACTIVE', 'INACTIVE'] as const);
@@ -151,6 +156,7 @@ export class AdminExamsService {
       ],
     };
   }
+
   async remove(actor: string, input: AdminRemoveExamInput) {
     const id = parseUuid(input.offeringId, 'offeringId');
     return this.db.$transaction(async (tx) => {
@@ -171,6 +177,7 @@ export class AdminExamsService {
       return id;
     });
   }
+
   async save(actor: string, input: AdminSaveExamInput) {
     contentTranslations(input.translations);
     const id = input.id ? parseUuid(input.id, 'id') : undefined;
@@ -221,6 +228,7 @@ export class AdminExamsService {
       return row.id;
     });
   }
+
   async saveSession(actor: string, input: AdminSaveExamSessionInput) {
     const id = input.id ? parseUuid(input.id, 'id') : undefined;
     const offeringId = parseUuid(input.offeringId, 'offeringId');

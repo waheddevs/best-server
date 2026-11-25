@@ -16,6 +16,7 @@ import type { SaveAttemptAnswerInput } from '../../schemas/attempts/save-attempt
 import type { SaveAttemptSectionNoteInput } from '../../schemas/attempts/save-attempt-section-note.input';
 import type { StartTestAttemptInput } from '../../schemas/attempts/start-test-attempt.input';
 import type { StudentAttemptObject } from '../../schemas/attempts/student-attempt.object';
+import type { StudentAttemptSaveResult } from '../../schemas/attempts/student-attempt.object';
 import type { StudentReleasedAttemptResultObject } from '../../schemas/attempts/student-released-attempt-result.object';
 import type { SubmitTestAttemptInput } from '../../schemas/attempts/submit-test-attempt.input';
 import type { CreateAttemptAudioUploadInput } from '../../schemas/attempts/create-attempt-audio-upload.input';
@@ -30,7 +31,12 @@ import {
   ensureOptionsBelongToQuestion,
   invalidResponseShapeError,
   countWords,
+  enforceAttemptTextLimit,
+  MAX_LONG_ANSWER_CHARACTERS,
+  MAX_SHORT_ANSWER_CHARACTERS,
+  MAX_SECTION_NOTE_CHARACTERS,
 } from './attempt-answer-validation';
+import { lockOwnedAttempt } from './attempt-lock';
 import { submitAttemptTransactionally } from './attempt-submission';
 import { inaccessibleAttemptError } from './attempt-errors';
 
@@ -87,19 +93,15 @@ export class AttemptsService {
     studentId: string,
     input: SaveAttemptSectionNoteInput,
     language: Language,
-  ): Promise<StudentAttemptObject> {
+    includeTestContent = true,
+  ): Promise<StudentAttemptSaveResult> {
     const attemptId = parseUuid(input.attemptId, 'attemptId');
     const sectionId = parseUuid(input.sectionId, 'sectionId');
+    enforceAttemptTextLimit(input.text, MAX_SECTION_NOTE_CHARACTERS);
     const text = input.text.trim();
-    if (text.length > 4000) {
-      throw new ApplicationError(
-        ErrorCode.BAD_USER_INPUT,
-        'The note cannot exceed 4000 characters',
-        400,
-      );
-    }
-    const now = new Date();
     await this.database.$transaction(async (transaction) => {
+      await lockOwnedAttempt(transaction, attemptId, studentId);
+      const now = new Date();
       const attempt = await transaction.attempt.findFirst({
         where: { id: attemptId, studentId },
         select: {
@@ -144,10 +146,11 @@ export class AttemptsService {
         });
       }
     });
-    return this.attemptReadService.loadStudentAttempt(
+    return this.loadSavedAttempt(
       studentId,
       attemptId,
       language,
+      includeTestContent,
     );
   }
 
@@ -196,16 +199,19 @@ export class AttemptsService {
     input: SaveAttemptAnswerInput,
     correlationId: string | undefined,
     language: Language,
-  ): Promise<StudentAttemptObject> {
+    includeTestContent = true,
+  ): Promise<StudentAttemptSaveResult> {
     const attemptId = parseUuid(input.attemptId, 'attemptId');
     const questionId = parseUuid(input.questionId, 'questionId');
+    enforceAttemptTextLimit(input.textValue, MAX_LONG_ANSWER_CHARACTERS);
     await this.attemptReadService.ensureAttemptTranslation(
       studentId,
       attemptId,
       language,
     );
-    const now = new Date();
     const outcome = await this.database.$transaction(async (transaction) => {
+      await lockOwnedAttempt(transaction, attemptId, studentId);
+      const now = new Date();
       const attempt = await transaction.attempt.findFirst({
         where: { id: attemptId, studentId },
         select: {
@@ -262,6 +268,10 @@ export class AttemptsService {
           'The question does not belong to this attempt',
           400,
         );
+      }
+
+      if (question.kind === QuestionKind.SHORT_TEXT) {
+        enforceAttemptTextLimit(input.textValue, MAX_SHORT_ANSWER_CHARACTERS);
       }
 
       const selectedOptionIds = [...new Set(input.selectedOptionIds ?? [])].map(
@@ -431,11 +441,30 @@ export class AttemptsService {
       );
     }
 
-    return this.attemptReadService.loadStudentAttempt(
+    return this.loadSavedAttempt(
       studentId,
       attemptId,
       language,
+      includeTestContent,
     );
+  }
+
+  private loadSavedAttempt(
+    studentId: string,
+    attemptId: string,
+    language: Language,
+    includeTestContent: boolean,
+  ): Promise<StudentAttemptSaveResult> {
+    return includeTestContent
+      ? this.attemptReadService.loadStudentAttempt(
+          studentId,
+          attemptId,
+          language,
+        )
+      : this.attemptReadService.loadStudentAttemptSaveState(
+          studentId,
+          attemptId,
+        );
   }
 
   async submitTestAttempt(

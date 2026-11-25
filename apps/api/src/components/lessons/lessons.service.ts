@@ -468,6 +468,7 @@ export function parseLesson(input: CreateLessonInput) {
     startsAt: input.startsAt,
   };
 }
+
 export function parseTranslations(rows: CreateLessonInput['translations']) {
   if (
     rows.length < 1 ||
@@ -481,6 +482,7 @@ export function parseTranslations(rows: CreateLessonInput['translations']) {
     title: required(title, 'title', 240),
   }));
 }
+
 export function mapLesson(row: LessonRecord) {
   return {
     archivedAt: row.archivedAt,
@@ -496,6 +498,7 @@ export function mapLesson(row: LessonRecord) {
     updatedAt: row.updatedAt,
   };
 }
+
 export function validateRange(from: Date, to: Date): void {
   if (
     !Number.isFinite(from.getTime()) ||
@@ -505,6 +508,7 @@ export function validateRange(from: Date, to: Date): void {
   )
     throw bad('The date range is invalid or exceeds 366 days');
 }
+
 function required(
   value: string | undefined,
   field: string,
@@ -515,11 +519,13 @@ function required(
     throw bad(`${field} must contain between 1 and ${String(max)} characters`);
   return text;
 }
+
 function cleanOptional(value: string | undefined, max: number): string | null {
   const text = value?.trim() ?? '';
   if (text.length > max) throw bad('Text is too long');
   return text.length === 0 ? null : text;
 }
+
 async function audit(
   tx: Prisma.TransactionClient,
   actorId: string,
@@ -537,12 +543,15 @@ async function audit(
     },
   });
 }
+
 function bad(message: string): ApplicationError {
   return new ApplicationError(ErrorCode.BAD_USER_INPUT, message, 400);
 }
+
 function conflict(message: string): ApplicationError {
   return new ApplicationError(ErrorCode.CONFLICT, message, 409);
 }
+
 function notFound(): ApplicationError {
   return new ApplicationError(
     ErrorCode.NOT_FOUND,

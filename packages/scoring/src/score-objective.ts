@@ -46,6 +46,14 @@ export function normalizeObjectiveText(value: string): string {
   return value.trim().toLocaleLowerCase('en').replace(/\s+/gu, ' ');
 }
 
+export function resolveObjectiveOptionIds(
+  selectedOptionId: string | null | undefined,
+  selectionIds: readonly string[] = [],
+): readonly string[] {
+  if (selectionIds.length > 0) return selectionIds;
+  return selectedOptionId == null ? [] : [selectedOptionId];
+}
+
 export function scoreObjective({
   passingPercentage,
   questions,
@@ -71,22 +79,15 @@ export function scoreObjective({
     }
     seenQuestionIds.add(question.questionId);
 
-    const correct = OPTION_KINDS.has(question.kind)
-      ? equalSets(
-          requireNonEmpty(question.correctOptionIds, 'correct option'),
-          question.selectedOptionIds ?? [],
-        )
-      : requireNonEmpty(
-          question.acceptedTextValues,
-          'accepted text answer',
-        )
-          .map(normalizeObjectiveText)
-          .includes(normalizeObjectiveText(question.textValue ?? ''));
-
-    return { correct, questionId: question.questionId };
+    return {
+      correct: isObjectiveAnswerCorrect(question),
+      questionId: question.questionId,
+    };
   });
 
-  const correctAnswerCount = questionScores.filter(({ correct }) => correct).length;
+  const correctAnswerCount = questionScores.filter(
+    ({ correct }) => correct,
+  ).length;
   const totalQuestionCount = questionScores.length;
   const percentageBasisPoints = Math.round(
     (correctAnswerCount * 10_000) / totalQuestionCount,
@@ -102,11 +103,28 @@ export function scoreObjective({
   };
 }
 
+export function isObjectiveAnswerCorrect(
+  question: ObjectiveQuestionScoreInput,
+): boolean {
+  return OPTION_KINDS.has(question.kind)
+    ? equalSets(
+        requireNonEmpty(question.correctOptionIds, 'correct option'),
+        question.selectedOptionIds ?? [],
+      )
+    : requireNonEmpty(question.acceptedTextValues, 'accepted text answer')
+        .map(normalizeObjectiveText)
+        .includes(normalizeObjectiveText(question.textValue ?? ''));
+}
+
 function requireNonEmpty(
   values: readonly string[] | undefined,
   label: string,
 ): readonly string[] {
-  if (values === undefined || values.length === 0 || values.some((value) => value.length === 0)) {
+  if (
+    values === undefined ||
+    values.length === 0 ||
+    values.some((value) => value.length === 0)
+  ) {
     throw new Error(`${label} data is required`);
   }
   if (new Set(values).size !== values.length) {

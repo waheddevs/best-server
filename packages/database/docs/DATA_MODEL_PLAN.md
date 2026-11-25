@@ -178,11 +178,15 @@ must be approved before the first Prisma model or migration is created.
 
 ### Retired Telegram import design
 
-The earlier one-time Telegram import decision is canceled. No TDLib client,
+Telegram import, including the local vocabulary pilot, was cancelled on
+2026-11-25. The import worker and its runtime logic have been removed. See
+[retained import migration decisions](MIGRATIONS.md#retired-telegram-and-vocabulary-import).
+No TDLib client,
 Telegram credential/session handling, queue, worker processor, or API will be
 implemented. `TelegramImportRun` and `TelegramImportRecord` remain unused
-legacy tables because removing deployed schema requires a separately reviewed
-destructive migration. New application code must not depend on them.
+legacy tables alongside `ImportSourceDocument`, `VocabularyDraft`, and
+`VocabularyDraftEntry` because removing deployed schema requires a separately
+reviewed destructive migration. New application code must not depend on them.
 
 ### Results and progress
 

@@ -43,6 +43,7 @@ export const eventContentInclude = {
 type Event = Prisma.PublicEventGetPayload<{
   include: typeof eventContentInclude;
 }>;
+
 @Injectable()
 export class EventsService {
   constructor(private readonly db: DatabaseService) {}
@@ -95,6 +96,7 @@ export class EventsService {
     if (row === null) throw notFound();
     return mapEvent(row, language);
   }
+
   async create(
     adminId: string,
     input: UpsertEventInput,
@@ -120,6 +122,7 @@ export class EventsService {
       return mapEvent(row, input.translations[0]?.language ?? Language.UZ);
     });
   }
+
   async update(
     adminId: string,
     idInput: string,
@@ -157,6 +160,7 @@ export class EventsService {
       return mapEvent(row, input.translations[0]?.language ?? Language.UZ);
     });
   }
+
   async setStatus(
     adminId: string,
     idInput: string,
@@ -200,6 +204,7 @@ export class EventsService {
     });
     return mapEvent(row, row.translations[0]?.language ?? Language.UZ);
   }
+
   async contact(
     input: SubmitContactRequestInput,
   ): Promise<PublicSubmissionReceiptObject> {
@@ -222,6 +227,7 @@ export class EventsService {
     });
     return { accepted: true, receiptId: row.id };
   }
+
   async exam(
     input: SubmitExamRegistrationInput,
   ): Promise<PublicSubmissionReceiptObject> {
@@ -292,6 +298,7 @@ export class EventsService {
       }
     });
   }
+
   async register(
     input: RegisterForEventInput,
   ): Promise<PublicSubmissionReceiptObject> {
@@ -357,6 +364,7 @@ export class EventsService {
       }
     });
   }
+
   async intakeList(
     kind: 'CONTACT' | 'EXAM' | 'EVENT',
     first?: number,
@@ -407,6 +415,7 @@ export class EventsService {
       pageInfo: { endCursor: edges.at(-1)?.cursor ?? null, hasNextPage },
     };
   }
+  
   async removeMessage(
     adminId: string,
     idInput: string,
@@ -434,6 +443,7 @@ export class EventsService {
       return id;
     });
   }
+
   async setIntake(
     adminId: string,
     kind: 'CONTACT' | 'EXAM' | 'EVENT',
@@ -486,6 +496,7 @@ export class EventsService {
       status: row.status,
     };
   }
+
   private async values(adminId: string, input: UpsertEventInput) {
     if (
       !Number.isFinite(input.startsAt.getTime()) ||
@@ -526,6 +537,7 @@ export class EventsService {
     };
   }
 }
+
 function translations(input: UpsertEventInput) {
   if (
     input.translations.length < 1 ||
@@ -540,6 +552,7 @@ function translations(input: UpsertEventInput) {
     title: required(x.title, 240),
   }));
 }
+
 export function mapEvent(row: Event, language: Language): PublicEventObject {
   const t = row.translations.find((x) => x.language === language);
   if (t === undefined) throw notFound();
@@ -594,32 +607,38 @@ export function mapEvent(row: Event, language: Language): PublicEventObject {
     topics: t.topics,
   };
 }
+
 function consent(value: boolean) {
   if (!value) throw bad('Consent is required');
 }
+
 function parseSlug(value: string) {
   const slug = value.trim().toLowerCase();
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || slug.length > 160)
     throw bad('slug is invalid');
   return slug;
 }
+
 function required(value: string, max: number) {
   const text = value.trim();
   if (text.length === 0 || text.length > max)
     throw bad('Required text is invalid');
   return text;
 }
+
 function clean(value: string | undefined, max: number) {
   const text = value?.trim() ?? '';
   if (text.length > max) throw bad('Text is too long');
   return text.length === 0 ? null : text;
 }
+
 function emailValue(value: string | undefined) {
   const email = clean(value, 320)?.toLowerCase() ?? null;
   if (email !== null && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
     throw bad('email is invalid');
   return email;
 }
+
 async function audit(
   tx: Prisma.TransactionClient,
   actorId: string,
@@ -638,9 +657,11 @@ async function audit(
     },
   });
 }
+
 function bad(message: string) {
   return new ApplicationError(ErrorCode.BAD_USER_INPUT, message, 400);
 }
+
 function notFound() {
   return new ApplicationError(
     ErrorCode.NOT_FOUND,
@@ -648,6 +669,7 @@ function notFound() {
     404,
   );
 }
+
 function examNotFound() {
   return new ApplicationError(
     ErrorCode.NOT_FOUND,

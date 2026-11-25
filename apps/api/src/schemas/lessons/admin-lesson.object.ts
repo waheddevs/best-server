@@ -1,6 +1,7 @@
 import { Field, Int, ObjectType } from '@nestjs/graphql';
 import { LessonObject } from './lesson.object';
 import { AdminMetric } from '../groups/admin-group.object';
+
 @ObjectType('AdminLessonRow')
 export class AdminLessonRow extends LessonObject {
   @Field() groupName!: string;
@@ -9,6 +10,7 @@ export class AdminLessonRow extends LessonObject {
   @Field(() => Int) studentCount!: number;
   @Field() hasConflict!: boolean;
 }
+
 @ObjectType('AdminLessonDirectory')
 export class AdminLessonDirectory {
   @Field(() => [AdminLessonRow]) nodes!: AdminLessonRow[];

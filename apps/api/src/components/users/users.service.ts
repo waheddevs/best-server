@@ -28,7 +28,7 @@ import type {
 } from '../../schemas/users/user-profile.input';
 import type { UserProfileObject } from '../../schemas/users/user-profile.object';
 import type { ViewerObject } from '../../schemas/users/viewer.object';
-import { CredentialPasswordService } from '../auth/credential-password.service';
+import { CredentialPasswordService } from '../auth/credentials/credential-password.service';
 
 const PROFILE_SELECT = {
   avatarMediaObjectId: true,
@@ -432,9 +432,6 @@ export class UsersService {
         where: { userId, revokedAt: null },
         data: { revokedAt: deletedAt, revokeReason: 'ACCOUNT_DELETED' },
       });
-      await transaction.credentialLoginChallenge.deleteMany({
-        where: { userId, usedAt: null },
-      });
       await transaction.auditLog.create({
         data: {
           action: 'TEACHER_ACCOUNT_DELETED',
@@ -563,9 +560,6 @@ export class UsersService {
         where: { userId: id, revokedAt: null },
         data: { revokedAt: deletedAt, revokeReason: 'ACCOUNT_DELETED' },
       });
-      await transaction.credentialLoginChallenge.deleteMany({
-        where: { userId: id, usedAt: null },
-      });
       await transaction.auditLog.create({
         data: {
           action: 'ADMIN_STUDENT_SOFT_DELETED',
@@ -620,9 +614,6 @@ export class UsersService {
       await transaction.credentialSession.updateMany({
         where: { userId: id, revokedAt: null },
         data: { revokedAt: deletedAt, revokeReason: 'ACCOUNT_DELETED' },
-      });
-      await transaction.credentialLoginChallenge.deleteMany({
-        where: { userId: id, usedAt: null },
       });
       await transaction.auditLog.create({
         data: {

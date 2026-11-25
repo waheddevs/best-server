@@ -1,11 +1,12 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { AssetsModule } from '../assets/assets.module';
-import { ResultsService } from './results.service';
+import { ResultsService } from './student/results.service';
 import { ResultsResolver } from './results.resolver';
-import { TeacherResultsService } from './teacher-results.service';
-import { TeacherReviewService } from './teacher-review.service';
-import { TeacherProgressService } from './teacher-progress.service';
+import { TeacherResultsService } from './teacher/teacher-results.service';
+import { TeacherReviewService } from './review/teacher-review.service';
+import { TeacherProgressService } from './teacher/teacher-progress.service';
+import { ResultsProgressService } from './progress/results-progress.service';
 
 @Module({
   imports: [AssetsModule, AuthModule],
@@ -15,6 +16,7 @@ import { TeacherProgressService } from './teacher-progress.service';
     TeacherResultsService,
     TeacherReviewService,
     TeacherProgressService,
+    ResultsProgressService,
   ],
 })
 export class ResultsModule {}

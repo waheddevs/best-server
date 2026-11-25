@@ -27,11 +27,13 @@ including expenses and the historical attendance percentage.
 - The GraphQL query resolves the Teacher from the authenticated request. It
   accepts only a year, never a client-supplied Teacher id.
 
-## Seed and rollout
+## Retired preview seed and rollout
 
-`seed:teacher-finance` copies the approved fictional June-August 2026 preview
-values into PostgreSQL for the configured local Teacher. It is idempotent and
-refuses non-loopback databases and production.
+The local seed previously copied fictional June-August 2026 preview values into
+PostgreSQL for a configured Teacher. It was retired on 2026-11-26 at the owner's
+request along with the other demo scripts. Existing snapshot rows, database
+constraints, and authenticated reporting reads remain; this cleanup performs
+no data deletion or migration.
 
 Deploy the additive migration before the API exposing `teacherFinanceSnapshots`.
 Rollback deploys the previous API first and leaves the unused reporting table in

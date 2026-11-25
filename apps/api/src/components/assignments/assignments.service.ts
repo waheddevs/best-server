@@ -33,9 +33,11 @@ const include = {
 type AssignmentRecord = Prisma.AssignmentGetPayload<{
   include: typeof include;
 }>;
+
 @Injectable()
 export class AssignmentsService {
   constructor(private readonly db: DatabaseService) {}
+  
   async teacherList(
     teacherId: string,
     groupIdInput: string,
@@ -51,12 +53,14 @@ export class AssignmentsService {
       after,
     );
   }
+
   async teacherOne(
     teacherId: string,
     idInput: string,
   ): Promise<AssignmentObject> {
     return mapAssignment(await this.owned(teacherId, idInput), null);
   }
+
   async studentList(
     studentId: string,
     first?: number,
@@ -75,6 +79,7 @@ export class AssignmentsService {
       studentId,
     );
   }
+
   async studentOne(
     studentId: string,
     idInput: string,
@@ -103,6 +108,7 @@ export class AssignmentsService {
         : mapSubmission(row.submissions[0]),
     );
   }
+
   async submissions(
     teacherId: string,
     idInput: string,
@@ -134,6 +140,7 @@ export class AssignmentsService {
       pageInfo: { endCursor: edges.at(-1)?.cursor ?? null, hasNextPage },
     };
   }
+
   async create(
     teacherId: string,
     input: CreateAssignmentInput,
@@ -160,6 +167,7 @@ export class AssignmentsService {
     });
     return mapAssignment(row, null);
   }
+
   async update(
     teacherId: string,
     idInput: string,
@@ -193,6 +201,7 @@ export class AssignmentsService {
     });
     return mapAssignment(row, null);
   }
+  
   async publish(
     teacherId: string,
     idInput: string,
@@ -208,6 +217,7 @@ export class AssignmentsService {
     );
     return mapAssignment(row, null);
   }
+
   async close(
     teacherId: string,
     idInput: string,
@@ -223,6 +233,7 @@ export class AssignmentsService {
     );
     return mapAssignment(row, null);
   }
+
   async submit(
     studentId: string,
     input: SubmitAssignmentInput,
@@ -279,6 +290,7 @@ export class AssignmentsService {
     });
     return mapSubmission(row);
   }
+
   async review(
     teacherId: string,
     input: ReviewAssignmentSubmissionInput,
@@ -323,6 +335,7 @@ export class AssignmentsService {
       return mapSubmission(row);
     });
   }
+
   private async connection(
     where: Prisma.AssignmentWhereInput,
     first?: number,
@@ -371,6 +384,7 @@ export class AssignmentsService {
       size,
     );
   }
+
   private async owned(
     teacherId: string,
     idInput: string,
@@ -389,6 +403,7 @@ export class AssignmentsService {
     )
       throw notFound();
   }
+
   private async values(teacherId: string, input: CreateAssignmentInput) {
     const groupId = parseUuid(input.groupId, 'groupId');
     await this.requireGroup(teacherId, groupId);
@@ -410,6 +425,7 @@ export class AssignmentsService {
       lessonId,
     };
   }
+
   private async transition(
     teacherId: string,
     idInput: string,
@@ -436,6 +452,7 @@ export class AssignmentsService {
     });
   }
 }
+
 function translations(input: CreateAssignmentInput) {
   if (
     input.translations.length < 1 ||
@@ -450,6 +467,7 @@ function translations(input: CreateAssignmentInput) {
     title: required(title, 240),
   }));
 }
+
 function mapAssignment(
   row: AssignmentRecord,
   mySubmission: AssignmentSubmissionObject | null,
@@ -469,6 +487,7 @@ function mapAssignment(
     updatedAt: row.updatedAt,
   };
 }
+
 function assignmentConnection(
   rows: {
     row: AssignmentRecord;
@@ -487,6 +506,7 @@ function assignmentConnection(
     pageInfo: { endCursor: edges.at(-1)?.cursor ?? null, hasNextPage },
   };
 }
+
 function mapSubmission(row: {
   assignmentId: string;
   feedback: string | null;
@@ -512,17 +532,20 @@ function mapSubmission(row: {
     text: row.text,
   };
 }
+
 function clean(value: string | undefined, max: number) {
   const text = value?.trim() ?? '';
   if (text.length > max) throw bad('Text is too long');
   return text.length === 0 ? null : text;
 }
+
 function required(value: string, max: number) {
   const text = value.trim();
   if (text.length === 0 || text.length > max)
     throw bad('Required text is invalid');
   return text;
 }
+
 async function audit(
   tx: Prisma.TransactionClient,
   actorId: string,
@@ -540,12 +563,15 @@ async function audit(
     },
   });
 }
+
 function bad(message: string) {
   return new ApplicationError(ErrorCode.BAD_USER_INPUT, message, 400);
 }
+
 function conflict(message: string) {
   return new ApplicationError(ErrorCode.CONFLICT, message, 409);
 }
+
 function notFound() {
   return new ApplicationError(
     ErrorCode.NOT_FOUND,

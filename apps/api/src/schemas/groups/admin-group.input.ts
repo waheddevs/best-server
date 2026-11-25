@@ -1,5 +1,6 @@
 import { Field, ID, InputType } from '@nestjs/graphql';
 import { CreateTeacherGroupInput } from './group.input';
+
 @InputType('AdminSaveGroupInput')
 export class AdminSaveGroupInput extends CreateTeacherGroupInput {
   @Field(() => ID) teacherId!: string;

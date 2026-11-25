@@ -139,6 +139,30 @@ void test('outbox relay scores submitted and expired fake attempts exactly once'
   });
   assert.equal(auditCount, 2);
 
+  const objectiveFixture = await createScoringFixture(database, 'objective-v2');
+  await waitForScoredAttempts(database, [objectiveFixture.submittedAttemptId]);
+  const objectiveAttempt = await database.attempt.findUniqueOrThrow({
+    where: { id: objectiveFixture.submittedAttemptId },
+    include: { answers: { include: { selections: true } } },
+  });
+  assert.equal(objectiveAttempt.answers[0]?.selections.length, 0);
+  assert.equal(objectiveAttempt.scoringRuleVersion, 'objective-v2');
+  assert.equal(objectiveAttempt.correctAnswerCount, 1);
+  assert.equal(objectiveAttempt.percentage?.toNumber(), 100);
+  await scoringService.scoreAttempt(
+    objectiveFixture.submittedAttemptId,
+    randomUUID(),
+  );
+  assert.equal(
+    await database.auditLog.count({
+      where: {
+        action: 'TEST_ATTEMPT_SCORED',
+        targetId: objectiveFixture.submittedAttemptId,
+      },
+    }),
+    1,
+  );
+
   const manualTestId = randomUUID();
   const manualPaperId = randomUUID();
   const manualVersionId = randomUUID();
@@ -190,7 +214,10 @@ void test('outbox relay scores submitted and expired fake attempts exactly once'
   await scoringService.scoreAttempt(manualAttemptId, randomUUID());
   await scoringService.scoreAttempt(manualAttemptId, randomUUID());
   const reviewNotifications = await database.notification.findMany({
-    where: { recipientId: fixture.teacherId, eventKey: `review-required:${manualAttemptId}` },
+    where: {
+      recipientId: fixture.teacherId,
+      eventKey: `review-required:${manualAttemptId}`,
+    },
   });
   assert.equal(reviewNotifications.length, 1);
   assert.equal(reviewNotifications[0]?.kind, 'REVIEW_REQUIRED');
@@ -201,7 +228,10 @@ void test('outbox relay scores submitted and expired fake attempts exactly once'
   });
 });
 
-async function createScoringFixture(databaseClient: DatabaseClient): Promise<{
+async function createScoringFixture(
+  databaseClient: DatabaseClient,
+  scoringRuleVersion: 'single-choice-v1' | 'objective-v2' = 'single-choice-v1',
+): Promise<{
   categoryId: string;
   expiredAttemptId: string;
   groupId: string;
@@ -260,6 +290,7 @@ async function createScoringFixture(databaseClient: DatabaseClient): Promise<{
       attemptLimit: 2,
       id: versionId,
       passingPercentage: 60,
+      scoringRuleVersion,
       primaryLanguage: Language.UZ,
       testId,
       version: 1,
@@ -404,7 +435,10 @@ async function waitForScoredAttempts(
 
 async function applyMigrations(connectionString: string): Promise<void> {
   const migrationPool = new Pool({ connectionString });
-  const root = resolve(__dirname, '../../../packages/database/prisma/migrations');
+  const root = resolve(
+    __dirname,
+    '../../../packages/database/prisma/migrations',
+  );
 
   try {
     const migrations = (await readdir(root, { withFileTypes: true }))
@@ -412,7 +446,10 @@ async function applyMigrations(connectionString: string): Promise<void> {
       .map((entry) => entry.name)
       .sort();
     for (const migrationName of migrations) {
-      const sql = await readFile(resolve(root, migrationName, 'migration.sql'), 'utf8');
+      const sql = await readFile(
+        resolve(root, migrationName, 'migration.sql'),
+        'utf8',
+      );
       await migrationPool.query(sql);
     }
   } finally {

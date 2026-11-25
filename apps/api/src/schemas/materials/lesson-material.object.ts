@@ -8,6 +8,7 @@ import {
 } from '@nestjs/graphql';
 import { MediaObjectObject } from '../assets/media-object.object';
 import { PageInfoObject } from '../pagination/page-info.object';
+
 @ObjectType('LessonMaterial')
 export class LessonMaterialObject {
   @Field(() => ID) id!: string;
@@ -23,16 +24,19 @@ export class LessonMaterialObject {
   @Field(() => GraphQLISODateTime) createdAt!: Date;
   @Field(() => GraphQLISODateTime) updatedAt!: Date;
 }
+
 @ObjectType('LessonMaterialEdge')
 export class LessonMaterialEdgeObject {
   @Field(() => String) cursor!: string;
   @Field(() => LessonMaterialObject) node!: LessonMaterialObject;
 }
+
 @ObjectType('LessonMaterialConnection')
 export class LessonMaterialConnectionObject {
   @Field(() => [LessonMaterialEdgeObject]) edges!: LessonMaterialEdgeObject[];
   @Field(() => PageInfoObject) pageInfo!: PageInfoObject;
 }
+
 @ObjectType('LessonMaterialPayload')
 export class LessonMaterialPayloadObject {
   @Field(() => LessonMaterialObject) material!: LessonMaterialObject;

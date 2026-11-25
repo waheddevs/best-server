@@ -9,7 +9,6 @@ import {
   OnModuleDestroy,
   OnModuleInit,
 } from '@nestjs/common';
-
 import { DatabaseService } from '../../database/database.service';
 
 const POLL_INTERVAL_MS = 60 * 60 * 1_000;

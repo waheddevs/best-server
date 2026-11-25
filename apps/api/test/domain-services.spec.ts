@@ -6,26 +6,30 @@ import { Test } from '@nestjs/testing';
 import { DatabaseService } from '../src/database/database.service';
 import { AssetsService } from '../src/components/assets/assets.service';
 import { AssetsStorageGateway } from '../src/components/assets/assets-storage.gateway';
-import { ListeningAudioGateway } from '../src/components/tests/listening-audio.gateway';
+import { ListeningAudioGateway } from '../src/components/tests/audio/listening-audio.gateway';
 import { TestsModule } from '../src/components/tests/tests.module';
+import { TeacherPracticesService } from '../src/components/tests/teacher/teacher-practices.service';
+import { StudentTestsService } from '../src/components/tests/student/student-tests.service';
+import { PracticeBookmarksService } from '../src/components/tests/practice-bookmarks.service';
 import { AttemptsModule } from '../src/components/attempts/attempts.module';
 import { ResultsModule } from '../src/components/results/results.module';
 import { ApplicationError } from '../src/libs/errors/application.error';
 import { ErrorCode } from '../src/libs/enums/error-code.enum';
 import { calculateExpiresAt } from '../src/components/attempts/attempt-availability';
-import { TestDraftAccessService } from '../src/components/tests/test-draft-access.service';
-import { TestSectionsService } from '../src/components/tests/test-sections.service';
-import { TestQuestionsService } from '../src/components/tests/test-questions.service';
-import { TestPublicationService } from '../src/components/tests/test-publication.service';
-import { TestListeningAudioService } from '../src/components/tests/test-listening-audio.service';
+import { TestDraftAccessService } from '../src/components/tests/authoring/test-draft-access.service';
+import { TestSectionsService } from '../src/components/tests/authoring/test-sections.service';
+import { TestQuestionsService } from '../src/components/tests/authoring/test-questions.service';
+import { TestPublicationService } from '../src/components/tests/authoring/test-publication.service';
+import { TestListeningAudioService } from '../src/components/tests/audio/test-listening-audio.service';
 import { AttemptReadService } from '../src/components/attempts/attempt-read.service';
 import { AttemptMediaService } from '../src/components/attempts/attempt-media.service';
 import { AttemptLifecycleService } from '../src/components/attempts/attempt-lifecycle.service';
-import { TeacherReviewService } from '../src/components/results/teacher-review.service';
-import { TeacherProgressService } from '../src/components/results/teacher-progress.service';
-import { TestsAuthoringService } from '../src/components/tests/tests-authoring.service';
+import { ResultsProgressService } from '../src/components/results/progress/results-progress.service';
+import { TeacherReviewService } from '../src/components/results/review/teacher-review.service';
+import { TeacherProgressService } from '../src/components/results/teacher/teacher-progress.service';
+import { TestsAuthoringService } from '../src/components/tests/teacher/tests-authoring.service';
 import { AttemptsService } from '../src/components/attempts/attempts.service';
-import { TeacherResultsService } from '../src/components/results/teacher-results.service';
+import { TeacherResultsService } from '../src/components/results/teacher/teacher-results.service';
 
 void test('domain modules register and resolve every extracted provider', async () => {
   const registered: unknown[] = [
@@ -48,7 +52,11 @@ void test('domain modules register and resolve every extracted provider', async 
     AttemptLifecycleService,
     TeacherReviewService,
     TeacherProgressService,
+    ResultsProgressService,
     TestsAuthoringService,
+    TeacherPracticesService,
+    StudentTestsService,
+    PracticeBookmarksService,
     AttemptsService,
     TeacherResultsService,
   ];

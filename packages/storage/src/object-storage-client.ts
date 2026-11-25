@@ -205,13 +205,43 @@ export class ObjectStorageClient {
       throw new Error('Object storage returned an empty response body');
     }
 
-    const bytes = await result.Body.transformToByteArray();
-
-    if (bytes.byteLength > maxBytes) {
-      throw new StorageInputError('Stored object exceeds the read limit');
+    const reader = result.Body.transformToWebStream().getReader();
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    try {
+      if (
+        result.ContentLength !== undefined &&
+        result.ContentLength > maxBytes
+      ) {
+        throw new StorageInputError('Stored object exceeds the read limit');
+      }
+      for (;;) {
+        const chunk = await reader.read();
+        if (chunk.done) break;
+        const value: unknown = chunk.value;
+        if (!(value instanceof Uint8Array)) {
+          throw new Error('Object storage returned an invalid body chunk');
+        }
+        size += value.byteLength;
+        if (size > maxBytes) {
+          throw new StorageInputError('Stored object exceeds the read limit');
+        }
+        chunks.push(value);
+      }
+      const bytes = new Uint8Array(size);
+      let offset = 0;
+      for (const chunk of chunks) {
+        bytes.set(chunk, offset);
+        offset += chunk.byteLength;
+      }
+      return bytes;
+    } catch (error: unknown) {
+      // Cancel the underlying HTTP body immediately instead of draining excess data.
+      await reader.cancel().catch(() => undefined);
+      throw error;
+    } finally {
+      reader.releaseLock();
     }
-
-    return bytes;
   }
 
   destroy(): void {

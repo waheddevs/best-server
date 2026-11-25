@@ -1,5 +1,6 @@
 import { LessonMaterialKind } from '@best/database';
 import { Field, ID, InputType, Int } from '@nestjs/graphql';
+
 @InputType('CreateLessonMaterialInput')
 export class CreateLessonMaterialInput {
   @Field(() => ID) groupId!: string;
@@ -11,10 +12,12 @@ export class CreateLessonMaterialInput {
   kind!: LessonMaterialKind;
   @Field(() => Int, { defaultValue: 1 }) position!: number;
 }
+
 @InputType('UpdateLessonMaterialInput')
 export class UpdateLessonMaterialInput extends CreateLessonMaterialInput {
   @Field(() => ID) materialId!: string;
 }
+
 @InputType('SetLessonMaterialArchivedInput')
 export class SetLessonMaterialArchivedInput {
   @Field(() => ID) materialId!: string;

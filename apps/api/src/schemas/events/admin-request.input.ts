@@ -1,5 +1,6 @@
 import { IntakeStatus } from '@best/database';
 import { Field, InputType, ID } from '@nestjs/graphql';
+
 @InputType('AdminRemoveRequestInput')
 export class AdminRemoveRequestInput {
   @Field(() => ID) id!: string;

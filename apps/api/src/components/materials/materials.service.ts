@@ -42,6 +42,7 @@ type MaterialRecord = Prisma.LessonMaterialGetPayload<{
 @Injectable()
 export class MaterialsService {
   constructor(private readonly db: DatabaseService) {}
+
   async list(
     teacherId: string,
     groupIdInput: string,
@@ -87,6 +88,7 @@ export class MaterialsService {
       pageInfo: { endCursor: edges.at(-1)?.cursor ?? null, hasNextPage },
     };
   }
+
   async listForStudent(
     studentId: string,
     groupIdInput: string,
@@ -148,6 +150,7 @@ export class MaterialsService {
       pageInfo: { endCursor: edges.at(-1)?.cursor ?? null, hasNextPage },
     };
   }
+
   async create(
     teacherId: string,
     input: CreateLessonMaterialInput,
@@ -155,6 +158,7 @@ export class MaterialsService {
   ): Promise<LessonMaterialObject> {
     return this.write(teacherId, undefined, input, correlationId);
   }
+
   async update(
     teacherId: string,
     materialIdInput: string,
@@ -168,6 +172,7 @@ export class MaterialsService {
       correlationId,
     );
   }
+
   async setArchived(
     teacherId: string,
     materialIdInput: string,
@@ -198,6 +203,7 @@ export class MaterialsService {
       return mapMaterial(row, Language.EN);
     });
   }
+
   private async write(
     teacherId: string,
     id: string | undefined,
@@ -279,6 +285,7 @@ export class MaterialsService {
       return mapMaterial(row, Language.EN);
     });
   }
+
   private async requireGroup(
     teacherId: string,
     groupId: string,
@@ -353,9 +360,11 @@ async function audit(
     },
   });
 }
+
 function bad(message: string) {
   return new ApplicationError(ErrorCode.BAD_USER_INPUT, message, 400);
 }
+
 function notFound() {
   return new ApplicationError(
     ErrorCode.NOT_FOUND,

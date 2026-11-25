@@ -1,5 +1,6 @@
 import { Language, PublicContentStatus } from '@best/database';
 import { Field, ID, InputType, Int, GraphQLISODateTime } from '@nestjs/graphql';
+
 @InputType('AdminExamTranslationInput')
 export class AdminExamTranslationInput {
   @Field(() => Language) language!: Language;
@@ -10,6 +11,7 @@ export class AdminExamTranslationInput {
   @Field() level!: string;
   @Field(() => [String]) highlights!: string[];
 }
+
 @InputType('AdminSaveExamInput')
 export class AdminSaveExamInput {
   @Field(() => ID, { nullable: true }) id?: string;
@@ -20,6 +22,7 @@ export class AdminSaveExamInput {
   @Field(() => [AdminExamTranslationInput])
   translations!: AdminExamTranslationInput[];
 }
+
 @InputType('AdminSaveExamSessionInput')
 export class AdminSaveExamSessionInput {
   @Field(() => ID, { nullable: true }) id?: string;

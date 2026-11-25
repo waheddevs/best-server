@@ -32,6 +32,7 @@ export function salarySplit(amount: bigint) {
   const teacher = (amount * 70n) / 100n;
   return { teacher, center: amount - teacher };
 }
+
 export function salaryMonth(date: Date) {
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Tashkent',
@@ -39,6 +40,7 @@ export function salaryMonth(date: Date) {
     month: '2-digit',
   }).format(date);
 }
+
 export function salaryMonthRange(month: string) {
   const start = new Date(`${month}-01T00:00:00+05:00`);
   if (!Number.isFinite(start.getTime())) throw directoryError('Invalid month');
@@ -49,11 +51,13 @@ export function salaryMonthRange(month: string) {
     lt: new Date(`${next.toISOString().slice(0, 7)}-01T00:00:00+05:00`),
   };
 }
+
 function previousMonth(month: string) {
   const date = new Date(`${month}-01T12:00:00Z`);
   date.setUTCMonth(date.getUTCMonth() - 1);
   return date.toISOString().slice(0, 7);
 }
+
 async function allocations(
   database: DatabaseService,
   input: AdminDirectoryInput,
@@ -86,6 +90,7 @@ async function allocations(
     orderBy: [{ payment: { paidAt: 'desc' } }, { id: 'asc' }],
   });
 }
+
 type Allocation = Awaited<ReturnType<typeof allocations>>[number];
 function totals(rows: Allocation[]) {
   let received = 0n,
@@ -103,6 +108,7 @@ function totals(rows: Allocation[]) {
     centerUzs: center.toString(),
   };
 }
+
 function validate(raw: AdminDirectoryInput) {
   const input = directoryInput(Object.assign(new AdminDirectoryInput(), raw));
   if (input.status || input.studentId || input.from || input.to)
@@ -111,6 +117,7 @@ function validate(raw: AdminDirectoryInput) {
     throw directoryError('Invalid salary month');
   return input;
 }
+
 export async function adminSalaryReport(
   database: DatabaseService,
   raw: AdminDirectoryInput,
@@ -158,6 +165,7 @@ export async function adminSalaryReport(
       : null,
   };
 }
+
 export async function adminSalaryHistory(
   database: DatabaseService,
   raw: AdminDirectoryInput,

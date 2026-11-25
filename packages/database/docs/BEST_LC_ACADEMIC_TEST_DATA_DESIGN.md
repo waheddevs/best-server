@@ -2,6 +2,12 @@
 
 Status: approved for implementation on 2026-09-23.
 
+The static Academic test seed and remaining-content catalog were retired on
+2026-11-26 at the owner's request. Existing PostgreSQL content and all runtime
+authoring/delivery/scoring contracts remain. Seed/import descriptions below
+record historical behavior, not an available reconstruction command. A new
+environment needs a database backup or authorized Teacher-authored content.
+
 ## Scope and naming
 
 The first connected paper is named `BEST LC Academic Test 1`. Product copy,

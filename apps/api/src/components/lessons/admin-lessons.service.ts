@@ -25,9 +25,11 @@ const include = {
     },
   },
 } satisfies Prisma.LessonInclude;
+
 @Injectable()
 export class AdminLessonsService {
   constructor(private readonly database: DatabaseService) {}
+
   async directory(raw: AdminDirectoryInput) {
     const input = directoryInput(raw);
     const day = new Intl.DateTimeFormat('en-CA', {
@@ -130,6 +132,7 @@ export class AdminLessonsService {
       ],
     };
   }
+
   async save(
     actorId: string,
     input: AdminSaveLessonInput,
@@ -232,6 +235,7 @@ export class AdminLessonsService {
       return mapLesson(lesson);
     });
   }
+  
   async status(
     actorId: string,
     idInput: string,

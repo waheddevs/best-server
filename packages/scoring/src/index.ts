@@ -4,7 +4,12 @@ export type {
   SingleChoiceScore,
   SingleChoiceScoreInput,
 } from './score-single-choice';
-export { normalizeObjectiveText, scoreObjective } from './score-objective';
+export {
+  isObjectiveAnswerCorrect,
+  normalizeObjectiveText,
+  resolveObjectiveOptionIds,
+  scoreObjective,
+} from './score-objective';
 export type {
   ObjectiveQuestionKind,
   ObjectiveQuestionScore,

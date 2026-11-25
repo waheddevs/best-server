@@ -68,6 +68,33 @@ the attachment trigger's PL/pgSQL variable/column name collision. It changes no
 data or schema surface and keeps the `READY + CLEAN` policy intact. The already
 applied preceding migration is intentionally not edited.
 
+## Retired Telegram and vocabulary import
+
+Telegram import, including the local vocabulary pilot, was cancelled on
+2026-11-25. Its worker, CLI, parsing, PDF extraction, upload/persistence services,
+and worker tests were removed. There is no active import, review, or publication
+workflow. This section replaces the standalone vocabulary pilot proposal.
+
+Retain the legacy `TelegramImportRun` and `TelegramImportRecord` models from the
+initial migration and `20260904040000_vocabulary_import_pilot`, which added
+`ImportSourceDocument`, `VocabularyDraft`, `VocabularyDraftEntry`, and their
+extraction, rights-review, and draft-status enums. These remain historical data,
+not active product contracts.
+
+The retained design links one private original MediaObject to a source identity
+and checksum. Channel/message and media-object uniqueness prevent duplicate
+sources; the identity trigger protects provenance. Drafts are unique per source
+and parser version; entries have unique positions within a draft. Rights review
+is required by default. Original files stay private, media remains unavailable
+while verification is pending, and domain attachment still requires
+`READY + CLEAN`. There is no automatic rights approval or publication.
+
+Keep the Prisma models, relations, enums, applied migrations, and database
+constraint tests for migration replay and retained records. Removing runtime
+code or documentation does not delete database rows or stored files. Any future
+data deletion requires a separate retention decision, backup, reviewed forward
+migration, and rollback plan; never edit the applied migration in place.
+
 ## Teacher roster participation migration
 
 `20260916010000_group_membership_participation_status` is the additive Teacher
@@ -189,10 +216,11 @@ charges, payments, allocations, or adjustments. See
 classification, backfills existing papers as `ACADEMIC`, and creates immutable
 group-scoped `test_import_sources` provenance. General Training imports use
 deterministic paper/test/version/section/question identities and never rewrite
-existing published Academic content. Apply this migration before running
-`import:easyielts-tests` or deploying API fields that select `ieltsModule`.
+existing published Academic content. The static importer and its source were
+retired on 2026-11-26. The module classification and provenance remain part of
+the database schema; retain the migration when restoring or creating a database.
 
-Rollback deploys the previous API/importer first and retains the additive enum,
+Rollback deploys the previous API first and retains the additive enum,
 column, and provenance table. See `EASYIELTS_TEST_IMPORT_DATA_DESIGN.md`.
 
 ## Removed provider-backed generation lifecycle

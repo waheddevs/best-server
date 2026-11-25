@@ -12,9 +12,6 @@ export {
   GroupCategory,
   GroupMembershipStatus,
   IeltsModule,
-  ImportExtractionMethod,
-  ImportExtractionStatus,
-  ImportRightsStatus,
   Language,
   LessonStatus,
   LessonMaterialKind,
@@ -41,21 +38,7 @@ export {
   TestSkill,
   UserRole,
   UserStatus,
-  VocabularyDraftStatus,
 } from './generated/enums';
 export { createDatabaseClient, DatabaseClient } from './database-client';
 export { Prisma } from './generated/client';
-export {
-  EASYIELTS_SOURCE_SYSTEM,
-  normalizeEasyIeltsCatalog,
-  stableEasyIeltsUuid,
-} from './easyielts-import';
-export type {
-  EasyIeltsSourceValue,
-  NormalizedEasyIeltsCatalog,
-  NormalizedEasyIeltsQuestion,
-  NormalizedEasyIeltsSection,
-  NormalizedEasyIeltsTest,
-} from './easyielts-import';
-
 export { TeacherAiStore } from './teacher-ai-store';

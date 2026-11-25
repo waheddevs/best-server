@@ -20,15 +20,18 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { NotificationsService } from './notifications.service';
+
 @Resolver()
 export class NotificationsResolver {
   constructor(private readonly service: NotificationsService) {}
+
   @Query(() => TeacherDashboardObject, { name: 'teacherDashboard' })
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.TEACHER)
   dashboard(@AuthMember('id') id: string) {
     return this.service.dashboard(id);
   }
+
   @Query(() => TeacherTaskConnectionObject, { name: 'teacherTasks' })
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.TEACHER)
@@ -43,6 +46,7 @@ export class NotificationsResolver {
   ) {
     return this.service.tasks(id, first, after, status, kind);
   }
+
   @Mutation(() => TeacherTaskPayloadObject, { name: 'adminAssignTeacherTask' })
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
@@ -55,6 +59,7 @@ export class NotificationsResolver {
       task: await this.service.assignTask(adminId, input, ctx.req.requestId),
     };
   }
+
   @Mutation(() => TeacherTaskPayloadObject, { name: 'completeTeacherTask' })
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.TEACHER)
@@ -71,6 +76,7 @@ export class NotificationsResolver {
       ),
     };
   }
+
   @Query(() => NotificationConnectionObject, { name: 'myNotifications' })
   @UseGuards(AuthGuard)
   notifications(
@@ -82,11 +88,13 @@ export class NotificationsResolver {
   ) {
     return this.service.notifications(id, first, after, unreadOnly);
   }
+
   @Query(() => Int, { name: 'myUnreadNotificationCount' })
   @UseGuards(AuthGuard)
   unread(@AuthMember('id') id: string) {
     return this.service.unreadCount(id);
   }
+
   @Mutation(() => NotificationPayloadObject, { name: 'markNotificationRead' })
   @UseGuards(AuthGuard)
   async read(
@@ -97,6 +105,7 @@ export class NotificationsResolver {
       notification: await this.service.markRead(id, input.notificationId),
     };
   }
+  
   @Mutation(() => MarkAllNotificationsReadPayloadObject, {
     name: 'markAllNotificationsRead',
   })

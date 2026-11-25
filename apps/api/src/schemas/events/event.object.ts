@@ -8,6 +8,7 @@ import {
   ObjectType,
 } from '@nestjs/graphql';
 import { PageInfoObject } from '../pagination/page-info.object';
+
 @ObjectType('PublicEvent')
 export class PublicEventObject {
   @Field(() => ID) id!: string;
@@ -55,25 +56,30 @@ export class PublicEventFaqItemObject {
   @Field(() => String) question!: string;
   @Field(() => String) answer!: string;
 }
+
 @ObjectType('PublicEventEdge')
 export class PublicEventEdgeObject {
   @Field(() => String) cursor!: string;
   @Field(() => PublicEventObject) node!: PublicEventObject;
 }
+
 @ObjectType('PublicEventConnection')
 export class PublicEventConnectionObject {
   @Field(() => [PublicEventEdgeObject]) edges!: PublicEventEdgeObject[];
   @Field(() => PageInfoObject) pageInfo!: PageInfoObject;
 }
+
 @ObjectType('PublicEventPayload')
 export class PublicEventPayloadObject {
   @Field(() => PublicEventObject) event!: PublicEventObject;
 }
+
 @ObjectType('PublicSubmissionReceipt')
 export class PublicSubmissionReceiptObject {
   @Field(() => ID) receiptId!: string;
   @Field(() => Boolean) accepted!: boolean;
 }
+
 @ObjectType('AdminIntakeRecord')
 export class AdminIntakeRecordObject {
   @Field(() => ID) id!: string;
@@ -87,16 +93,19 @@ export class AdminIntakeRecordObject {
   @Field(() => String, { nullable: true }) reviewNote!: string | null;
   @Field(() => GraphQLISODateTime) createdAt!: Date;
 }
+
 @ObjectType('AdminIntakeEdge')
 export class AdminIntakeEdgeObject {
   @Field(() => String) cursor!: string;
   @Field(() => AdminIntakeRecordObject) node!: AdminIntakeRecordObject;
 }
+
 @ObjectType('AdminIntakeConnection')
 export class AdminIntakeConnectionObject {
   @Field(() => [AdminIntakeEdgeObject]) edges!: AdminIntakeEdgeObject[];
   @Field(() => PageInfoObject) pageInfo!: PageInfoObject;
 }
+
 @ObjectType('AdminIntakePayload')
 export class AdminIntakePayloadObject {
   @Field(() => AdminIntakeRecordObject) intake!: AdminIntakeRecordObject;

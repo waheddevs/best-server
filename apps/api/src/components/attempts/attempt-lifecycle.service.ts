@@ -14,6 +14,7 @@ import { parseUuid } from '../../libs/pagination/cursor-pagination';
 import type { StudentAttemptObject } from '../../schemas/attempts/student-attempt.object';
 import type { SubmitTestAttemptInput } from '../../schemas/attempts/submit-test-attempt.input';
 import { AttemptReadService } from './attempt-read.service';
+import { lockOwnedAttempt } from './attempt-lock';
 import { submitAttemptTransactionally } from './attempt-submission';
 import {
   availableVersionWhere,
@@ -40,11 +41,7 @@ export class AttemptLifecycleService {
     const attemptId = parseUuid(attemptIdInput, 'attemptId');
     return this.database.$transaction(async (transaction) => {
       // Serialize Exit with submission; completed attempts must never be removed.
-      await transaction.$queryRaw`
-        SELECT "id" FROM "attempts"
-        WHERE "id" = ${attemptId}::uuid AND "student_id" = ${studentId}::uuid
-        FOR UPDATE
-      `;
+      await lockOwnedAttempt(transaction, attemptId, studentId);
       const attempt = await transaction.attempt.findFirst({
         where: { id: attemptId, studentId },
         select: { status: true, testVersionId: true, attemptNumber: true },
@@ -100,9 +97,9 @@ export class AttemptLifecycleService {
       attemptId,
       language,
     );
-    const now = new Date();
-
     await this.database.$transaction(async (transaction) => {
+      await lockOwnedAttempt(transaction, attemptId, studentId);
+      const now = new Date();
       const attempt = await transaction.attempt.findFirst({
         where: { id: attemptId, studentId },
         select: {

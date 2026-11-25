@@ -1,5 +1,6 @@
 import { Field, Int, ObjectType } from '@nestjs/graphql';
 import { AdminMetric } from '../groups/admin-group.object';
+
 @ObjectType('AdminPaymentEvent')
 export class AdminPaymentEvent {
   @Field() id!: string;
@@ -8,6 +9,7 @@ export class AdminPaymentEvent {
   @Field() date!: string;
   @Field(() => String, { nullable: true }) note?: string | null;
 }
+
 @ObjectType('AdminPaymentRow')
 export class AdminPaymentRow {
   @Field() id!: string;
@@ -24,6 +26,7 @@ export class AdminPaymentRow {
   @Field() status!: string;
   @Field(() => [AdminPaymentEvent]) events!: AdminPaymentEvent[];
 }
+
 @ObjectType('AdminPaymentDirectory')
 export class AdminPaymentDirectory {
   @Field(() => [AdminPaymentRow]) nodes!: AdminPaymentRow[];

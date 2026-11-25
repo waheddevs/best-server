@@ -1,27 +1,6 @@
-import {
-  Field,
-  GraphQLISODateTime,
-  ID,
-  Int,
-  ObjectType,
-} from '@nestjs/graphql';
+import { Field, GraphQLISODateTime, Int, ObjectType } from '@nestjs/graphql';
 
 import { ViewerObject } from '../users/viewer.object';
-
-@ObjectType('CredentialLoginChallengePayload')
-export class CredentialLoginChallengePayloadObject {
-  @Field(() => ID)
-  challengeId!: string;
-
-  @Field()
-  maskedEmail!: string;
-
-  @Field(() => GraphQLISODateTime)
-  expiresAt!: Date;
-
-  @Field(() => GraphQLISODateTime)
-  resendAvailableAt!: Date;
-}
 
 @ObjectType('CredentialLoginSuccessPayload')
 export class CredentialLoginSuccessPayloadObject {
@@ -43,9 +22,6 @@ export class CredentialLoginSuccessPayloadObject {
 
 @ObjectType('CredentialLoginPayload')
 export class CredentialLoginPayloadObject {
-  @Field(() => CredentialLoginChallengePayloadObject, { nullable: true })
-  challenge?: CredentialLoginChallengePayloadObject;
-
-  @Field(() => CredentialLoginSuccessPayloadObject, { nullable: true })
-  session?: CredentialLoginSuccessPayloadObject;
+  @Field(() => CredentialLoginSuccessPayloadObject)
+  session!: CredentialLoginSuccessPayloadObject;
 }

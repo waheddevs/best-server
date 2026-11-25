@@ -28,7 +28,7 @@ import { MembershipsResolver } from '../components/memberships/memberships.resol
 import { NotificationsResolver } from '../components/notifications/notifications.resolver';
 import { PublicContentResolver } from '../components/public-content/public-content.resolver';
 import { ResultsResolver } from '../components/results/results.resolver';
-import { TestsAuthoringResolver } from '../components/tests/tests-authoring.resolver';
+import { TestsAuthoringResolver } from '../components/tests/authoring/tests-authoring.resolver';
 import { TestsResolver } from '../components/tests/tests.resolver';
 import { UsersResolver } from '../components/users/users.resolver';
 import { AdminOverviewResolver } from '../components/audit/admin-overview.resolver';

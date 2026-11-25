@@ -21,6 +21,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { CoursesService } from './courses.service';
 import { CourseCoverService } from './course-cover.service';
 import { MediaDownloadIntentObject } from '../../schemas/assets/media-download-intent.object';
+
 @Resolver()
 export class CoursesResolver {
   constructor(

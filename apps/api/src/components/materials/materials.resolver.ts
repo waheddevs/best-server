@@ -24,9 +24,11 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { MaterialsService } from './materials.service';
+
 @Resolver()
 export class MaterialsResolver {
   constructor(private readonly service: MaterialsService) {}
+
   @Query(() => LessonMaterialConnectionObject, {
     name: 'teacherGroupMaterials',
   })
@@ -42,6 +44,7 @@ export class MaterialsResolver {
   ) {
     return this.service.list(id, groupId, language, first, after);
   }
+
   @Query(() => LessonMaterialConnectionObject, {
     name: 'studentGroupMaterials',
   })
@@ -57,6 +60,7 @@ export class MaterialsResolver {
   ) {
     return this.service.listForStudent(id, groupId, language, first, after);
   }
+
   @Mutation(() => LessonMaterialPayloadObject, { name: 'createLessonMaterial' })
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.TEACHER)
@@ -69,6 +73,7 @@ export class MaterialsResolver {
       material: await this.service.create(id, input, ctx.req.requestId),
     };
   }
+
   @Mutation(() => LessonMaterialPayloadObject, { name: 'updateLessonMaterial' })
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.TEACHER)
@@ -86,6 +91,7 @@ export class MaterialsResolver {
       ),
     };
   }
+  
   @Mutation(() => LessonMaterialPayloadObject, {
     name: 'setLessonMaterialArchived',
   })

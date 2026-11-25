@@ -28,9 +28,11 @@ import type {
   AdminSaveEventContentInput,
 } from '../../schemas/courses/admin-content.input';
 import { eventContentInclude, mapEvent } from './events.service';
+
 @Injectable()
 export class AdminEventContentService {
   constructor(private readonly db: DatabaseService) {}
+
   async catalog(raw: AdminDirectoryInput) {
     const input = directoryInput(raw);
     const status = directoryEnum(
@@ -74,6 +76,7 @@ export class AdminEventContentService {
       })),
     };
   }
+
   async remove(actorId: string, input: AdminRemoveEventInput) {
     const id = parseUuid(input.eventId, 'eventId');
     return this.db.$transaction(async (tx) => {
@@ -90,6 +93,7 @@ export class AdminEventContentService {
       return id;
     });
   }
+  
   async save(actorId: string, input: AdminSaveEventContentInput) {
     contentTranslations(input.translations);
     const id = input.id ? parseUuid(input.id, 'id') : undefined;

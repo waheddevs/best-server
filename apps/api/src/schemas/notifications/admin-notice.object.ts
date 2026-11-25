@@ -1,5 +1,6 @@
 import { Field, ObjectType, Int } from '@nestjs/graphql';
 import { NotificationObject } from './notification.object';
+
 @ObjectType('AdminNoticeDirectory')
 export class AdminNoticeDirectoryObject {
   @Field(() => [NotificationObject]) nodes!: NotificationObject[];

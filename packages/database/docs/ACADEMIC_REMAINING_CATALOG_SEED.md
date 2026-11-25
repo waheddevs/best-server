@@ -1,8 +1,14 @@
 # Academic practice catalog: Tests 17–48
 
-The original catalog creates 48 papers per fixture IELTS group, but its content
-seed only filled Listening, Reading and Writing through Test 16. The remaining
-catalog seed fills these missing skills without resetting the database.
+Status: retired on 2026-11-26 at the owner's request. The Academic seed and
+static remaining-content catalog were removed. Existing PostgreSQL records
+remain the source of truth; this historical note does not verify that every
+target paper was seeded. There is no replacement static seed command. New
+environments need a database backup or authorized Teacher-authored content.
+
+The original fixture catalog defined 48 papers per IELTS group. The retired
+remaining-catalog seed targeted missing Listening, Reading, and Writing skills
+for Tests 17–48 without resetting the database.
 
 ## Scope and content
 
@@ -20,21 +26,10 @@ catalog seed fills these missing skills without resetting the database.
 - Speaking, attempts/results, Tests 1–16, imported General Training papers and
   existing authored versions/drafts are not modified. No schema migration.
 
-## Run from the backend repository root
+## Historical write boundary
 
-Requires the existing built database package and the normal local infrastructure.
-The script reads `.env` without printing credentials, rejects production and
-non-loopback PostgreSQL targets, and defaults to a read-only dry run.
-
-```powershell
-node --env-file=.env --experimental-strip-types packages/database/prisma/seed-best-lc-academic-test.ts --remaining-only
-node --env-file=.env --experimental-strip-types packages/database/prisma/seed-best-lc-academic-test.ts --remaining-only --apply
-```
-
-All 32 content sets and all target papers are validated before writes. A missing
-paper or an existing incomplete skill stops preflight instead of overwriting
-custom work. Each paper is committed atomically. Unique paper/skill constraints
-prevent duplicates; rerunning skips complete skills and safely resumes an
-interrupted run. After applying, the seed rereads the database, checks each
-skill's published section/question counts, and verifies existing versions were
-preserved. A subsequent dry run must report zero missing skills.
+The retired seed validated all 32 content sets and target papers before writes,
+refused missing papers or existing incomplete skills, and committed each paper
+atomically. Unique paper/skill constraints and rereads preserved existing
+versions. These constraints remain in PostgreSQL; removing the seed performs
+no database writes, media deletion, or schema migration.

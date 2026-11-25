@@ -34,6 +34,7 @@ import { LessonsService } from './lessons.service';
 @Resolver()
 export class LessonsResolver {
   constructor(private readonly service: LessonsService) {}
+
   @Query(() => [LessonObject], { name: 'adminSchedule' })
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
@@ -43,6 +44,7 @@ export class LessonsResolver {
   ) {
     return this.service.getAdminSchedule(from, to);
   }
+
   @Query(() => [LessonObject], { name: 'teacherSchedule' })
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.TEACHER)
@@ -53,6 +55,7 @@ export class LessonsResolver {
   ) {
     return this.service.getTeacherSchedule(id, from, to);
   }
+
   @Query(() => LessonConnectionObject, { name: 'teacherGroupLessons' })
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.TEACHER)
@@ -66,6 +69,7 @@ export class LessonsResolver {
   ) {
     return this.service.getTeacherLessons(id, groupId, first, after, status);
   }
+
   @Query(() => LessonConnectionObject, { name: 'studentGroupLessons' })
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.STUDENT)
@@ -77,6 +81,7 @@ export class LessonsResolver {
   ) {
     return this.service.getStudentGroupLessons(id, groupId, first, after);
   }
+
   @Query(() => LessonObject, { name: 'teacherLesson' })
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.TEACHER)
@@ -86,6 +91,7 @@ export class LessonsResolver {
   ) {
     return this.service.getTeacherLesson(id, lessonId);
   }
+
   @Query(() => [LessonObject], { name: 'studentSchedule' })
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.STUDENT)
@@ -96,6 +102,7 @@ export class LessonsResolver {
   ) {
     return this.service.getStudentSchedule(id, from, to);
   }
+
   @Query(() => LessonObject, { name: 'studentLesson' })
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.STUDENT)
@@ -105,6 +112,7 @@ export class LessonsResolver {
   ) {
     return this.service.getStudentLesson(id, lessonId);
   }
+
   @Query(() => [LessonAttendanceObject], { name: 'teacherAttendance' })
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.TEACHER)
@@ -114,6 +122,7 @@ export class LessonsResolver {
   ) {
     return this.service.getAttendance(id, lessonId);
   }
+
   @Mutation(() => LessonPayloadObject, { name: 'createLesson' })
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.TEACHER)
@@ -124,6 +133,7 @@ export class LessonsResolver {
   ) {
     return { lesson: await this.service.create(id, input, ctx.req.requestId) };
   }
+
   @Mutation(() => LessonPayloadObject, { name: 'updateLesson' })
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.TEACHER)
@@ -134,6 +144,7 @@ export class LessonsResolver {
   ) {
     return { lesson: await this.service.update(id, input, ctx.req.requestId) };
   }
+
   @Mutation(() => LessonPayloadObject, { name: 'setLessonStatus' })
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.TEACHER)
@@ -170,6 +181,7 @@ export class LessonsResolver {
       ),
     };
   }
+
   @Mutation(() => LessonAttendancePayloadObject, {
     name: 'recordLessonAttendance',
   })

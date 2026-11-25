@@ -58,6 +58,7 @@ import { AiAssistantModule } from './ai-assistant/ai-assistant.module';
     },
   ],
 })
+
 export class ComponentsModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
     consumer

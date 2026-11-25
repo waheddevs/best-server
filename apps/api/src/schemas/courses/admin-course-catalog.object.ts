@@ -7,6 +7,7 @@ import {
 } from '@nestjs/graphql';
 import { PublicCourseObject } from './course.object';
 import { AdminMetric } from '../groups/admin-group.object';
+
 @ObjectType('AdminCourseEntry')
 export class AdminCourseEntryObject {
   @Field(() => ID) id!: string;
@@ -14,6 +15,7 @@ export class AdminCourseEntryObject {
   @Field(() => Int) registrations!: number;
   @Field(() => [PublicCourseObject]) versions!: PublicCourseObject[];
 }
+
 @ObjectType('AdminCourseCatalog')
 export class AdminCourseCatalogObject {
   @Field(() => [AdminCourseEntryObject]) nodes!: AdminCourseEntryObject[];

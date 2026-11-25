@@ -16,34 +16,40 @@ import {
   AdminSaveExamSessionInput,
 } from '../../schemas/public-content/admin-exam.input';
 import { AdminExamsService } from './admin-exams.service';
+
 @Resolver()
 @UseGuards(AuthGuard, RolesGuard)
 @Roles(UserRole.ADMIN)
 export class AdminExamsResolver {
   constructor(private readonly service: AdminExamsService) {}
+
   @Query(() => AdminExamCatalogObject) adminExamCatalog(
     @Args('input') input: AdminDirectoryInput,
   ) {
     return this.service.catalog(input);
   }
+
   @Query(() => AdminExamSessionDirectoryObject) adminExamSessionDirectory(
     @Args('input') input: AdminDirectoryInput,
     @Args('language', { type: () => Language }) language: Language,
   ) {
     return this.service.sessions(input, language);
   }
+
   @Mutation(() => ID) adminRemoveExam(
     @AuthMember('id') actor: string,
     @Args('input') input: AdminRemoveExamInput,
   ) {
     return this.service.remove(actor, input);
   }
+
   @Mutation(() => ID) adminSaveExam(
     @AuthMember('id') actor: string,
     @Args('input') input: AdminSaveExamInput,
   ) {
     return this.service.save(actor, input);
   }
+  
   @Mutation(() => ID) adminSaveExamSession(
     @AuthMember('id') actor: string,
     @Args('input') input: AdminSaveExamSessionInput,

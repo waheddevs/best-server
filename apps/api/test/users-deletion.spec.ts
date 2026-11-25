@@ -2,7 +2,7 @@ import { Language, UserRole, UserStatus } from '@best/database';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { CredentialPasswordService } from '../src/components/auth/credential-password.service';
+import { CredentialPasswordService } from '../src/components/auth/credentials/credential-password.service';
 import { AuthIdentityService } from '../src/components/auth/auth-identity.service';
 import { UsersService } from '../src/components/users/users.service';
 import type { DatabaseService } from '../src/database/database.service';
@@ -14,7 +14,6 @@ void test('Teacher account deletion disables credentials and sessions with an au
     'old-reserved-password',
   );
   let revokedSessions = 0;
-  let deletedChallenges = 0;
   const auditActions: string[] = [];
   const transaction = {
     user: {
@@ -34,12 +33,6 @@ void test('Teacher account deletion disables credentials and sessions with an au
     credentialSession: {
       updateMany: () => {
         revokedSessions += 1;
-        return Promise.resolve({ count: 1 });
-      },
-    },
-    credentialLoginChallenge: {
-      deleteMany: () => {
-        deletedChallenges += 1;
         return Promise.resolve({ count: 1 });
       },
     },
@@ -78,12 +71,10 @@ void test('Teacher account deletion disables credentials and sessions with an au
     undefined,
   );
   assert.equal(revokedSessions, 1);
-  assert.equal(deletedChallenges, 1);
   assert.deepEqual(auditActions, ['TEACHER_ACCOUNT_DELETED']);
 
   await assert.rejects(service.deleteMyTeacherAccount('reserved-teacher-id'));
   assert.equal(revokedSessions, 1);
-  assert.equal(deletedChallenges, 1);
 });
 
 void test('Admin user directory projects the active group and teacher for student filters', async () => {

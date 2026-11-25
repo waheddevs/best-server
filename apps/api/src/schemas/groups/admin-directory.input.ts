@@ -1,4 +1,5 @@
 import { Field, InputType, Int } from '@nestjs/graphql';
+
 @InputType('AdminDirectoryInput')
 export class AdminDirectoryInput {
   @Field(() => Int, { defaultValue: 1 }) page = 1;

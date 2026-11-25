@@ -4,55 +4,28 @@ import type { ApiGraphqlContext } from '../../libs/types/authenticated-request.t
 import {
   BeginCredentialLoginInput,
   RefreshCredentialSessionInput,
-  ResendCredentialLoginCodeInput,
   RevokeCredentialSessionInput,
-  VerifyCredentialLoginInput,
 } from '../../schemas/auth/credential-login.input';
 import {
   CredentialLoginPayloadObject,
-  CredentialLoginChallengePayloadObject,
   CredentialLoginSuccessPayloadObject,
 } from '../../schemas/auth/credential-login.object';
-import { CredentialAuthService } from './credential-auth.service';
+import { CredentialLoginService } from './credentials/credential-login.service';
+import { CredentialSessionService } from './credentials/credential-session.service';
 
 @Resolver()
 export class AuthResolver {
-  constructor(private readonly credentialAuthService: CredentialAuthService) {}
+  constructor(
+    private readonly credentialLoginService: CredentialLoginService,
+    private readonly sessions: CredentialSessionService,
+  ) {}
 
   @Mutation(() => CredentialLoginPayloadObject, { name: 'credentialLogin' })
   credentialLogin(
     @Args('input') input: BeginCredentialLoginInput,
     @Context() context: ApiGraphqlContext,
   ): Promise<CredentialLoginPayloadObject> {
-    return this.credentialAuthService.login(input, context.req.requestId);
-  }
-
-  @Mutation(() => CredentialLoginChallengePayloadObject, {
-    name: 'beginCredentialLogin',
-  })
-  beginCredentialLogin(
-    @Args('input') input: BeginCredentialLoginInput,
-  ): Promise<CredentialLoginChallengePayloadObject> {
-    return this.credentialAuthService.beginLogin(input);
-  }
-
-  @Mutation(() => CredentialLoginChallengePayloadObject, {
-    name: 'resendCredentialLoginCode',
-  })
-  resendCredentialLoginCode(
-    @Args('input') input: ResendCredentialLoginCodeInput,
-  ): Promise<CredentialLoginChallengePayloadObject> {
-    return this.credentialAuthService.resendCode(input);
-  }
-
-  @Mutation(() => CredentialLoginSuccessPayloadObject, {
-    name: 'verifyCredentialLogin',
-  })
-  verifyCredentialLogin(
-    @Args('input') input: VerifyCredentialLoginInput,
-    @Context() context: ApiGraphqlContext,
-  ): Promise<CredentialLoginSuccessPayloadObject> {
-    return this.credentialAuthService.verifyLogin(input, context.req.requestId);
+    return this.credentialLoginService.login(input, context.req.requestId);
   }
 
   @Mutation(() => CredentialLoginSuccessPayloadObject, {
@@ -62,10 +35,7 @@ export class AuthResolver {
     @Args('input') input: RefreshCredentialSessionInput,
     @Context() context: ApiGraphqlContext,
   ): Promise<CredentialLoginSuccessPayloadObject> {
-    return this.credentialAuthService.refreshSession(
-      input,
-      context.req.requestId,
-    );
+    return this.sessions.refreshSession(input, context.req.requestId);
   }
 
   @Mutation(() => Boolean, { name: 'revokeCredentialSession' })
@@ -73,9 +43,6 @@ export class AuthResolver {
     @Args('input') input: RevokeCredentialSessionInput,
     @Context() context: ApiGraphqlContext,
   ): Promise<boolean> {
-    return this.credentialAuthService.revokeSession(
-      input,
-      context.req.requestId,
-    );
+    return this.sessions.revokeSession(input, context.req.requestId);
   }
 }

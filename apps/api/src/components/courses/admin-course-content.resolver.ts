@@ -12,22 +12,26 @@ import {
 } from '../../schemas/courses/admin-content.input';
 import { AdminCourseCatalogObject } from '../../schemas/courses/admin-course-catalog.object';
 import { AdminCourseContentService } from './admin-course-content.service';
+
 @Resolver()
 @UseGuards(AuthGuard, RolesGuard)
 @Roles(UserRole.ADMIN)
 export class AdminCourseContentResolver {
   constructor(private readonly service: AdminCourseContentService) {}
+
   @Query(() => AdminCourseCatalogObject) adminCourseCatalog(
     @Args('input') input: AdminDirectoryInput,
   ) {
     return this.service.catalog(input);
   }
+
   @Mutation(() => ID) adminRemoveCourse(
     @AuthMember('id') actor: string,
     @Args('input') input: AdminRemoveCourseInput,
   ) {
     return this.service.remove(actor, input);
   }
+  
   @Mutation(() => ID) adminSaveCourseContent(
     @AuthMember('id') actor: string,
     @Args('input') input: AdminSaveCourseContentInput,

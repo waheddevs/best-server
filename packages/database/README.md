@@ -20,6 +20,27 @@ authorization visibility, and immutable malware verdict metadata. Only
 receipts. The approved 7D Library contract is recorded in
 `docs/LIBRARY_MEDIA_PLAN.md`.
 
+## Retired static test content
+
+The easyIELTS importer/source snapshot and Academic test seed/catalog were
+removed on 2026-11-26 at the owner's request. API test reads continue to use
+PostgreSQL. Existing tests, import provenance, models, and migrations are
+retained. Recreating a test catalog now requires a database backup or the
+authorized Teacher authoring flow; the retired import/seed commands are absent.
+The six local demo roster/payment/lesson/finance/notification scripts and their
+commands were also removed on 2026-11-26. Existing database rows are retained;
+notification integration tests create reserved data directly in their disposable
+test database. The standalone group tuition-rate backfill was also retired on
+2026-11-26. Existing rate/audit rows and the authorized group creation/editing
+flow remain; this source cleanup does not update database records.
+
+The original Listening WAV is retained at `assets/gt-community-hall-p1.wav`.
+SHA-256: `3eec286acc4092861ba762f8b5048d29358beb840f9936d7315eb92c8a2c4ed2`.
+It originated from the reviewed easyIELTS snapshot at upstream commit
+`7b39a29fc82304ff2c976495e0250232def1baf4`. It is not served from the repository
+or automatically attached to tests. Any later attachment must use the existing
+authorized media upload, verification, scanning, and confirmation flow.
+
 ## Commands
 
 Run from the repository root:

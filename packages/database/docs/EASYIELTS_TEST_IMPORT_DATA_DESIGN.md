@@ -1,6 +1,18 @@
 # easyIELTS test import data design
 
-Status: approved for the first import slice on 2026-09-28.
+Status: historical design, approved on 2026-09-28. The owner retired the static
+source, importer, normalization helpers, commands, and importer-only tests on
+2026-11-26. Existing PostgreSQL content and `TestImportSource` provenance remain;
+API reads do not load source files. All models and applied migrations remain.
+
+The production read-only aggregate check found 39 draft versions, 49 sections,
+and 192 questions, matching the source counts. It did not compare text/answer
+equality or verify media bytes in object storage. None of those versions had a
+section audio link. The original WAV is retained at
+`../assets/gt-community-hall-p1.wav`; upload/attachment still requires the
+authorized media workflow. New environments require a database backup or the
+existing authoring flow. The workflow and old paths below are historical and
+do not describe available CLI commands.
 
 ## Source and permission boundary
 

@@ -893,6 +893,7 @@ input CreateTestPaperSkillDraftInput {
 input CreateTestQuestionInput {
   acceptedAnswers: [String!]
   answerLimit: Int
+  expectedUpdatedAt: DateTime!
   kind: QuestionKind
   maxSelections: Int
   options: [AnswerOptionDraftInput!]!
@@ -902,6 +903,7 @@ input CreateTestQuestionInput {
 }
 
 input CreateTestSectionBlockInput {
+  expectedUpdatedAt: DateTime!
   headingLevel: Int
   kind: TestSectionBlockKind!
   mediaObjectId: ID
@@ -913,6 +915,7 @@ input CreateTestSectionBlockInput {
 }
 
 input CreateTestSectionInput {
+  expectedUpdatedAt: DateTime!
   mediaObjectId: ID
   minimumWords: Int
   preparationSeconds: Int
@@ -922,16 +925,8 @@ input CreateTestSectionInput {
   translations: [TestSectionTranslationInput!]!
 }
 
-type CredentialLoginChallengePayload {
-  challengeId: ID!
-  expiresAt: DateTime!
-  maskedEmail: String!
-  resendAvailableAt: DateTime!
-}
-
 type CredentialLoginPayload {
-  challenge: CredentialLoginChallengePayload
-  session: CredentialLoginSuccessPayload
+  session: CredentialLoginSuccessPayload!
 }
 
 type CredentialLoginSuccessPayload {
@@ -1317,7 +1312,6 @@ type Mutation {
   adminSetUserRole(input: AdminSetUserRoleInput!): AdminUserMutationPayload!
   adminSetUserStatus(input: AdminSetUserStatusInput!): AdminUserMutationPayload!
   archiveTeacherAiConversation(id: ID!): TeacherAiConversationSummary!
-  beginCredentialLogin(input: BeginCredentialLoginInput!): CredentialLoginChallengePayload!
   cancelTeacherAiChatRun(id: ID!): TeacherAiChatRun!
   changeMyPassword(input: ChangeMyPasswordInput!): ChangeMyPasswordPayload!
   closeAssignment(input: AssignmentIdInput!): AssignmentPayload!
@@ -1351,7 +1345,7 @@ type Mutation {
   deleteTeacherPracticeTest(testPaperId: ID!): TeacherTestPaperDeletionPayload!
   deleteTestDraftQuestion(input: TestVersionIdInput!, questionId: ID!): TeacherTestVersionPayload!
   deleteTestDraftSection(input: TestVersionIdInput!, testSectionId: ID!): TeacherTestVersionPayload!
-  deleteTestSectionBlock(testSectionBlockId: ID!, testSectionId: ID!): TeacherTestVersionPayload!
+  deleteTestSectionBlock(expectedUpdatedAt: DateTime!, testSectionBlockId: ID!, testSectionId: ID!): TeacherTestVersionPayload!
   discardTestAttempt(attemptId: ID!): Boolean!
   endGroupMembership(input: EndGroupMembershipInput!): MembershipMutationPayload!
   generateListeningAudio(input: GenerateListeningAudioInput!): GenerateListeningAudioPayload!
@@ -1370,7 +1364,6 @@ type Mutation {
   reorderTestSectionBlocks(input: ReorderTestSectionBlocksInput!): TeacherTestVersionPayload!
   reorderTestSections(input: ReorderTestSectionsInput!): TeacherTestVersionPayload!
   replaceTestDraftTranslations(input: ReplaceTestDraftTranslationsInput!): TeacherTestVersionPayload!
-  resendCredentialLoginCode(input: ResendCredentialLoginCodeInput!): CredentialLoginChallengePayload!
   retryTeacherAiChatRun(input: RetryTeacherAiChatRunInput!): TeacherAiChatRun!
   reviewAssignmentSubmission(input: ReviewAssignmentSubmissionInput!): AssignmentSubmissionPayload!
   revokeCredentialSession(input: RevokeCredentialSessionInput!): Boolean!
@@ -1411,7 +1404,6 @@ type Mutation {
   updateTestQuestion(input: UpdateTestQuestionInput!): TeacherTestVersionPayload!
   updateTestSection(input: UpdateTestSectionInput!): TeacherTestVersionPayload!
   updateTestSectionBlock(input: UpdateTestSectionBlockInput!): TeacherTestVersionPayload!
-  verifyCredentialLogin(input: VerifyCredentialLoginInput!): CredentialLoginSuccessPayload!
 }
 
 type Notification {
@@ -1824,27 +1816,27 @@ input RenameTeacherAiConversationInput {
 }
 
 input ReorderTestQuestionsInput {
+  expectedUpdatedAt: DateTime!
   questionIds: [ID!]!
   testVersionId: ID!
 }
 
 input ReorderTestSectionBlocksInput {
+  expectedUpdatedAt: DateTime!
   testSectionBlockIds: [ID!]!
   testSectionId: ID!
 }
 
 input ReorderTestSectionsInput {
+  expectedUpdatedAt: DateTime!
   testSectionIds: [ID!]!
   testVersionId: ID!
 }
 
 input ReplaceTestDraftTranslationsInput {
+  expectedUpdatedAt: DateTime!
   testVersionId: ID!
   translations: [TestTranslationInput!]!
-}
-
-input ResendCredentialLoginCodeInput {
-  challengeId: ID!
 }
 
 input RetryTeacherAiChatRunInput {
@@ -1888,6 +1880,7 @@ type SaveAttemptSectionNotePayload {
 
 input SaveSpeakingAttemptReviewInput {
   attemptId: ID!
+  expectedUpdatedAt: DateTime
   feedback: String
   fluencyCoherence: Float!
   grammaticalRangeAccuracy: Float!
@@ -1987,6 +1980,7 @@ type SpeakingRubricReview {
   pronunciation: Float!
   releasedAt: DateTime
   reviewedAt: DateTime!
+  updatedAt: DateTime!
 }
 
 input StartTestAttemptInput {
@@ -2844,6 +2838,7 @@ type TeacherTestVersion {
   status: TestVersionStatus!
   testId: ID!
   translations: [TeacherTestTranslation!]!
+  updatedAt: DateTime!
   version: Int!
 }
 
@@ -2917,6 +2912,7 @@ input TestTranslationInput {
 }
 
 input TestVersionIdInput {
+  expectedUpdatedAt: DateTime!
   testVersionId: ID!
 }
 
@@ -3053,6 +3049,7 @@ input UpdateTestDraftSettingsInput {
   availabilityEndsAt: DateTime
   availabilityStartsAt: DateTime
   durationMinutes: Int
+  expectedUpdatedAt: DateTime!
   passingPercentage: Int!
   primaryLanguage: Language!
   testVersionId: ID!
@@ -3061,6 +3058,7 @@ input UpdateTestDraftSettingsInput {
 input UpdateTestQuestionInput {
   acceptedAnswers: [String!]
   answerLimit: Int
+  expectedUpdatedAt: DateTime!
   kind: QuestionKind
   maxSelections: Int
   options: [AnswerOptionDraftInput!]!
@@ -3070,6 +3068,7 @@ input UpdateTestQuestionInput {
 }
 
 input UpdateTestSectionBlockInput {
+  expectedUpdatedAt: DateTime!
   headingLevel: Int
   kind: TestSectionBlockKind!
   mediaObjectId: ID
@@ -3081,6 +3080,7 @@ input UpdateTestSectionBlockInput {
 }
 
 input UpdateTestSectionInput {
+  expectedUpdatedAt: DateTime!
   mediaObjectId: ID
   minimumWords: Int
   preparationSeconds: Int
@@ -3129,11 +3129,6 @@ enum UserStatus {
   ACTIVE
   DELETED
   INACTIVE
-}
-
-input VerifyCredentialLoginInput {
-  challengeId: ID!
-  code: String!
 }
 
 type Viewer {

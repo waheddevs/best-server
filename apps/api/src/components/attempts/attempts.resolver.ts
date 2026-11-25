@@ -1,6 +1,15 @@
 import { Language, UserRole } from '@best/database';
 import { UseGuards } from '@nestjs/common';
-import { Args, Context, ID, Mutation, Query, Resolver } from '@nestjs/graphql';
+import {
+  Args,
+  Context,
+  ID,
+  Info,
+  Mutation,
+  Query,
+  Resolver,
+} from '@nestjs/graphql';
+import type { GraphQLResolveInfo } from 'graphql';
 
 import type { ApiGraphqlContext } from '../../libs/types/authenticated-request.type';
 import {
@@ -28,6 +37,7 @@ import { AuthGuard } from '../auth/guards/auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 
 import { AttemptsService } from './attempts.service';
+import { requestsFullSavedAttempt } from './attempt-save-selection';
 
 @Resolver()
 export class AttemptsResolver {
@@ -153,6 +163,7 @@ export class AttemptsResolver {
     @Args('input') input: SaveAttemptAnswerInput,
     @Args('language', { type: () => Language }) language: Language,
     @Context() context: ApiGraphqlContext,
+    @Info() info: GraphQLResolveInfo,
   ): Promise<SaveAttemptAnswerPayloadObject> {
     return {
       attempt: await this.attemptsService.saveAttemptAnswer(
@@ -160,6 +171,7 @@ export class AttemptsResolver {
         input,
         context.req.requestId,
         language,
+        requestsFullSavedAttempt(info),
       ),
     };
   }
@@ -173,12 +185,14 @@ export class AttemptsResolver {
     @AuthMember('id') studentId: string,
     @Args('input') input: SaveAttemptSectionNoteInput,
     @Args('language', { type: () => Language }) language: Language,
+    @Info() info: GraphQLResolveInfo,
   ): Promise<SaveAttemptSectionNotePayloadObject> {
     return {
       attempt: await this.attemptsService.saveAttemptSectionNote(
         studentId,
         input,
         language,
+        requestsFullSavedAttempt(info),
       ),
     };
   }

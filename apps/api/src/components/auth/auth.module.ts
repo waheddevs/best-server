@@ -6,17 +6,16 @@ import {
   ACCESS_TOKEN_VERIFIER,
   AUTH_ENVIRONMENT,
   AUTH_IDENTITY_READER,
-  CREDENTIAL_EMAIL_SENDER,
 } from './auth.constants';
 import { AuthIdentityService } from './auth-identity.service';
 import { AuthResolver } from './auth.resolver';
-import { AuthService } from './auth.service';
-import { CredentialAuthService } from './credential-auth.service';
-import { CredentialEmailService } from './credential-email.service';
-import { CredentialPasswordService } from './credential-password.service';
+import { AuthService } from './tokens/auth.service';
+import { CredentialLoginService } from './credentials/credential-login.service';
+import { CredentialPasswordService } from './credentials/credential-password.service';
 import { AuthGuard } from './guards/auth.guard';
 import { OptionalAuthGuard } from './guards/optional-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
+import { CredentialSessionService } from './credentials/credential-session.service';
 
 @Module({
   imports: [
@@ -44,8 +43,7 @@ import { RolesGuard } from './guards/roles.guard';
   providers: [
     AuthResolver,
     AuthService,
-    CredentialAuthService,
-    CredentialEmailService,
+    CredentialLoginService,
     CredentialPasswordService,
     AuthIdentityService,
     {
@@ -57,16 +55,13 @@ import { RolesGuard } from './guards/roles.guard';
       useExisting: AuthIdentityService,
     },
     {
-      provide: CREDENTIAL_EMAIL_SENDER,
-      useExisting: CredentialEmailService,
-    },
-    {
       provide: ACCESS_TOKEN_VERIFIER,
       useExisting: AuthService,
     },
     AuthGuard,
     RolesGuard,
     OptionalAuthGuard,
+    CredentialSessionService,
   ],
   exports: [
     ACCESS_TOKEN_VERIFIER,

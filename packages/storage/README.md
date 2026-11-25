@@ -10,6 +10,10 @@ from being overwritten by reusing an upload URL. Domain code must still verify
 the stored MIME value, file signature, size, and checksum before marking an
 object ready.
 
+Object reads preserve the ETag condition and enforce the byte limit while
+streaming, including responses without `Content-Length`. Oversized or interrupted
+bodies are cancelled and never returned as partially verified content.
+
 The package never makes buckets public and never places original filenames,
 user input, credentials, or provider URLs into object keys. PostgreSQL remains
 the source of truth for ownership, authorization, visibility, checksum, and

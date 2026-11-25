@@ -2,34 +2,38 @@ import { AttemptStatus, Language, TestSkill, UserRole } from '@best/database';
 import { UseGuards } from '@nestjs/common';
 import { Args, ID, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
 
-import { StudentResultConnectionObject } from '../../schemas/results/student-result-connection.object';
-import { StudentProgressObject } from '../../schemas/results/student-progress.object';
-import { StudentSpeakingResultObject } from '../../schemas/results/student-speaking-result.object';
-import { StudentWritingResultObject } from '../../schemas/results/student-writing-result.object';
-import { TeacherAttemptConnectionObject } from '../../schemas/results/teacher-attempt.object';
-import { TeacherResultInboxConnectionObject } from '../../schemas/results/teacher-result-inbox.object';
-import { TeacherObjectiveAttemptResultObject } from '../../schemas/results/teacher-objective-attempt-result.object';
-import { TeacherAttemptReviewObject } from '../../schemas/results/teacher-attempt-review.object';
-import { TeacherSpeakingAttemptReviewObject } from '../../schemas/results/teacher-speaking-attempt-review.object';
-import { TeacherWritingAttemptReviewObject } from '../../schemas/results/writing-attempt-review.object';
-import { SaveSpeakingAttemptReviewInput } from '../../schemas/results/save-speaking-attempt-review.input';
-import { SaveWritingAttemptReviewInput } from '../../schemas/results/save-writing-attempt-review.input';
-import { TeacherGroupProgressObject } from '../../schemas/results/teacher-group-progress.object';
-import { TeacherStudentProgressConnectionObject } from '../../schemas/results/teacher-student-progress.object';
-import { TeacherStudentTestProgressConnectionObject } from '../../schemas/results/teacher-student-test-progress.object';
+import { StudentResultConnectionObject } from '../../schemas/results/student/student-result.object';
+import { StudentProgressObject } from '../../schemas/results/progress/student-progress.object';
+import { StudentSpeakingResultObject } from '../../schemas/results/student/student-speaking-result.object';
+import { StudentWritingResultObject } from '../../schemas/results/student/student-writing-result.object';
+import { TeacherAttemptConnectionObject } from '../../schemas/results/review/teacher-attempt.object';
+import { TeacherResultInboxConnectionObject } from '../../schemas/results/review/teacher-result-inbox.object';
+import { TeacherObjectiveAttemptResultObject } from '../../schemas/results/review/teacher-objective-attempt-result.object';
+import { TeacherAttemptReviewObject } from '../../schemas/results/review/teacher-attempt-review.object';
+import { TeacherSpeakingAttemptReviewObject } from '../../schemas/results/review/teacher-speaking-attempt-review.object';
+import { TeacherWritingAttemptReviewObject } from '../../schemas/results/review/writing-attempt-review.object';
+import { SaveSpeakingAttemptReviewInput } from '../../schemas/results/review/save-speaking-attempt-review.input';
+import { SaveWritingAttemptReviewInput } from '../../schemas/results/review/save-writing-attempt-review.input';
+import { TeacherGroupProgressObject } from '../../schemas/results/progress/teacher-group-progress.object';
+import { TeacherStudentProgressConnectionObject } from '../../schemas/results/progress/teacher-student-progress.object';
+import { TeacherStudentTestProgressConnectionObject } from '../../schemas/results/progress/teacher-student-test-progress.object';
 import { AuthMember } from '../auth/decorators/auth-member.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 
-import { ResultsService } from './results.service';
-import { TeacherResultsService } from './teacher-results.service';
+import { ResultsService } from './student/results.service';
+import { TeacherProgressService } from './teacher/teacher-progress.service';
+import { TeacherReviewService } from './review/teacher-review.service';
+import { TeacherResultsService } from './teacher/teacher-results.service';
 
 @Resolver()
 export class ResultsResolver {
   constructor(
     private readonly resultsService: ResultsService,
     private readonly teacherResultsService: TeacherResultsService,
+    private readonly teacherProgressService: TeacherProgressService,
+    private readonly teacherReviewService: TeacherReviewService,
   ) {}
 
   @Query(() => TestSkill, { name: 'teacherResultAttemptSkill' })
@@ -144,7 +148,7 @@ export class ResultsResolver {
     @AuthMember('id') teacherId: string,
     @Args('groupId', { type: () => ID }) groupId: string,
   ): Promise<TeacherGroupProgressObject> {
-    return this.teacherResultsService.getGroupProgress(teacherId, groupId);
+    return this.teacherProgressService.getGroupProgress(teacherId, groupId);
   }
 
   @Query(() => TeacherStudentProgressConnectionObject, {
@@ -158,7 +162,7 @@ export class ResultsResolver {
     @Args('first', { nullable: true, type: () => Int }) first?: number,
     @Args('after', { nullable: true, type: () => String }) after?: string,
   ): Promise<TeacherStudentProgressConnectionObject> {
-    return this.teacherResultsService.getGroupStudents(
+    return this.teacherProgressService.getGroupStudents(
       teacherId,
       groupId,
       first,
@@ -179,7 +183,7 @@ export class ResultsResolver {
     @Args('first', { nullable: true, type: () => Int }) first?: number,
     @Args('after', { nullable: true, type: () => String }) after?: string,
   ): Promise<TeacherStudentTestProgressConnectionObject> {
-    return this.teacherResultsService.getStudentTests(
+    return this.teacherProgressService.getStudentTests(
       teacherId,
       groupId,
       studentId,
@@ -202,7 +206,7 @@ export class ResultsResolver {
     @Args('first', { nullable: true, type: () => Int }) first?: number,
     @Args('after', { nullable: true, type: () => String }) after?: string,
   ): Promise<TeacherAttemptConnectionObject> {
-    return this.teacherResultsService.getStudentAttempts(
+    return this.teacherProgressService.getStudentAttempts(
       teacherId,
       groupId,
       studentId,
@@ -237,7 +241,7 @@ export class ResultsResolver {
     @Args('attemptId', { type: () => ID }) attemptId: string,
     @Args('language', { type: () => Language }) language: Language,
   ): Promise<TeacherSpeakingAttemptReviewObject> {
-    return this.teacherResultsService.getSpeakingAttemptReview(
+    return this.teacherReviewService.getSpeakingAttemptReview(
       teacherId,
       attemptId,
       language,
@@ -254,11 +258,8 @@ export class ResultsResolver {
     @Args('input') input: SaveSpeakingAttemptReviewInput,
     @Args('language', { type: () => Language }) language: Language,
   ): Promise<TeacherSpeakingAttemptReviewObject> {
-    await this.teacherResultsService.saveSpeakingAttemptReview(
-      teacherId,
-      input,
-    );
-    return this.teacherResultsService.getSpeakingAttemptReview(
+    await this.teacherReviewService.saveSpeakingAttemptReview(teacherId, input);
+    return this.teacherReviewService.getSpeakingAttemptReview(
       teacherId,
       input.attemptId,
       language,
@@ -275,7 +276,7 @@ export class ResultsResolver {
     @Args('attemptId', { type: () => ID }) attemptId: string,
     @Args('language', { type: () => Language }) language: Language,
   ): Promise<TeacherWritingAttemptReviewObject> {
-    return this.teacherResultsService.getWritingAttemptReview(
+    return this.teacherReviewService.getWritingAttemptReview(
       teacherId,
       attemptId,
       language,
@@ -292,8 +293,8 @@ export class ResultsResolver {
     @Args('input') input: SaveWritingAttemptReviewInput,
     @Args('language', { type: () => Language }) language: Language,
   ): Promise<TeacherWritingAttemptReviewObject> {
-    await this.teacherResultsService.saveWritingAttemptReview(teacherId, input);
-    return this.teacherResultsService.getWritingAttemptReview(
+    await this.teacherReviewService.saveWritingAttemptReview(teacherId, input);
+    return this.teacherReviewService.getWritingAttemptReview(
       teacherId,
       input.attemptId,
       language,

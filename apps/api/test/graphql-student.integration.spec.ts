@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { execFile } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import {
@@ -15,7 +14,7 @@ import {
 } from 'node:net';
 import { resolve } from 'node:path';
 import { after, before, test } from 'node:test';
-import { promisify } from 'node:util';
+import { setTimeout as delay } from 'node:timers/promises';
 
 import {
   loadInfrastructureEnvironment,
@@ -52,38 +51,15 @@ import { Test } from '@nestjs/testing';
 import { Pool } from 'pg';
 
 import { AppModule } from '../src/app.module';
-import { AuthService } from '../src/components/auth/auth.service';
-import { CredentialPasswordService } from '../src/components/auth/credential-password.service';
-import {
-  AUTH_ENVIRONMENT,
-  CREDENTIAL_EMAIL_SENDER,
-} from '../src/components/auth/auth.constants';
-import type {
-  CredentialEmailSender,
-  CredentialLoginCodeMessage,
-} from '../src/components/auth/credential-email-sender.type';
+import { AuthService } from '../src/components/auth/tokens/auth.service';
+import { CredentialPasswordService } from '../src/components/auth/credentials/credential-password.service';
+import { AUTH_ENVIRONMENT } from '../src/components/auth/auth.constants';
 import {
   type GeneratedListeningAudio,
   ListeningAudioGateway,
-} from '../src/components/tests/listening-audio.gateway';
+} from '../src/components/tests/audio/listening-audio.gateway';
 import { DatabaseService } from '../src/database/database.service';
-
-class CapturingCredentialEmailSender implements CredentialEmailSender {
-  private latestMessage: CredentialLoginCodeMessage | undefined;
-
-  clear(): void {
-    this.latestMessage = undefined;
-  }
-
-  getLatestMessage(): CredentialLoginCodeMessage | undefined {
-    return this.latestMessage;
-  }
-
-  sendLoginCode(message: CredentialLoginCodeMessage): Promise<void> {
-    this.latestMessage = message;
-    return Promise.resolve();
-  }
-}
+import { ResultsProgressService } from '../src/components/results/progress/results-progress.service';
 
 class FakeListeningAudioGateway extends ListeningAudioGateway {
   readonly maxTranscriptCharacters = 20_000;
@@ -101,9 +77,7 @@ class FakeListeningAudioGateway extends ListeningAudioGateway {
 }
 
 const RUNTIME_ENVIRONMENT_NAMES = [
-  'AUTH_EMAIL_DELIVERY_MODE',
-  'AUTH_REQUIRE_EMAIL_VERIFICATION',
-  'AUTH_OTP_HASH_SECRET',
+  'AUTH_LOGIN_HASH_SECRET',
   'CLAMAV_CONNECT_TIMEOUT_MS',
   'CLAMAV_HOST',
   'CLAMAV_PORT',
@@ -142,8 +116,6 @@ let groupId: string;
 let teacherId: string;
 let studentId: string;
 let attemptMediaObjectId: string;
-const credentialEmailSender = new CapturingCredentialEmailSender();
-const execFileAsync = promisify(execFile);
 
 before(async () => {
   fakeStorageServer = createFakeStorageServer();
@@ -155,13 +127,9 @@ before(async () => {
   await adminPool.query(`CREATE DATABASE "${databaseName}"`);
   await applyMigrations(testDatabaseUrl);
   process.env.DATABASE_URL = testDatabaseUrl;
-  process.env.AUTH_EMAIL_DELIVERY_MODE = 'disabled';
-  process.env.AUTH_REQUIRE_EMAIL_VERIFICATION = 'false';
-  process.env.AUTH_OTP_HASH_SECRET =
+  process.env.AUTH_LOGIN_HASH_SECRET =
     'integration-otp-secret-that-is-longer-than-32-characters';
   const testingModule = await Test.createTestingModule({ imports: [AppModule] })
-    .overrideProvider(CREDENTIAL_EMAIL_SENDER)
-    .useValue(credentialEmailSender)
     .overrideProvider(ListeningAudioGateway)
     .useClass(FakeListeningAudioGateway)
     .compile();
@@ -342,6 +310,7 @@ void test('Teacher practices use owned, stable 16-item numeric pages', async () 
   });
   const speakingVersion = await database.testVersion.create({
     data: {
+      attemptLimit: 2,
       primaryLanguage: Language.EN,
       scoringRuleVersion: 'manual-rubric-v1',
       testId: speakingTest.id,
@@ -420,6 +389,42 @@ void test('Teacher practices use owned, stable 16-item numeric pages', async () 
       submittedAt: new Date(),
       testVersionId: speakingVersion.id,
     },
+  });
+
+  await database.attempt.create({
+    data: {
+      attemptNumber: 2,
+      groupMembershipId: completedMembership.id,
+      status: AttemptStatus.SUBMITTED,
+      studentId: completedStudentId,
+      submissionReason: AttemptSubmissionReason.MANUAL,
+      submittedAt: new Date(),
+      testVersionId: speakingVersion.id,
+    },
+  });
+  const pausedStudent = await database.user.create({
+    data: {
+      role: UserRole.STUDENT,
+      displayName: 'Reserved paused completion learner',
+    },
+  });
+  const pausedMembership = await database.groupMembership.create({
+    data: { groupId: practiceGroupId, studentId: pausedStudent.id },
+  });
+  await database.attempt.create({
+    data: {
+      attemptNumber: 1,
+      groupMembershipId: pausedMembership.id,
+      studentId: pausedStudent.id,
+      testVersionId: speakingVersion.id,
+      status: AttemptStatus.SUBMITTED,
+      submissionReason: AttemptSubmissionReason.MANUAL,
+      submittedAt: new Date(),
+    },
+  });
+  await database.groupMembership.update({
+    where: { id: pausedMembership.id },
+    data: { participationStatus: GroupMembershipStatus.PAUSED },
   });
 
   const operation = `query TeacherPracticePage($groupId: ID!, $page: Int!) {
@@ -900,93 +905,6 @@ void test('Teacher creates empty Academic practices with owned concurrent number
   assert.match(JSON.stringify(forbiddenStudentCreate), /FORBIDDEN/);
 });
 
-void test('easyIELTS importer loads all 39 pinned source tests idempotently', async () => {
-  const database = requireApp().get(DatabaseService);
-  const importGroupId = randomUUID();
-  const importCategoryId = randomUUID();
-  await database.group.create({
-    data: {
-      id: importGroupId,
-      category: GroupCategory.IELTS,
-      name: 'Reserved General Training Import',
-      paymentDeadlineDay: 10,
-      slug: `easyielts-import-${importGroupId}`,
-      teacherId,
-    },
-  });
-  await database.testCategory.create({
-    data: {
-      id: importCategoryId,
-      name: `Reserved easyIELTS ${importGroupId}`,
-      teacherId,
-    },
-  });
-
-  const importerPath = resolve(
-    __dirname,
-    '../../../packages/database/prisma/import-easyielts-tests.ts',
-  );
-  const arguments_ = [
-    '--experimental-strip-types',
-    importerPath,
-    '--group-id',
-    importGroupId,
-    '--category-id',
-    importCategoryId,
-    '--apply',
-  ];
-  const environment = {
-    ...process.env,
-    DATABASE_URL: testDatabaseUrl,
-    NODE_ENV: 'test',
-  };
-  const firstRun = await execFileAsync(process.execPath, arguments_, {
-    cwd: resolve(__dirname, '../../..'),
-    env: environment,
-    maxBuffer: 2 * 1024 * 1024,
-  });
-  assert.match(firstRun.stdout, /"createdSourceTests": 39/);
-
-  const [papers, tests, versions, sections, questions, provenance] =
-    await Promise.all([
-      database.testPaper.findMany({ where: { groupId: importGroupId } }),
-      database.test.count({ where: { groupId: importGroupId } }),
-      database.testVersion.count({
-        where: { test: { groupId: importGroupId } },
-      }),
-      database.testSection.count({
-        where: { testVersion: { test: { groupId: importGroupId } } },
-      }),
-      database.question.count({
-        where: { testVersion: { test: { groupId: importGroupId } } },
-      }),
-      database.testImportSource.count({
-        where: { targetGroupId: importGroupId },
-      }),
-    ]);
-  assert.equal(papers.length, 10);
-  assert.ok(papers.every((paper) => paper.ieltsModule === 'GENERAL_TRAINING'));
-  assert.equal(tests, 39);
-  assert.equal(versions, 39);
-  assert.equal(sections, 49);
-  assert.equal(questions, 192);
-  assert.equal(provenance, 39);
-
-  const secondRun = await execFileAsync(process.execPath, arguments_, {
-    cwd: resolve(__dirname, '../../..'),
-    env: environment,
-    maxBuffer: 2 * 1024 * 1024,
-  });
-  assert.match(secondRun.stdout, /"createdSourceTests": 0/);
-  assert.match(secondRun.stdout, /"skippedSourceTests": 39/);
-  assert.equal(
-    await database.testImportSource.count({
-      where: { targetGroupId: importGroupId },
-    }),
-    39,
-  );
-});
-
 void test('Teacher creates one missing skill draft inside an owned practice paper', async () => {
   const database = requireApp().get(DatabaseService);
   const groupId = randomUUID();
@@ -1132,6 +1050,7 @@ void test('Teacher authors and publishes an ordered typed Reading draft', async 
     }`,
     {
       input: {
+        expectedUpdatedAt: await currentDraftRevision(draft.id),
         suggestedMinutes: 20,
         testVersionId: draft.id,
         translations: [
@@ -1192,6 +1111,7 @@ void test('Teacher authors and publishes an ordered typed Reading draft', async 
     }`,
     {
       input: {
+        expectedUpdatedAt: await currentDraftRevision(draft.id),
         testSectionId: sectionId,
         translations: [
           {
@@ -1219,6 +1139,7 @@ void test('Teacher authors and publishes an ordered typed Reading draft', async 
     }`,
     {
       input: {
+        expectedUpdatedAt: await currentDraftRevision(draft.id),
         acceptedAnswers: ['Solar energy'],
         answerLimit: 2,
         kind: 'SHORT_TEXT',
@@ -1280,6 +1201,7 @@ void test('Teacher authors and publishes an ordered typed Reading draft', async 
   }`;
   await executeGraphql(teacherToken, createBlockMutation, {
     input: {
+      expectedUpdatedAt: await currentDraftRevision(draft.id),
       kind: 'RICH_TEXT',
       testSectionId: sectionId,
       translations: [
@@ -1292,6 +1214,7 @@ void test('Teacher authors and publishes an ordered typed Reading draft', async 
   });
   const grouped = await executeGraphql(teacherToken, createBlockMutation, {
     input: {
+      expectedUpdatedAt: await currentDraftRevision(draft.id),
       kind: 'QUESTION_GROUP',
       questionIds: [questionId],
       testSectionId: sectionId,
@@ -1335,7 +1258,12 @@ void test('Teacher authors and publishes an ordered typed Reading draft', async 
     `mutation Publish($input: TestVersionIdInput!) {
       publishTestVersion(input: $input) { testVersion { id status publishedAt } }
     }`,
-    { input: { testVersionId: draft.id } },
+    {
+      input: {
+        testVersionId: draft.id,
+        expectedUpdatedAt: await currentDraftRevision(draft.id),
+      },
+    },
   );
   assert.equal(
     requireRecordField(
@@ -1352,6 +1280,7 @@ void test('Teacher authors and publishes an ordered typed Reading draft', async 
     }`,
     {
       input: {
+        expectedUpdatedAt: await currentDraftRevision(draft.id),
         testSectionId: sectionId,
         translations: [
           {
@@ -1376,6 +1305,151 @@ void test('Teacher authors and publishes an ordered typed Reading draft', async 
   );
   assert.ok(requireArrayField(hiddenFromStudent, 'errors').length > 0);
 });
+
+void test('draft edits and publication serialize on the same test and reject stale versions', async () => {
+  const database = requireApp().get(DatabaseService);
+  const category = await database.testCategory.create({
+    data: { name: `Reserved concurrent drafts ${randomUUID()}`, teacherId },
+  });
+  for (const publishFirst of [false, true]) {
+    const fixture = await createPublishedProgressTest(
+      database,
+      groupId,
+      category.id,
+      'Reserved concurrent draft',
+    );
+    const created = await executeGraphql(
+      teacherToken,
+      `mutation Next($input: CreateNextTestVersionInput!) { createNextTestVersion(input: $input) { testVersion { id updatedAt sections { id } } } }`,
+      { input: { testId: fixture.testId } },
+    );
+    const version = requireRecordField(
+      requireRecordField(created, 'createNextTestVersion'),
+      'testVersion',
+    );
+    const versionId = requireStringField(version, 'id');
+    const expectedUpdatedAt = requireStringField(version, 'updatedAt');
+    const sectionId = requireStringField(
+      requireRecord(requireArrayField(version, 'sections')[0], 'Draft section'),
+      'id',
+    );
+    const editOperation = `mutation Edit($input: UpdateTestSectionInput!) { updateTestSection(input: $input) { testVersion { id updatedAt } } }`;
+    const publishOperation = `mutation Publish($input: TestVersionIdInput!) { publishTestVersion(input: $input) { testVersion { id status updatedAt } } }`;
+    const sectionInput = {
+      testSectionId: sectionId,
+      expectedUpdatedAt,
+      translations: [
+        {
+          language: 'UZ',
+          title: 'Reserved edited section',
+          instructions: 'Choose the correct fictional option.',
+        },
+      ],
+    };
+    const edit = () =>
+      executeGraphqlExpectingErrors(teacherToken, editOperation, {
+        input: sectionInput,
+      });
+    const publish = () =>
+      executeGraphqlExpectingErrors(teacherToken, publishOperation, {
+        input: { testVersionId: versionId, expectedUpdatedAt },
+      });
+    const responses = await queueDraftOperations(
+      database,
+      fixture.testId,
+      publishFirst ? [publish, edit] : [edit, publish],
+    );
+    assert.ok(responses[0] && responses[1]);
+    assert.equal('errors' in responses[0], false);
+    assert.match(JSON.stringify(responses[1].errors), /CONFLICT/);
+    let persisted = await database.testVersion.findUniqueOrThrow({
+      where: { id: versionId },
+    });
+    assert.ok(persisted.updatedAt.getTime() > Date.parse(expectedUpdatedAt));
+    assert.equal(
+      persisted.status,
+      publishFirst ? TestVersionStatus.PUBLISHED : TestVersionStatus.DRAFT,
+    );
+    assert.equal(
+      await database.auditLog.count({
+        where: { action: 'TEST_SECTION_UPDATED', targetId: sectionId },
+      }),
+      publishFirst ? 0 : 1,
+    );
+    if (!publishFirst) {
+      await executeGraphql(teacherToken, publishOperation, {
+        input: {
+          testVersionId: versionId,
+          expectedUpdatedAt: persisted.updatedAt.toISOString(),
+        },
+      });
+      persisted = await database.testVersion.findUniqueOrThrow({
+        where: { id: versionId },
+      });
+    }
+    assert.equal(persisted.status, TestVersionStatus.PUBLISHED);
+    const immutable = await edit();
+    assert.match(JSON.stringify(immutable.errors), /CONFLICT/);
+    assert.equal(
+      await database.auditLog.count({
+        where: { action: 'TEST_VERSION_PUBLISHED', targetId: versionId },
+      }),
+      1,
+    );
+    assert.equal(
+      (
+        await database.testVersion.findUniqueOrThrow({
+          where: { id: versionId },
+        })
+      ).updatedAt.getTime(),
+      persisted.updatedAt.getTime(),
+    );
+  }
+});
+
+async function queueDraftOperations(
+  database: DatabaseService,
+  testId: string,
+  operations: readonly (() => Promise<Record<string, unknown>>)[],
+): Promise<Record<string, unknown>[]> {
+  const pool = new Pool({
+    connectionString: testDatabaseUrl,
+    max: 1,
+    connectionTimeoutMillis: 2_000,
+  });
+  const client = await pool.connect();
+  const requests: Promise<Record<string, unknown>>[] = [];
+  try {
+    await client.query('BEGIN');
+    await client.query('SELECT id FROM tests WHERE id = $1::uuid FOR UPDATE', [
+      testId,
+    ]);
+    for (const operation of operations) {
+      const request = operation();
+      void request.catch(() => undefined);
+      requests.push(request);
+      const deadline = Date.now() + 4_000;
+      for (;;) {
+        const rows = await database.$queryRaw<{ count: number }[]>`
+          SELECT count(*)::int AS count FROM pg_stat_activity
+          WHERE datname = current_database() AND wait_event_type = 'Lock' AND query LIKE '%FOR UPDATE OF t%'
+        `;
+        if ((rows[0]?.count ?? 0) >= requests.length) break;
+        assert.ok(
+          Date.now() < deadline,
+          'Draft request did not wait for the shared test lock',
+        );
+        await delay(10);
+      }
+    }
+  } finally {
+    await client.query('ROLLBACK');
+    client.release();
+    await pool.end();
+    await Promise.allSettled(requests);
+  }
+  return Promise.all(requests);
+}
 
 void test('Teacher generates, previews, and explicitly attaches Listening audio', async () => {
   const database = requireApp().get(DatabaseService);
@@ -1488,6 +1562,7 @@ void test('Teacher generates, previews, and explicitly attaches Listening audio'
     }`,
     {
       input: {
+        expectedUpdatedAt: await currentDraftRevision(draft.id),
         mediaObjectId,
         testSectionId: section.id,
         translations: [
@@ -1653,51 +1728,26 @@ void test('Student notifications are owner-scoped, paginated, and persist read s
     fixtureToken,
     `query { myUnreadNotificationCount }`,
   );
-  const seedPath = resolve(
-    __dirname,
-    '../../../packages/database/prisma/seed-student-notifications.ts',
-  );
-  const seedArguments = ['--experimental-strip-types', seedPath];
-  const seedOptions = {
-    cwd: resolve(__dirname, '../../..'),
-    env: {
-      ...process.env,
-      BEST_FIXTURE_STUDENT_EMAIL: fixtureEmail,
-      DATABASE_URL: testDatabaseUrl,
-      NODE_ENV: 'test',
-    },
-  };
-  const dryRun = await execFileAsync(
-    process.execPath,
-    seedArguments,
-    seedOptions,
-  );
-  assert.match(dryRun.stdout, /"toCreate":5/);
-  assert.equal(
-    await database.notification.count({
-      where: {
+  const fixtureEventPrefix = `integration:student-notification:${randomUUID()}:`;
+  const now = Date.now();
+  await database.notification.createMany({
+    data: Array.from({ length: 5 }, (_, index) => {
+      const createdAt = new Date(now - index * 3_600_000);
+      return {
         recipientId: fixtureStudentId,
-        eventKey: { startsWith: 'demo:student-notification:' },
-      },
+        eventKey: `${fixtureEventPrefix}${String(index)}`,
+        kind: 'INTEGRATION_TEST',
+        title: `Fictional notification ${String(index + 1)}`,
+        body: 'Reserved notification fixture for API integration tests.',
+        createdAt,
+        readAt: index < 3 ? null : createdAt,
+      };
     }),
-    0,
-  );
-  const seeded = await execFileAsync(
-    process.execPath,
-    [...seedArguments, '--apply'],
-    seedOptions,
-  );
-  assert.match(seeded.stdout, /"persisted":5/);
-  const repeated = await execFileAsync(
-    process.execPath,
-    [...seedArguments, '--apply'],
-    seedOptions,
-  );
-  assert.match(repeated.stdout, /"existing":5/);
+  });
   const rows = await database.notification.findMany({
     where: {
       recipientId: fixtureStudentId,
-      eventKey: { startsWith: 'demo:student-notification:' },
+      eventKey: { startsWith: fixtureEventPrefix },
     },
     orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
   });
@@ -3186,7 +3236,7 @@ void test('Teacher group roster exposes persisted status summary, overview, and 
   );
 });
 
-void test('Admin provisions a credential user who completes email-code login', async () => {
+void test('Admin provisions a credential user who completes password login', async () => {
   const database = requireApp().get(DatabaseService);
   const enrollmentGroup = await database.group.create({
     data: {
@@ -3266,11 +3316,10 @@ void test('Admin provisions a credential user who completes email-code login', a
     'FORBIDDEN',
   );
 
-  credentialEmailSender.clear();
   const roleMismatch = await executeGraphqlExpectingErrors(
     undefined,
     `mutation RejectRoleMismatch($input: BeginCredentialLoginInput!) {
-      beginCredentialLogin(input: $input) { challengeId }
+      credentialLogin(input: $input) { session { accessToken } }
     }`,
     {
       input: {
@@ -3291,7 +3340,6 @@ void test('Admin provisions a credential user who completes email-code login', a
     ).code,
     'UNAUTHENTICATED',
   );
-  assert.equal(credentialEmailSender.getLatestMessage(), undefined);
 
   for (const [input, expectedCode] of [
     [
@@ -3349,7 +3397,7 @@ void test('Admin provisions a credential user who completes email-code login', a
     const rejected = await executeGraphqlExpectingErrors(
       undefined,
       `mutation RejectInvalidLoginField($input: BeginCredentialLoginInput!) {
-        beginCredentialLogin(input: $input) { challengeId }
+        credentialLogin(input: $input) { session { accessToken } }
       }`,
       { input },
     );
@@ -3363,16 +3411,15 @@ void test('Admin provisions a credential user who completes email-code login', a
       ).code,
       expectedCode,
     );
-    assert.equal(credentialEmailSender.getLatestMessage(), undefined);
   }
 
-  const challengeResponse = await executeGraphql(
+  const loggedIn = await executeGraphql(
     undefined,
-    `mutation BeginLogin($input: BeginCredentialLoginInput!) {
-      beginCredentialLogin(input: $input) {
-        challengeId maskedEmail expiresAt resendAvailableAt
-      }
-    }`,
+    `mutation Login($input: BeginCredentialLoginInput!) {
+    credentialLogin(input: $input) { session {
+      accessToken expiresInSeconds refreshToken refreshExpiresAt user { id displayName role }
+    } }
+  }`,
     {
       input: {
         email: email.toUpperCase(),
@@ -3384,83 +3431,10 @@ void test('Admin provisions a credential user who completes email-code login', a
       },
     },
   );
-  const challenge = requireRecordField(
-    challengeResponse,
-    'beginCredentialLogin',
+  const login = requireRecordField(
+    requireRecordField(loggedIn, 'credentialLogin'),
+    'session',
   );
-  const challengeId = requireStringField(challenge, 'challengeId');
-  assert.match(requireStringField(challenge, 'maskedEmail'), /\*{3,}@/);
-  const firstMessage = credentialEmailSender.getLatestMessage();
-  if (firstMessage === undefined) {
-    throw new Error('Credential email was not captured');
-  }
-  assert.equal(firstMessage.to, email);
-  const firstCode = firstMessage.code;
-
-  const earlyResend = await executeGraphqlExpectingErrors(
-    undefined,
-    `mutation EarlyResend($input: ResendCredentialLoginCodeInput!) {
-      resendCredentialLoginCode(input: $input) { challengeId }
-    }`,
-    { input: { challengeId } },
-  );
-  assert.equal(
-    requireRecordField(
-      requireRecord(
-        requireArrayField(earlyResend, 'errors')[0],
-        'resend error',
-      ),
-      'extensions',
-    ).code,
-    'RATE_LIMITED',
-  );
-  await requireApp()
-    .get(DatabaseService)
-    .credentialLoginChallenge.update({
-      where: { id: challengeId },
-      data: { resendAvailableAt: new Date(Date.now() - 1_000) },
-    });
-  await executeGraphql(
-    undefined,
-    `mutation Resend($input: ResendCredentialLoginCodeInput!) {
-      resendCredentialLoginCode(input: $input) {
-        challengeId expiresAt resendAvailableAt
-      }
-    }`,
-    { input: { challengeId } },
-  );
-  const resentMessage = credentialEmailSender.getLatestMessage();
-  if (resentMessage === undefined) {
-    throw new Error('Resent credential email was not captured');
-  }
-  const code = resentMessage.code;
-
-  const wrongCode = await executeGraphqlExpectingErrors(
-    undefined,
-    `mutation VerifyWrongCode($input: VerifyCredentialLoginInput!) {
-      verifyCredentialLogin(input: $input) { accessToken }
-    }`,
-    { input: { challengeId, code: firstCode } },
-  );
-  assert.equal(
-    requireRecordField(
-      requireRecord(requireArrayField(wrongCode, 'errors')[0], 'wrong code'),
-      'extensions',
-    ).code,
-    'LOGIN_CODE_INVALID',
-  );
-
-  const verified = await executeGraphql(
-    undefined,
-    `mutation VerifyLogin($input: VerifyCredentialLoginInput!) {
-      verifyCredentialLogin(input: $input) {
-        accessToken expiresInSeconds refreshToken refreshExpiresAt
-        user { id displayName role }
-      }
-    }`,
-    { input: { challengeId, code } },
-  );
-  const login = requireRecordField(verified, 'verifyCredentialLogin');
   assert.equal(requireRecordField(login, 'user').id, userId);
   const loginToken = requireStringField(login, 'accessToken');
   const refreshToken = requireStringField(login, 'refreshToken');
@@ -3565,21 +3539,6 @@ void test('Admin provisions a credential user who completes email-code login', a
     { input: { refreshToken: 'invalid' } },
   );
   assert.equal(malformedRevoke.revokeCredentialSession, true);
-
-  const reused = await executeGraphqlExpectingErrors(
-    undefined,
-    `mutation ReuseCode($input: VerifyCredentialLoginInput!) {
-      verifyCredentialLogin(input: $input) { accessToken }
-    }`,
-    { input: { challengeId, code } },
-  );
-  assert.equal(
-    requireRecordField(
-      requireRecord(requireArrayField(reused, 'errors')[0], 'reuse error'),
-      'extensions',
-    ).code,
-    'LOGIN_CODE_INVALID',
-  );
 });
 
 void test('Teacher with a legacy given-name profile can use the split login form', async () => {
@@ -3593,12 +3552,11 @@ void test('Teacher with a legacy given-name profile can use the split login form
     { input: { displayName: 'Ada', email, password, role: 'TEACHER' } },
   );
 
-  credentialEmailSender.clear();
-  const challengeResponse = await executeGraphql(
+  const loggedIn = await executeGraphql(
     undefined,
-    `mutation BeginLegacyTeacherLogin($input: BeginCredentialLoginInput!) {
-      beginCredentialLogin(input: $input) { challengeId }
-    }`,
+    `mutation LegacyTeacherLogin($input: BeginCredentialLoginInput!) {
+    credentialLogin(input: $input) { session { accessToken refreshToken user { displayName } } }
+  }`,
     {
       input: {
         email,
@@ -3610,23 +3568,10 @@ void test('Teacher with a legacy given-name profile can use the split login form
       },
     },
   );
-  const challengeId = requireStringField(
-    requireRecordField(challengeResponse, 'beginCredentialLogin'),
-    'challengeId',
+  const login = requireRecordField(
+    requireRecordField(loggedIn, 'credentialLogin'),
+    'session',
   );
-  const code = credentialEmailSender.getLatestMessage()?.code;
-  if (code === undefined) throw new Error('Credential email was not captured');
-
-  const verified = await executeGraphql(
-    undefined,
-    `mutation VerifyLegacyTeacherLogin($input: VerifyCredentialLoginInput!) {
-      verifyCredentialLogin(input: $input) {
-        accessToken refreshToken user { displayName }
-      }
-    }`,
-    { input: { challengeId, code } },
-  );
-  const login = requireRecordField(verified, 'verifyCredentialLogin');
   assert.equal(requireRecordField(login, 'user').displayName, 'Ada');
 
   const accessToken = requireStringField(login, 'accessToken');
@@ -3666,7 +3611,7 @@ void test('Teacher with a legacy given-name profile can use the split login form
   const wrongSurname = await executeGraphqlExpectingErrors(
     undefined,
     `mutation WrongTeacherSurname($input: BeginCredentialLoginInput!) {
-      beginCredentialLogin(input: $input) { challengeId }
+      credentialLogin(input: $input) { session { accessToken } }
     }`,
     {
       input: {
@@ -3692,7 +3637,7 @@ void test('Teacher with a legacy given-name profile can use the split login form
   await executeGraphql(
     undefined,
     `mutation BeginCompleteTeacherLogin($input: BeginCredentialLoginInput!) {
-      beginCredentialLogin(input: $input) { challengeId }
+      credentialLogin(input: $input) { session { accessToken } }
     }`,
     {
       input: { email, expectedRole: 'TEACHER', name: 'Ada Lovelace', password },
@@ -3930,6 +3875,36 @@ void test('Student can list, start, save, submit, and poll an attempt', async ()
   );
   assert.equal(requireArrayField(savedAttempt, 'answers').length, 1);
 
+  const savedWithContent = await executeGraphql(
+    studentToken,
+    `
+    mutation SaveWithContent($input: SaveAttemptAnswerInput!) {
+      saveAttemptAnswer(input: $input, language: UZ) { ...SavedPayload }
+    }
+    fragment SavedPayload on SaveAttemptAnswerPayload {
+      current: attempt { id title questions { id } sections { id } }
+    }
+  `,
+    {
+      input: {
+        attemptId,
+        questionId: requireStringField(question, 'id'),
+        selectedOptionId: requireStringField(option, 'id'),
+      },
+    },
+  );
+  const fullSavedAttempt = requireRecordField(
+    requireRecordField(savedWithContent, 'saveAttemptAnswer'),
+    'current',
+  );
+  assert.equal(requireStringField(fullSavedAttempt, 'id'), attemptId);
+  assert.equal(requireArrayField(fullSavedAttempt, 'questions').length, 1);
+  assert.equal(requireArrayField(fullSavedAttempt, 'sections').length, 1);
+  assert.equal(
+    requireStringField(fullSavedAttempt, 'title'),
+    'Fake Grammar Test',
+  );
+
   const submitted = await executeGraphql(
     studentToken,
     `mutation SubmitAttempt(
@@ -3967,6 +3942,267 @@ void test('Student can list, start, save, submit, and poll an attempt', async ()
       where: { aggregateId: attemptId },
     });
   assert.equal(outboxCount, 1);
+});
+
+void test(
+  'attempt saves serialize with submission and preserve the final persisted answers and notes',
+  { timeout: 30_000 },
+  async () => {
+    const database = requireApp().get(DatabaseService);
+    for (const saveNote of [false, true]) {
+      for (const saveFirst of [true, false]) {
+        const fixture = await createStudentTestFixture(database);
+        const token = await requireApp()
+          .get(AuthService)
+          .issueAccessToken({ id: fixture.studentId, role: UserRole.STUDENT });
+        const started = await executeGraphql(
+          token,
+          `mutation Start($input: StartTestAttemptInput!) {
+        startTestAttempt(input: $input) { attempt { id questions { id options { id } } sections { id } } }
+      }`,
+          { input: { testId: fixture.testId, language: 'UZ' } },
+        );
+        const attempt = requireRecordField(
+          requireRecordField(started, 'startTestAttempt'),
+          'attempt',
+        );
+        const attemptId = requireStringField(attempt, 'id');
+        const question = requireRecord(
+          requireArrayField(attempt, 'questions')[0],
+          'question',
+        );
+        const section = requireRecord(
+          requireArrayField(attempt, 'sections')[0],
+          'section',
+        );
+        const option = requireRecord(
+          requireArrayField(question, 'options')[0],
+          'option',
+        );
+        const save = () =>
+          saveNote
+            ? executeGraphqlExpectingErrors(
+                token,
+                `mutation Save($input: SaveAttemptSectionNoteInput!) {
+            saveAttemptSectionNote(input: $input, language: UZ) { attempt { id notes { sectionId text } } }
+          }`,
+                {
+                  input: {
+                    attemptId,
+                    sectionId: section.id,
+                    text: 'Reserved concurrent note',
+                  },
+                },
+              )
+            : executeGraphqlExpectingErrors(
+                token,
+                `mutation Save($input: SaveAttemptAnswerInput!) {
+            saveAttemptAnswer(input: $input, language: UZ) { attempt { id answers { questionId selectedOptionId } } }
+          }`,
+                {
+                  input: {
+                    attemptId,
+                    questionId: question.id,
+                    selectedOptionId: option.id,
+                  },
+                },
+              );
+        const submit = () =>
+          executeGraphqlExpectingErrors(
+            token,
+            `mutation Submit($input: SubmitTestAttemptInput!) {
+        submitTestAttempt(input: $input, language: UZ) { attempt { id status } }
+      }`,
+            { input: { attemptId } },
+          );
+
+        const responses = await queueAttemptOperations(
+          database,
+          attemptId,
+          saveFirst ? [save, submit] : [submit, save],
+        );
+        const saved = responses[saveFirst ? 0 : 1];
+        const submitted = responses[saveFirst ? 1 : 0];
+        assert.ok(saved && submitted);
+        assert.equal('errors' in submitted, false);
+        if (saveFirst) assert.equal('errors' in saved, false);
+        else {
+          const error = requireRecord(
+            requireArrayField(saved, 'errors')[0],
+            'late save error',
+          );
+          assert.equal(
+            requireRecordField(error, 'extensions').code,
+            'ATTEMPT_NOT_ACTIVE',
+          );
+        }
+        const persisted = await database.attempt.findUniqueOrThrow({
+          where: { id: attemptId },
+          include: { answers: true, sectionNotes: true },
+        });
+        assert.equal(persisted.status, AttemptStatus.SUBMITTED);
+        assert.equal(persisted.answers.length, !saveNote && saveFirst ? 1 : 0);
+        assert.equal(
+          persisted.sectionNotes.length,
+          saveNote && saveFirst ? 1 : 0,
+        );
+        if (saveFirst && !saveNote)
+          assert.equal(persisted.answers[0]?.selectedOptionId, option.id);
+        if (saveFirst && saveNote)
+          assert.equal(
+            persisted.sectionNotes[0]?.text,
+            'Reserved concurrent note',
+          );
+        await submit();
+        assert.equal(
+          await database.outboxEvent.count({
+            where: { aggregateId: attemptId },
+          }),
+          1,
+        );
+      }
+    }
+  },
+);
+
+// Queue real API requests behind an external row lock. Observe each lock wait
+// before starting the next request, avoiding timing-based concurrency assertions.
+async function queueAttemptOperations(
+  database: DatabaseService,
+  attemptId: string,
+  operations: readonly (() => Promise<Record<string, unknown>>)[],
+): Promise<Record<string, unknown>[]> {
+  const pool = new Pool({
+    connectionString: testDatabaseUrl,
+    max: 1,
+    connectionTimeoutMillis: 2_000,
+  });
+  const client = await pool.connect();
+  const requests: Promise<Record<string, unknown>>[] = [];
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      'SELECT "id" FROM "attempts" WHERE "id" = $1::uuid FOR UPDATE',
+      [attemptId],
+    );
+    for (const operation of operations) {
+      const request = operation();
+      void request.catch(() => undefined);
+      requests.push(request);
+      const deadline = Date.now() + 5_000;
+      for (;;) {
+        const rows = await database.$queryRaw<{ count: number }[]>`
+          SELECT count(*)::int AS "count" FROM pg_stat_activity
+          WHERE datname = current_database() AND wait_event_type = 'Lock'
+            AND query LIKE '%FROM "attempts"%' AND query LIKE '%FOR UPDATE%'
+        `;
+        if ((rows[0]?.count ?? 0) >= requests.length) break;
+        assert.ok(
+          Date.now() < deadline,
+          'API request did not acquire the shared attempt lock',
+        );
+        await delay(10);
+      }
+    }
+  } finally {
+    await client.query('ROLLBACK');
+    client.release();
+    await pool.end();
+    // Always drain requests after releasing the blocker, including failed assertions.
+    await Promise.allSettled(requests);
+  }
+  return Promise.all(requests);
+}
+
+void test('SQL progress aggregates best scores without mixing learners or counting retries twice', async () => {
+  const database = requireApp().get(DatabaseService);
+  const service = requireApp().get(ResultsProgressService);
+  const fixture = await createStudentProgressFixture(database, teacherId);
+  const membership = await database.groupMembership.findFirstOrThrow({
+    where: { studentId: fixture.studentId, groupId: fixture.groupId },
+  });
+  const scored = await database.attempt.findUniqueOrThrow({
+    where: { id: fixture.reviewAttemptId },
+    include: { testVersion: true },
+  });
+  const assignedTests = await database.test.findMany({
+    where: {
+      groupId: fixture.groupId,
+      status: ContentStatus.ACTIVE,
+      versions: {
+        some: {
+          status: TestVersionStatus.PUBLISHED,
+          OR: [
+            { availabilityStartsAt: null },
+            { availabilityStartsAt: { lte: new Date() } },
+          ],
+        },
+      },
+    },
+    select: { id: true },
+  });
+  const testIds = assignedTests.map(({ id }) => id);
+  const peer = await database.user.create({
+    data: { role: UserRole.STUDENT, displayName: 'Reserved aggregate peer' },
+  });
+  const peerMembership = await database.groupMembership.create({
+    data: { studentId: peer.id, groupId: fixture.groupId },
+  });
+  await database.attempt.create({
+    data: scoredAttemptData({
+      attemptNumber: 1,
+      correctAnswerCount: 9,
+      groupMembershipId: peerMembership.id,
+      passed: true,
+      percentage: 90,
+      studentId: peer.id,
+      submittedAt: new Date(),
+      testVersionId: scored.testVersionId,
+    }),
+  });
+  await database.attempt.create({
+    data: {
+      attemptNumber: 3,
+      groupMembershipId: membership.id,
+      studentId: fixture.studentId,
+      testVersionId: scored.testVersionId,
+    },
+  });
+  const membershipIds = [membership.id, peerMembership.id];
+  const all = (await service.getProgress(membershipIds, testIds, 'all')).get(
+    'all',
+  );
+  assert.ok(all);
+  assert.equal(all.assignedCount, 8);
+  assert.equal(all.attemptCount, 6);
+  assert.equal(all.completedCount, 4);
+  assert.equal(all.remainingCount, 4);
+  assert.equal(all.completionPercentage, 50);
+  assert.equal(all.awaitingScoreCount, 1);
+  assert.equal(all.scoredCount, 3);
+  assert.equal(all.passedCount, 2);
+  assert.equal(all.failedCount, 1);
+  assert.equal(all.averagePercentage, 73.33);
+  assert.equal(all.highestPercentage, 90);
+  assert.equal(all.lowestPercentage, 50);
+  assert.equal(all.hasInProgressAttempt, true);
+  const byMembership = await service.getProgress(
+    membershipIds,
+    testIds,
+    'membership',
+  );
+  assert.equal(byMembership.get(membership.id)?.averagePercentage, 65);
+  assert.equal(byMembership.get(peerMembership.id)?.averagePercentage, 90);
+  const byTest = await service.getProgress([membership.id], testIds, 'test');
+  assert.equal(byTest.get(scored.testVersion.testId)?.attemptCount, 3);
+  assert.equal(byTest.get(scored.testVersion.testId)?.highestPercentage, 80);
+  const highest = await service.getStudentHighestPercentages(
+    fixture.studentId,
+    [scored.testVersion.testId],
+  );
+  assert.equal(highest.get(scored.testVersion.testId), 80);
+  assert.equal((await service.getProgress([], testIds, 'all')).size, 0);
+  assert.equal((await service.getProgress(membershipIds, [], 'test')).size, 0);
 });
 
 void test('Student progress uses current-group completion and best score per test', async () => {
@@ -4649,7 +4885,7 @@ void test('Writing review stays private until release and persists an owner-scop
     },
   });
   const speakingSave = `mutation SaveSpeaking($input: SaveSpeakingAttemptReviewInput!) {
-    saveSpeakingAttemptReview(input: $input, language: EN) { status review { practiceBand releasedAt } }
+    saveSpeakingAttemptReview(input: $input, language: EN) { status review { practiceBand updatedAt releasedAt } }
   }`;
   const speakingInput = {
     attemptId: speakingAttempt.id,
@@ -4667,12 +4903,111 @@ void test('Writing review stays private until release and persists an owner-scop
     requireRecordField(speakingDraft, 'saveSpeakingAttemptReview').status,
     'SUBMITTED',
   );
+  const speakingDraftReview = requireRecordField(
+    requireRecordField(speakingDraft, 'saveSpeakingAttemptReview'),
+    'review',
+  );
+  const speakingRevision = requireStringField(speakingDraftReview, 'updatedAt');
+  for (const expectedUpdatedAt of [
+    undefined,
+    new Date(Date.parse(speakingRevision) - 1).toISOString(),
+  ]) {
+    const stale = await executeGraphqlExpectingErrors(
+      teacherToken,
+      speakingSave,
+      {
+        input: {
+          ...speakingInput,
+          release: true,
+          ...(expectedUpdatedAt ? { expectedUpdatedAt } : {}),
+        },
+      },
+    );
+    assert.match(JSON.stringify(stale.errors), /CONFLICT/);
+  }
+  const hiddenSpeakingDraft = await executeGraphql(
+    studentToken,
+    `query SpeakingDraft($attemptId: ID!) { studentSpeakingResult(attemptId: $attemptId, language: EN) { practiceBand } }`,
+    { attemptId: speakingAttempt.id },
+  );
+  assert.equal(hiddenSpeakingDraft.studentSpeakingResult, null);
+  const deniedSpeaking = await executeGraphqlExpectingErrors(
+    otherToken,
+    speakingSave,
+    {
+      input: {
+        ...speakingInput,
+        release: true,
+        expectedUpdatedAt: speakingRevision,
+      },
+    },
+  );
+  assert.match(JSON.stringify(deniedSpeaking.errors), /NOT_FOUND/);
+  // Both requests use the same version; exactly one may change the review.
+  const concurrentSpeakingDrafts = await Promise.all([
+    executeGraphqlExpectingErrors(teacherToken, speakingSave, {
+      input: {
+        ...speakingInput,
+        feedback: 'Reserved concurrent draft A',
+        release: false,
+        expectedUpdatedAt: speakingRevision,
+      },
+    }),
+    executeGraphqlExpectingErrors(teacherToken, speakingSave, {
+      input: {
+        ...speakingInput,
+        feedback: 'Reserved concurrent draft B',
+        release: false,
+        expectedUpdatedAt: speakingRevision,
+      },
+    }),
+  ]);
+  assert.equal(
+    concurrentSpeakingDrafts.filter((response) => 'errors' in response).length,
+    1,
+  );
+  const loser = concurrentSpeakingDrafts.find(
+    (response) => 'errors' in response,
+  );
+  assert.match(JSON.stringify(loser?.errors), /CONFLICT/);
+  const latestSpeaking = await database.attemptReview.findUniqueOrThrow({
+    where: { attemptId: speakingAttempt.id },
+  });
+  assert.ok(latestSpeaking.updatedAt.getTime() > Date.parse(speakingRevision));
+  assert.equal(latestSpeaking.releasedAt, null);
+  assert.equal(
+    await database.auditLog.count({
+      where: { targetId: speakingAttempt.id, action: 'SPEAKING_REVIEW_SAVED' },
+    }),
+    2,
+  );
   const speakingRelease = await executeGraphql(teacherToken, speakingSave, {
-    input: { ...speakingInput, release: true },
+    input: {
+      ...speakingInput,
+      release: true,
+      expectedUpdatedAt: latestSpeaking.updatedAt.toISOString(),
+    },
   });
   assert.equal(
     requireRecordField(speakingRelease, 'saveSpeakingAttemptReview').status,
     'SCORED',
+  );
+  const persistedSpeaking = await database.attempt.findUniqueOrThrow({
+    where: { id: speakingAttempt.id },
+    include: { review: true },
+  });
+  assert.equal(persistedSpeaking.status, AttemptStatus.SCORED);
+  assert.ok(persistedSpeaking.review);
+  assert.equal(persistedSpeaking.review.practiceBand.toNumber(), 6);
+  assert.ok(persistedSpeaking.review.releasedAt instanceof Date);
+  assert.equal(
+    await database.auditLog.count({
+      where: {
+        targetId: speakingAttempt.id,
+        action: 'SPEAKING_REVIEW_RELEASED',
+      },
+    }),
+    1,
   );
   const speakingStudent = await executeGraphql(
     studentToken,
@@ -6394,6 +6729,10 @@ void test('generated schema releases answer review only through the scored-resul
     /TransferRequest|requestStudentTransfer|reviewStudentTransfer|transferRequests/,
   );
   assert.match(schema, /startTestAttempt/);
+  assert.doesNotMatch(
+    schema,
+    /beginCredentialLogin|verifyCredentialLogin|resendCredentialLoginCode|CredentialLoginChallengePayload|VerifyCredentialLoginInput|ResendCredentialLoginCodeInput/,
+  );
   assert.match(schema, /studentAvailableTests/);
   assert.match(schema, /createMediaUploadIntent/);
   assert.match(schema, /confirmMediaUpload/);
@@ -6426,9 +6765,6 @@ void test('generated schema releases answer review only through the scored-resul
     assert.doesNotMatch(schema, new RegExp(`\b${removedOperation}\b`));
   }
   for (const operation of [
-    'beginCredentialLogin',
-    'verifyCredentialLogin',
-    'resendCredentialLoginCode',
     'adminProvisionUser',
     'myProfile',
     'adminUsers',
@@ -6977,6 +7313,17 @@ async function createStudentTestFixture(database: DatabaseService): Promise<{
     teacherId,
     testId: fixtureTestId,
   };
+}
+
+async function currentDraftRevision(versionId: unknown): Promise<string> {
+  assert.ok(typeof versionId === 'string');
+  const row = await requireApp()
+    .get(DatabaseService)
+    .testVersion.findUniqueOrThrow({
+      where: { id: versionId },
+      select: { updatedAt: true },
+    });
+  return row.updatedAt.toISOString();
 }
 
 async function executeGraphql(
@@ -9212,7 +9559,6 @@ void test('Admin can log in with the website split-name input and access the pro
   });
   const query = `mutation WebsiteAdminLogin($input: BeginCredentialLoginInput!) {
     credentialLogin(input: $input) {
-      challenge { challengeId }
       session { accessToken refreshToken user { id role } }
     }
   }`;
@@ -9244,7 +9590,6 @@ void test('Admin can log in with the website split-name input and access the pro
     await executeGraphql(undefined, query, { input }),
     'credentialLogin',
   );
-  assert.equal(loggedIn.challenge, null);
   const session = requireRecordField(loggedIn, 'session');
   assert.equal(requireRecordField(session, 'user').role, 'ADMIN');
   assert.ok(requireStringField(session, 'refreshToken'));
@@ -9269,7 +9614,7 @@ void test('Admin can log in with the website split-name input and access the pro
   );
 });
 
-void test('password login persists an unverified session and respects the server email-code policy', async () => {
+void test('password login persists an unverified session and enforces account and throttle policy', async () => {
   const database = requireApp().get(DatabaseService);
   const environment = requireApp().get<AuthEnvironment>(AUTH_ENVIRONMENT);
   const password = 'reserved-password-login-2026';
@@ -9286,7 +9631,6 @@ void test('password login persists an unverified session and respects the server
   });
   const query = `mutation Login($input: BeginCredentialLoginInput!) {
     credentialLogin(input: $input) {
-      challenge { challengeId }
       session { accessToken refreshToken user { id role } }
     }
   }`;
@@ -9296,17 +9640,14 @@ void test('password login persists an unverified session and respects the server
     password,
     expectedRole: 'STUDENT',
   };
-  credentialEmailSender.clear();
   const loggedIn = requireRecordField(
     await executeGraphql(undefined, query, { input }),
     'credentialLogin',
   );
-  assert.equal(loggedIn.challenge, null);
   const session = requireRecordField(loggedIn, 'session');
   assert.equal(requireRecordField(session, 'user').id, user.id);
   assert.ok(requireStringField(session, 'accessToken'));
   assert.ok(requireStringField(session, 'refreshToken'));
-  assert.equal(credentialEmailSender.getLatestMessage(), undefined);
   assert.equal(
     await database.credentialLoginChallenge.count({
       where: { userId: user.id },
@@ -9357,32 +9698,13 @@ void test('password login persists an unverified session and respects the server
   });
 
   const previousReserved = environment.allowReservedLoginEmails;
-  const previousVerification = environment.requireEmailVerification;
   try {
     environment.allowReservedLoginEmails = false;
     await reject({}, 'LOGIN_EMAIL_INVALID');
-    environment.allowReservedLoginEmails = previousReserved;
-    environment.requireEmailVerification = true;
-    const withCode = requireRecordField(
-      await executeGraphql(undefined, query, { input }),
-      'credentialLogin',
-    );
-    assert.equal(withCode.session, null);
-    assert.ok(
-      requireStringField(
-        requireRecordField(withCode, 'challenge'),
-        'challengeId',
-      ),
-    );
-    assert.ok(credentialEmailSender.getLatestMessage());
-    assert.equal(
-      await database.credentialSession.count({ where: { userId: user.id } }),
-      1,
-    );
   } finally {
     environment.allowReservedLoginEmails = previousReserved;
-    environment.requireEmailVerification = previousVerification;
   }
+  await executeGraphql(undefined, query, { input });
 
   // Successful credential validation above reset the failed-attempt counter.
   for (let index = 0; index < 5; index += 1)
@@ -9390,6 +9712,6 @@ void test('password login persists an unverified session and respects the server
   await reject({}, 'UNAUTHENTICATED');
   assert.equal(
     await database.credentialSession.count({ where: { userId: user.id } }),
-    1,
+    2,
   );
 });

@@ -12,6 +12,7 @@ import {
   ObjectType,
 } from '@nestjs/graphql';
 import { PageInfoObject } from '../pagination/page-info.object';
+
 @ObjectType('PublicCourse')
 export class PublicCourseObject {
   @Field(() => ID) id!: string;

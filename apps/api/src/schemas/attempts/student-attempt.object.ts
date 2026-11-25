@@ -170,3 +170,11 @@ export class StudentAttemptObject {
   @Field(() => StudentAttemptResultObject, { nullable: true })
   result!: StudentAttemptResultObject | null;
 }
+
+export type StudentAttemptSaveState = Pick<
+  StudentAttemptObject,
+  'id' | 'status' | 'serverTime' | 'answers' | 'notes'
+>;
+
+export type StudentAttemptSaveResult =
+  StudentAttemptObject | StudentAttemptSaveState;

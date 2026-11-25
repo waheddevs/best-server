@@ -16,9 +16,14 @@ The operator runs commands on the VPS and reviews each result before proceeding.
   Before relocating Cavora later, update and dry-run BEST renewal against the new challenge route.
 - Cookies have BEST-specific names because browser cookies are shared across ports.
   Different ports on one IP are not a security boundary against another compromised application on that IP.
-- No public signup. Admin-provisioned password login is enabled; email-code verification is deferred.
+- No public signup. Admin-provisioned password login is enabled; email-code verification has been removed.
 - Production rejects reserved example/test email addresses. Confirm an existing Admin has a usable real email before launch.
 - .env, keys, dumps, and certificate directories stay outside Git and Docker build contexts.
+
+Before deploying the auth cleanup, rename `AUTH_OTP_HASH_SECRET` to
+`AUTH_LOGIN_HASH_SECRET` in the ignored server environment file, preserving the
+value. Email verification and SMTP variables are no longer consumed. Existing
+sessions remain subject to their current rotation, expiry and revocation rules.
 
 ## 1. Repository and environment preparation (deploy user)
 
@@ -115,8 +120,7 @@ curl --fail-with-body http://127.0.0.1:3103/graphql -H 'Content-Type: applicatio
 The backend build runs build, typecheck, lint and unit tests. API health verifies
 GraphQL plus a real database read; it does not certify worker/media correctness.
 ClamAV's first signature download may take several minutes. Monitor available RAM
-and disk; build sequentially on this shared VPS. Import-worker is a manual local
-import tool, so it is not started as a daemon.
+and disk; build sequentially on this shared VPS.
 
 ## 6. Frontend and HTTPS (deploy)
 

@@ -12,12 +12,14 @@ import { parseUuid } from '../../libs/pagination/cursor-pagination';
 import type { AdminDirectoryInput } from '../../schemas/groups/admin-directory.input';
 import { TuitionLedgerStatus } from '../../schemas/finance/tuition-ledger.object';
 import { mapLedgerCharge } from './finance.service';
+
 const paymentInclude = {
   adjustments: true,
   allocations: { include: { payment: true } },
   groupMembership: { include: { group: true } },
   student: { select: { id: true, displayName: true } },
 } satisfies Prisma.TuitionChargeInclude;
+
 function paymentRow(
   row: Prisma.TuitionChargeGetPayload<{ include: typeof paymentInclude }>,
 ) {
@@ -53,15 +55,19 @@ function paymentRow(
     ].sort((a, b) => a.date.localeCompare(b.date)),
   };
 }
+
 @Injectable()
 export class AdminFinanceService {
   constructor(private readonly database: DatabaseService) {}
+
   salaryReport(input: AdminDirectoryInput) {
     return adminSalaryReport(this.database, input);
   }
+
   salaryHistory(input: AdminDirectoryInput) {
     return adminSalaryHistory(this.database, input);
   }
+
   async payments(raw: AdminDirectoryInput) {
     const input = directoryInput(raw);
     const status = directoryEnum(input.status, ['PAID', 'UNPAID']);
@@ -132,6 +138,7 @@ export class AdminFinanceService {
       ],
     };
   }
+  
   async payment(idInput: string) {
     const id = parseUuid(idInput, 'chargeId');
     const row = await this.database.tuitionCharge.findUnique({

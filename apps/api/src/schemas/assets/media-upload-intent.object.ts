@@ -1,12 +1,19 @@
 import {
   Field,
+  ObjectType,
   GraphQLISODateTime,
   ID,
   Int,
-  ObjectType,
 } from '@nestjs/graphql';
 
-import { MediaUploadHeaderObject } from './media-upload-header.object';
+@ObjectType('MediaUploadHeader')
+export class MediaUploadHeaderObject {
+  @Field(() => String)
+  name!: string;
+
+  @Field(() => String)
+  value!: string;
+}
 
 @ObjectType('MediaUploadIntent')
 export class MediaUploadIntentObject {

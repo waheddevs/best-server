@@ -35,12 +35,14 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { EventsService } from './events.service';
 import { EventCoverService } from './event-cover.service';
 import { MediaDownloadIntentObject } from '../../schemas/assets/media-download-intent.object';
+
 @Resolver()
 export class EventsResolver {
   constructor(
     private readonly service: EventsService,
     private readonly covers: EventCoverService,
   ) {}
+
   @Query(() => MediaDownloadIntentObject, { nullable: true })
   publicEventCover(@Args('eventId') eventId: string) {
     return this.covers.download(eventId);
@@ -67,6 +69,7 @@ export class EventsResolver {
   ) {
     return this.service.one(slug, language);
   }
+
   @Query(() => PublicEventConnectionObject, { name: 'adminEvents' })
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
@@ -77,6 +80,7 @@ export class EventsResolver {
   ) {
     return this.service.list(language, first, after, true);
   }
+
   @Query(() => PublicEventObject, { name: 'adminEvent' })
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
@@ -86,6 +90,7 @@ export class EventsResolver {
   ) {
     return this.service.one(slug, language, true);
   }
+
   @Mutation(() => PublicEventPayloadObject, { name: 'createEventDraft' })
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
@@ -96,6 +101,7 @@ export class EventsResolver {
   ) {
     return { event: await this.service.create(id, input, ctx.req.requestId) };
   }
+
   @Mutation(() => PublicEventPayloadObject, { name: 'updateEventDraft' })
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
@@ -113,6 +119,7 @@ export class EventsResolver {
       ),
     };
   }
+
   @Mutation(() => PublicEventPayloadObject, { name: 'setEventStatus' })
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
@@ -131,22 +138,26 @@ export class EventsResolver {
       ),
     };
   }
+
   @Mutation(() => PublicSubmissionReceiptObject, {
     name: 'submitContactRequest',
   })
   contact(@Args('input') input: SubmitContactRequestInput) {
     return this.service.contact(input);
   }
+
   @Mutation(() => PublicSubmissionReceiptObject, {
     name: 'submitExamRegistration',
   })
   exam(@Args('input') input: SubmitExamRegistrationInput) {
     return this.service.exam(input);
   }
+
   @Mutation(() => PublicSubmissionReceiptObject, { name: 'registerForEvent' })
   register(@Args('input') input: RegisterForEventInput) {
     return this.service.register(input);
   }
+
   @Query(() => AdminIntakeConnectionObject, { name: 'adminContactRequests' })
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
@@ -158,6 +169,7 @@ export class EventsResolver {
   ) {
     return this.service.intakeList('CONTACT', first, after, status);
   }
+
   @Query(() => AdminIntakeConnectionObject, { name: 'adminExamRegistrations' })
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
@@ -169,6 +181,7 @@ export class EventsResolver {
   ) {
     return this.service.intakeList('EXAM', first, after, status);
   }
+
   @Query(() => AdminIntakeConnectionObject, { name: 'adminEventRegistrations' })
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
@@ -180,6 +193,7 @@ export class EventsResolver {
   ) {
     return this.service.intakeList('EVENT', first, after, status);
   }
+
   @Mutation(() => ID, { name: 'adminRemoveMessage' })
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
@@ -190,6 +204,7 @@ export class EventsResolver {
   ) {
     return this.service.removeMessage(id, input.messageId, ctx.req.requestId);
   }
+
   @Mutation(() => AdminIntakePayloadObject, {
     name: 'adminSetContactRequestStatus',
   })
@@ -211,6 +226,7 @@ export class EventsResolver {
       ),
     };
   }
+
   @Mutation(() => AdminIntakePayloadObject, {
     name: 'adminSetExamRegistrationStatus',
   })
@@ -232,6 +248,7 @@ export class EventsResolver {
       ),
     };
   }
+  
   @Mutation(() => AdminIntakePayloadObject, {
     name: 'adminSetEventRegistrationStatus',
   })

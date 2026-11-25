@@ -8,7 +8,7 @@ import {
 import type { AccessTokenVerifier } from '../../../libs/types/access-token-verifier.type';
 import { ACCESS_TOKEN_VERIFIER } from '../auth.constants';
 import { getAuthenticatedRequest } from '../auth-context';
-import { extractBearerToken } from '../bearer-token';
+import { extractBearerToken } from '../tokens/bearer-token';
 
 @Injectable()
 export class OptionalAuthGuard implements CanActivate {

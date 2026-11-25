@@ -33,8 +33,15 @@ import {
   type ValidatedMediaUpload,
 } from './media-upload-policy';
 
+// Bound buffered uploads per API process; excess confirmations can be retried.
+const MAX_PARALLEL_MEDIA_VERIFICATIONS = 2;
+
 @Injectable()
 export class AssetsService {
+  private readonly confirmations = new Map<
+    string,
+    Promise<MediaObjectObject>
+  >();
   constructor(
     private readonly database: DatabaseService,
     private readonly storage: AssetsStorageGateway,
@@ -156,6 +163,43 @@ export class AssetsService {
     mediaObjectIdInput: string,
   ): Promise<MediaObjectObject> {
     const mediaObjectId = parseUuid(mediaObjectIdInput, 'mediaObjectId');
+    const key = `${creatorId.toLowerCase()}:${mediaObjectId.toLowerCase()}`;
+    const existing = this.confirmations.get(key);
+    if (existing !== undefined) return existing;
+
+    // Resolve ownership before admission, including when the process is busy.
+    const mediaObject = await this.findOwnedMediaObject(
+      creatorId,
+      mediaObjectId,
+    );
+    if (
+      mediaObject.status === MediaObjectStatus.READY &&
+      mediaObject.malwareStatus === MediaMalwareStatus.CLEAN
+    ) {
+      return mapMediaObject(mediaObject);
+    }
+    const pending = this.confirmations.get(key);
+    if (pending !== undefined) return pending;
+    if (this.confirmations.size >= MAX_PARALLEL_MEDIA_VERIFICATIONS) {
+      throw new ApplicationError(
+        ErrorCode.SERVICE_UNAVAILABLE,
+        'Media verification is busy; retry shortly',
+        503,
+      );
+    }
+    const confirmation = this.verifyMediaUpload(creatorId, mediaObjectId);
+    this.confirmations.set(key, confirmation);
+    try {
+      return await confirmation;
+    } finally {
+      this.confirmations.delete(key);
+    }
+  }
+
+  private async verifyMediaUpload(
+    creatorId: string,
+    mediaObjectId: string,
+  ): Promise<MediaObjectObject> {
     let mediaObject = await this.findOwnedMediaObject(creatorId, mediaObjectId);
 
     if (

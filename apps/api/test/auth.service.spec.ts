@@ -5,7 +5,7 @@ import { UserRole } from '@best/database';
 import { UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 
-import { AuthService } from '../src/components/auth/auth.service';
+import { AuthService } from '../src/components/auth/tokens/auth.service';
 import type { AuthIdentityReader } from '../src/libs/types/auth-identity-reader.type';
 import type { AuthenticatedMember } from '../src/libs/types/authenticated-member.type';
 

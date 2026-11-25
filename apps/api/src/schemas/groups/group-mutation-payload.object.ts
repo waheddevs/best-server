@@ -1,5 +1,4 @@
 import { Field, ObjectType } from '@nestjs/graphql';
-
 import { GroupObject, GroupRosterMemberObject } from './group.object';
 
 @ObjectType('GroupMutationPayload')

@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
+import type { TestContext } from 'node:test';
+import type { RequestListener } from 'node:http';
 
 import type { ObjectStorageEnvironment } from '@best/config';
 
@@ -20,6 +22,94 @@ const environment: ObjectStorageEnvironment = {
   secretAccessKey: 'fake-secret-key-with-enough-length',
   uploadUrlTtlSeconds: 300,
 };
+
+async function storageServer(context: TestContext, handler: RequestListener) {
+  const server = createServer(handler);
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const address = server.address();
+  assert.ok(address && typeof address !== 'string');
+  const storage = new ObjectStorageClient({
+    ...environment,
+    endpoint: `http://127.0.0.1:${String(address.port)}`,
+  });
+  context.after(async () => {
+    storage.destroy();
+    server.closeAllConnections();
+    await new Promise<void>((resolve) =>
+      server.close(() => {
+        resolve();
+      }),
+    );
+  });
+  return storage;
+}
+
+void test('reads a chunked object exactly at the limit with its ETag condition', async (context) => {
+  const storage = await storageServer(context, (request, response) => {
+    assert.equal(request.headers['if-match'], '"fictional-etag"');
+    response.writeHead(200);
+    response.write(Buffer.from([1, 2]));
+    setImmediate(() => response.end(Buffer.from([3, 4])));
+  });
+  assert.deepEqual(
+    await storage.readObject('private/fictional', '"fictional-etag"', 4),
+    new Uint8Array([1, 2, 3, 4]),
+  );
+});
+
+void test(
+  'cancels an oversized chunked body before the server finishes sending',
+  { timeout: 3_000 },
+  async (context) => {
+    let resolveClosed: () => void = () => undefined;
+    const closed = new Promise<void>((resolve) => {
+      resolveClosed = resolve;
+    });
+    const storage = await storageServer(context, (_request, response) => {
+      response.once('close', resolveClosed);
+      response.writeHead(200);
+      response.write(Buffer.alloc(4));
+      setImmediate(() => response.write(Buffer.alloc(4)));
+      // Deliberately never finish: the client must cancel as soon as the limit is exceeded.
+    });
+    await assert.rejects(
+      storage.readObject('private/fictional', 'test', 5),
+      StorageInputError,
+    );
+    await closed;
+  },
+);
+
+void test(
+  'rejects oversized Content-Length without draining the body',
+  { timeout: 3_000 },
+  async (context) => {
+    let resolveClosed: () => void = () => undefined;
+    const closed = new Promise<void>((resolve) => {
+      resolveClosed = resolve;
+    });
+    const storage = await storageServer(context, (_request, response) => {
+      response.once('close', resolveClosed);
+      response.writeHead(200, { 'Content-Length': '1000' });
+      response.write(Buffer.alloc(1));
+    });
+    await assert.rejects(
+      storage.readObject('private/fictional', 'test', 5),
+      StorageInputError,
+    );
+    await closed;
+  },
+);
+
+void test('rejects an interrupted object body instead of returning partial bytes', async (context) => {
+  const storage = await storageServer(context, (_request, response) => {
+    response.writeHead(200, { 'Content-Length': '10' });
+    response.write(Buffer.alloc(1));
+    setImmediate(() => response.destroy());
+  });
+  await assert.rejects(storage.readObject('private/fictional', 'test', 10));
+});
 
 void test('creates opaque owner-scoped private object keys', () => {
   assert.equal(

@@ -7,7 +7,6 @@ import {
   UserStatus,
 } from '@best/database';
 import { Injectable } from '@nestjs/common';
-
 import { DatabaseService } from '../../database/database.service';
 import { ErrorCode } from '../../libs/enums/error-code.enum';
 import { ApplicationError } from '../../libs/errors/application.error';

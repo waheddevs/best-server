@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { CredentialPasswordService } from '../src/components/auth/credential-password.service';
+import { CredentialPasswordService } from '../src/components/auth/credentials/credential-password.service';
 
 void test('CredentialPasswordService stores Argon2id and verifies it', async () => {
   const service = new CredentialPasswordService();

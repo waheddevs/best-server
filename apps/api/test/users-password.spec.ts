@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { CredentialPasswordService } from '../src/components/auth/credential-password.service';
+import { CredentialPasswordService } from '../src/components/auth/credentials/credential-password.service';
 import { UsersService } from '../src/components/users/users.service';
 import type { DatabaseService } from '../src/database/database.service';
 

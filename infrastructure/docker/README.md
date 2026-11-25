@@ -51,13 +51,10 @@ authenticated or encrypted, so never expose this port publicly. Allow roughly
 4 GB of available memory for the scanner during local startup and wait for its
 built-in health check/signature initialization before running the API.
 
-## Development email inbox
+## Password login
 
-Mailpit `v1.31.1` is the pinned local-only SMTP capture service. The API sends
-login codes to `127.0.0.1:1025`, and its inbox is available at
-`http://localhost:8025`. Both ports bind to host loopback only. Mailpit does not
-deliver messages to the internet and must not be used as production email
-infrastructure; production SMTP values must point to the selected real provider.
+Password login does not require an SMTP service. The retired Mailpit service
+has been removed from the local stack.
 
 ## Listening text-to-speech
 

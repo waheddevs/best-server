@@ -2,6 +2,11 @@
 
 Status: approved for implementation on 2026-09-26.
 
+Static Academic catalog seeds were retired on 2026-11-26. Seed descriptions
+below are historical; active practice reads and Teacher creation still use
+PostgreSQL and the existing authorized API. Retain stored papers, versions,
+attempts, results, models, and migrations.
+
 ## Scope
 
 The Teacher group Practices tab lists active `TestPaper` records as a paged

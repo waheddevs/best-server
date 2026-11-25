@@ -32,7 +32,6 @@
     "database:validate": "turbo run validate --filter=@best/database",
     "dev": "turbo run dev --parallel",
     "dev:api": "turbo run dev --filter=@best/api",
-    "dev:import": "turbo run dev --filter=@best/import-worker",
     "dev:scoring": "turbo run dev --filter=@best/scoring-worker",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

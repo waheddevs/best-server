@@ -24,7 +24,7 @@ import type {
   TeacherGroupRosterSummaryObject,
 } from '../../schemas/groups/group.object';
 import type { TeacherCreateStudentInGroupInput } from '../../schemas/groups/membership.input';
-import { CredentialPasswordService } from '../auth/credential-password.service';
+import { CredentialPasswordService } from '../auth/credentials/credential-password.service';
 
 const GROUP_LEARNER_CAPACITY = 15;
 

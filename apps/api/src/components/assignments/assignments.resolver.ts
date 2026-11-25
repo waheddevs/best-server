@@ -29,9 +29,11 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { AssignmentsService } from './assignments.service';
+
 @Resolver()
 export class AssignmentsResolver {
   constructor(private readonly service: AssignmentsService) {}
+
   @Query(() => AssignmentConnectionObject, { name: 'teacherGroupAssignments' })
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.TEACHER)
@@ -45,6 +47,7 @@ export class AssignmentsResolver {
   ) {
     return this.service.teacherList(id, groupId, first, after, status);
   }
+
   @Query(() => AssignmentObject, { name: 'teacherAssignment' })
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.TEACHER)
@@ -54,6 +57,7 @@ export class AssignmentsResolver {
   ) {
     return this.service.teacherOne(id, assignmentId);
   }
+
   @Query(() => AssignmentSubmissionConnectionObject, {
     name: 'teacherAssignmentSubmissions',
   })
@@ -69,6 +73,7 @@ export class AssignmentsResolver {
   ) {
     return this.service.submissions(id, assignmentId, first, after, status);
   }
+
   @Query(() => AssignmentConnectionObject, { name: 'studentAssignments' })
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.STUDENT)
@@ -81,6 +86,7 @@ export class AssignmentsResolver {
   ) {
     return this.service.studentList(id, first, after, status);
   }
+
   @Query(() => AssignmentObject, { name: 'studentAssignment' })
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.STUDENT)
@@ -90,6 +96,7 @@ export class AssignmentsResolver {
   ) {
     return this.service.studentOne(id, assignmentId);
   }
+
   @Mutation(() => AssignmentPayloadObject, { name: 'createAssignment' })
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.TEACHER)
@@ -102,6 +109,7 @@ export class AssignmentsResolver {
       assignment: await this.service.create(id, input, ctx.req.requestId),
     };
   }
+
   @Mutation(() => AssignmentPayloadObject, { name: 'updateAssignment' })
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.TEACHER)
@@ -119,6 +127,7 @@ export class AssignmentsResolver {
       ),
     };
   }
+
   @Mutation(() => AssignmentPayloadObject, { name: 'publishAssignment' })
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.TEACHER)
@@ -135,6 +144,7 @@ export class AssignmentsResolver {
       ),
     };
   }
+
   @Mutation(() => AssignmentPayloadObject, { name: 'closeAssignment' })
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.TEACHER)
@@ -151,6 +161,7 @@ export class AssignmentsResolver {
       ),
     };
   }
+
   @Mutation(() => AssignmentSubmissionPayloadObject, {
     name: 'submitAssignment',
   })
@@ -162,6 +173,7 @@ export class AssignmentsResolver {
   ) {
     return { submission: await this.service.submit(id, input) };
   }
+  
   @Mutation(() => AssignmentSubmissionPayloadObject, {
     name: 'reviewAssignmentSubmission',
   })

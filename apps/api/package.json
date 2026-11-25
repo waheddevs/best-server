@@ -9,7 +9,7 @@
     "generate": "nest generate",
     "lint": "eslint \"{src,test}/**/*.ts\"",
     "start": "node dist/main.js",
-    "test": "tsc -p tsconfig.test.json && node --test ../../.tmp/api-test/test/login-email.spec.js ../../.tmp/api-test/test/auth-guards.spec.js ../../.tmp/api-test/test/auth.service.spec.js ../../.tmp/api-test/test/credential-password.service.spec.js ../../.tmp/api-test/test/cursor-pagination.spec.js ../../.tmp/api-test/test/finance-ledger.spec.js ../../.tmp/api-test/test/global-exception.filter.spec.js ../../.tmp/api-test/test/kokoro-listening-audio.gateway.spec.js ../../.tmp/api-test/test/media-upload-policy.spec.js ../../.tmp/api-test/test/teacher-dashboard-metrics.spec.js ../../.tmp/api-test/test/users-deletion.spec.js ../../.tmp/api-test/test/users-password.spec.js ../../.tmp/api-test/test/domain-services.spec.js",
+    "test": "tsc -p tsconfig.test.json && node --test ../../.tmp/api-test/test/login-email.spec.js ../../.tmp/api-test/test/auth-guards.spec.js ../../.tmp/api-test/test/auth.service.spec.js ../../.tmp/api-test/test/credential-password.service.spec.js ../../.tmp/api-test/test/cursor-pagination.spec.js ../../.tmp/api-test/test/finance-ledger.spec.js ../../.tmp/api-test/test/global-exception.filter.spec.js ../../.tmp/api-test/test/kokoro-listening-audio.gateway.spec.js ../../.tmp/api-test/test/media-upload-policy.spec.js ../../.tmp/api-test/test/teacher-dashboard-metrics.spec.js ../../.tmp/api-test/test/users-deletion.spec.js ../../.tmp/api-test/test/users-password.spec.js ../../.tmp/api-test/test/domain-services.spec.js ../../.tmp/api-test/test/clamav-malware-scanner.gateway.spec.js ../../.tmp/api-test/test/assets.service.spec.js ../../.tmp/api-test/test/attempt-save-selection.spec.js ../../.tmp/api-test/test/attempts.service.spec.js ../../.tmp/api-test/test/credential-auth.spec.js ../../.tmp/api-test/test/results-review.spec.js ../../.tmp/api-test/test/test-draft-concurrency.spec.js",
     "test:integration": "tsc -p tsconfig.integration.json && node --test --test-concurrency=1 ../../.tmp/api-integration/test/graphql-student.integration.spec.js ../../.tmp/api-integration/test/debt-notification-reconciler.integration.spec.js",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test:ai": "tsc -p tsconfig.integration.json && node --test --test-concurrency=1 ../../.tmp/api-integration/test/teacher-ai.integration.spec.js",
@@ -34,7 +34,6 @@
     "express": "5.2.1",
     "graphql": "16.11.0",
     "kokoro-js": "1.2.1",
-    "nodemailer": "^10.0.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "zod": "^4.6.5"
@@ -43,7 +42,6 @@
     "@best/assistant-worker": "workspace:*",
     "@nestjs/cli": "^11.0.0",
     "@nestjs/testing": "^11.2.3",
-    "@types/express": "^5",
-    "@types/nodemailer": "^8.0.1"
+    "@types/express": "^5"
   }
 }

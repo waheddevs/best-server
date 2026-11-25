@@ -29,6 +29,70 @@ policy uses seven-day active-storage retention and per-conversation consent.
 API key, eligible free/private endpoint and pilot Teacher selection remain the
 live activation gate. Automated inference tests use fictional transport only.
 
+## Telegram import cancellation - 2026-11-25
+
+The owner cancelled Telegram import, including the local vocabulary pilot, and
+approved removing `apps/import-worker` and its associated runtime logic,
+commands, tests, and dependencies. Do not recreate this worker or import flow.
+Retain historical Prisma models, enums, relations, applied migrations, and
+database constraint tests until a separately reviewed data-retention migration.
+Shared Library/media services and unrelated test/roster imports remain active.
+This decision supersedes historical import plans below.
+
+## Static IELTS test source retirement - 2026-11-26
+
+The owner approved removal of the easyIELTS static source snapshot, importer,
+normalization helpers, and importer-only tests, plus the Academic test seed and
+remaining static catalog. This supersedes earlier instructions to preserve
+these dynamically loaded inputs. Retain existing database test content,
+`TestImportSource`, all Prisma models and applied migrations, and the active
+database-backed authoring, delivery, scoring, and review contracts.
+The production read-only count check confirmed 39 easyIELTS draft versions,
+49 sections, and 192 questions; text equality and Academic catalog completeness
+were not independently verified. This cleanup does not query or modify production.
+Preserve the unlinked WAV under `packages/database/assets/gt-community-hall-p1.wav`;
+it is retained for manual media review, not served automatically. Other domain
+seeds and operational backfills are outside this test-content cleanup.
+
+## Demo fixture script retirement - 2026-11-26
+
+The owner approved removing the six local demo scripts for Teacher group
+rosters, payment fixtures, lesson plans, finance snapshots, and Teacher/Student
+notifications, together with their package commands. Do not recreate those
+demo import/seed entry points. Preserve active domain APIs and existing data.
+Notification integration tests now create reserved fixtures directly inside
+their disposable test database; ownership, pagination, unread-count, and read
+state coverage must remain. Public content seeding, the group tuition-rate
+backfill, Prisma schema, and applied migrations remain in scope and unchanged.
+This decision supersedes the older retention instructions for those six scripts.
+
+## Group tuition-rate backfill retirement - 2026-11-26
+
+The owner approved removing the standalone group tuition-rate backfill script
+and its TypeScript configuration references. Preserve existing GroupTuitionRate
+and audit rows, group creation/editing rate writes, the Prisma schema, and
+applied migrations. This supersedes earlier instructions to retain that script.
+
+## GraphQL documentation cleanup - 2026-11-26
+
+The owner approved removing the Markdown planning documents in
+`packages/graphql`, retaining its README and generated schema. Existing approved
+scope, domain authorization, and contract generation requirements remain active.
+Do not recreate the removed plans as part of routine source cleanup.
+
+## Password-only authentication cleanup - 2026-11-26
+
+The owner cancelled email-code authentication and approved grouping auth files
+under credentials/ and tokens/, with separate login and credential-session
+services. Remove code challenge, verification, resend and SMTP runtime logic,
+GraphQL operations and configuration. Use credentialLogin directly; preserve
+password hashing, profile checks, active database-owned roles, login throttling,
+JWT validation, refresh rotation/reuse detection, session revocation and audit.
+AUTH_LOGIN_HASH_SECRET replaces the old OTP-named secret for login throttling;
+rename the deployment key while keeping its independent secret value. Never
+reuse the JWT key. Historical challenge models, columns and applied migrations
+remain until a separately reviewed retention migration. This supersedes
+historical email-code requirements and the former root auth.service.ts path.
 
 ## Current milestone
 
@@ -111,12 +175,11 @@ stable Prisma migrations; do not adopt a release candidate migration format.
 
 The approved 7D boundary adds ClamAV verification, Teacher-owned category and
 Library item management, group-scoped Student reads, and authorized signed
-downloads. The revised vocabulary pilot is approved for local Telegram HTML
-exports, PDF text extraction, private SeaweedFS storage, PostgreSQL review
-drafts, and idempotent source identity. Do not implement TDLib, queues,
-credentials, bulk synchronization, automatic rights approval, or automatic
-publication yet. Permanent media deletion and subscriptions remain outside the
-current scope. Student/Admin frontend integration, protected role routes, and
+downloads. Telegram import and the local vocabulary pilot are cancelled.
+Do not implement TDLib, import queues, credentials, bulk synchronization,
+automatic rights approval, or automatic publication. Permanent media deletion
+and subscriptions remain outside the current scope. Student/Admin frontend
+integration, protected role routes, and
 the contracts required by sections 20B-20D of the frontend `AGENTS.md` are now
 active scope.
 The former Auth.js social-provider exchange is superseded. Authentication now
@@ -142,7 +205,7 @@ been documented and approved. Do not replace the selected SeaweedFS local
 provider, add an archived MinIO Community image, or accept a new provider
 license on the user's behalf without a new review.
 
-Do not extend the vocabulary pilot, implement subscriptions, or reintroduce
+Do not restore the vocabulary pilot, implement subscriptions, or reintroduce
 social-provider callbacks or public account creation. Student/Admin education and
 operations APIs are approved only within the route/feature inventory in the
 frontend sections 20B-20D. Payments are limited to authorized invoice/ledger
@@ -201,7 +264,6 @@ are approved.
 ```text
 apps/
   api/                  NestJS GraphQL application
-  import-worker/        Approved local vocabulary import pilot
   scoring-worker/       Deterministic scoring worker
 packages/
   database/             Prisma schema, migrations, generated client, and DB API
@@ -298,8 +360,15 @@ dashboard. Split high-load workloads, not presentation areas.
       auth.guard.ts
       optional-auth.guard.ts
       roles.guard.ts
+    credentials/
+      credential-login.service.ts
+      credential-session.service.ts
+      credential-password.service.ts
+    tokens/
+      auth.service.ts
+      bearer-token.ts
     auth.module.ts
-    auth.service.ts
+    auth.resolver.ts
   ```
 
   `OptionalAuthGuard` is the project-safe equivalent of a reference
@@ -367,14 +436,6 @@ limited to `DatabaseModule` and `ComponentsModule`. Expected shared errors use
 inside their owning component. Every response carries a server-generated
 request ID. Unknown errors, stack traces, Prisma details, SQL, tokens, and
 sensitive payloads must be masked from clients.
-
-### Import worker
-
-The import worker is a NestJS standalone application context, not an HTTP
-server. Its approved synchronous pilot reads local Telegram HTML exports,
-extracts embedded PDF text, uploads originals privately, and persists
-review-only vocabulary drafts. Do not add Telegram network dependencies,
-credentials, queue processors, bulk synchronization, or automatic publication.
 
 ### Scoring worker
 
@@ -505,8 +566,8 @@ local provider, signing primitives, and tests are implemented. Step 7B media
 lifecycle migrations and database invariants are also implemented. Step 7C
 private upload, confirmation, and owner-download mutations are implemented.
 Step 7D malware scanning, Teacher Library management, Student authorization,
-and signed delivery are implemented. Step 7 is complete. The limited revised
-vocabulary import pilot is implemented. Step 8A through 8K are implemented;
+and signed delivery are implemented. Step 7 is complete. The local vocabulary
+import pilot was removed on 2026-11-25. Step 8A through 8K are implemented;
 The Student/Admin integration portion of Step 9 and hardening required by those
 vertical slices are approved. Unrelated production-platform expansion still
 requires separate review.
@@ -518,8 +579,8 @@ from the frontend planning document. The active milestone and implementation
 boundaries at the top of this file take precedence when a later decision or
 completed phase makes historical planning language stale. The frontend remains
 in the sibling `best-react` repository; it is not moved into this backend repo.
-Historical Telegram/TDLib synchronization language remains inactive. Only the
-approved local-export vocabulary pilot may be implemented.
+Historical Telegram/TDLib synchronization and local-export vocabulary plans
+are cancelled; do not implement or restore them.
 
 ### Backend technology decisions
 
@@ -537,7 +598,7 @@ approved local-export vocabulary pilot may be implemented.
   object-storage milestone.
 - Use GraphQL Code Generator to derive frontend operation result and variable
   types from the generated GraphQL schema and authored operations.
-- Deploy the web, API, import worker, and scoring worker independently. Do not
+- Deploy the web, API, assistant worker, and scoring worker independently. Do not
   create one backend server per dashboard.
 - Do not create an AI worker in the initial backend milestone. Define only the
   versioned contracts required for a separately approved AI milestone.
@@ -552,7 +613,6 @@ preset guidance rather than copying outdated setup patterns.
 ```text
 apps/
   api/                  NestJS GraphQL API
-  import-worker/        Local vocabulary import pilot
   scoring-worker/       Deterministic test-scoring consumer
 packages/
   database/             Prisma schema, migrations, seeds, and client
@@ -585,7 +645,7 @@ Browser
 
 - Build every app as an independent artifact and container.
 - Keep the API stateless so multiple replicas can run behind a load balancer.
-- Scale import and scoring workers by queue workload without scaling the web or
+- Scale assistant and scoring workers by queue workload without scaling the web or
   API unnecessarily.
 - Use one PostgreSQL primary and one Redis deployment initially. Introduce
   connection pooling, replicas, partitioning, or additional services only when
@@ -874,9 +934,10 @@ the Student dashboard, courses, schedule, assignments, Library, tests, results,
 progress, read-only tuition ledger, notifications, and settings, plus the
 operational Admin dashboard, intake requests, users, groups, courses, events,
 locations, schedule, attendance, read-only ledger, tests/results, Library,
-imports, transfers, notifications, audit, reports, and settings. Keep the
-route-to-operation map current in
-`packages/graphql/DASHBOARD_CONTRACT_MATRIX.md`.
+imports, transfers, notifications, audit, reports, and settings. Verify approved
+route operations against the generated `packages/graphql/schema.graphql` and
+the API's registered resolvers. The active scope decisions above supersede
+retired routes in this historical inventory.
 
 The first vertical slice remains the reference transaction:
 
@@ -1054,7 +1115,7 @@ Phase 5 — Library:
 
 - Implement object storage, Library GraphQL API, media safety, localization
   readiness, and protected Student Library integration. This phase is complete;
-  the limited local-export vocabulary pilot is implemented separately.
+  the local-export vocabulary pilot was removed on 2026-11-25.
 
 Phase 6 — Results and Progress:
 
@@ -1074,7 +1135,6 @@ Phase 8 — future AI evaluation:
 ## Approved Admin editorial expansion â€” 2026-10-11
 
 The owner approved connected Overview, Requests (course/event/exam registrations), Notifications, Courses, public Exam offerings/sessions, and Events. Reuse existing persisted public content; Admin editing includes all translations and nested content. Contact submissions stay in Messages. Admin dropdowns and styles remain Admin-owned copies of the approved directory design. No public test-taking or payment execution is introduced.
-
 
 ## Approved backend source cleanup - 2026-11-24
 

@@ -27,6 +27,7 @@ import {
 @Injectable()
 export class AdminGroupsService {
   constructor(private readonly database: DatabaseService) {}
+
   async options() {
     const [teachers, groups, students] = await Promise.all([
       this.database.user.findMany({
@@ -63,6 +64,7 @@ export class AdminGroupsService {
       })),
     };
   }
+
   async directory(raw: AdminDirectoryInput) {
     const input = directoryInput(raw);
     const status = directoryEnum(input.status, [
@@ -126,6 +128,7 @@ export class AdminGroupsService {
       ],
     };
   }
+
   async save(
     actorId: string,
     input: AdminSaveGroupInput,
@@ -252,6 +255,7 @@ export class AdminGroupsService {
       );
     });
   }
+  
   async setStatus(
     actorId: string,
     idInput: string,

@@ -10,14 +10,17 @@ import { ErrorCode } from '../../libs/enums/error-code.enum';
 import { ApplicationError } from '../../libs/errors/application.error';
 import { parseUuid } from '../../libs/pagination/cursor-pagination';
 import type { StudentAttemptObject } from '../../schemas/attempts/student-attempt.object';
+import type { StudentAttemptSaveState } from '../../schemas/attempts/student-attempt.object';
 import type { StudentReleasedAttemptResultObject } from '../../schemas/attempts/student-released-attempt-result.object';
-import { normalizeObjectiveText } from '@best/scoring';
+import {
+  isObjectiveAnswerCorrect,
+  resolveObjectiveOptionIds,
+} from '@best/scoring';
 import {
   mapStudentTablePayload,
   mapResult,
   hasCompleteTranslation,
 } from './attempt-view';
-import { sameStringSet } from './attempt-answer-validation';
 import {
   inaccessibleAttemptError,
   unavailableTranslationError,
@@ -26,6 +29,50 @@ import {
 @Injectable()
 export class AttemptReadService {
   constructor(private readonly database: DatabaseService) {}
+
+  async loadStudentAttemptSaveState(
+    studentId: string,
+    attemptId: string,
+  ): Promise<StudentAttemptSaveState> {
+    const attempt = await this.database.attempt.findFirst({
+      where: { id: attemptId, studentId },
+      select: {
+        id: true,
+        status: true,
+        answers: {
+          orderBy: { questionId: 'asc' },
+          select: {
+            questionId: true,
+            responseMediaObjectId: true,
+            savedAt: true,
+            selectedOptionId: true,
+            textValue: true,
+            selections: {
+              orderBy: { position: 'asc' },
+              select: { answerOptionId: true },
+            },
+          },
+        },
+        sectionNotes: {
+          orderBy: { savedAt: 'asc' },
+          select: { sectionId: true, text: true, savedAt: true },
+        },
+      },
+    });
+    if (attempt === null) throw inaccessibleAttemptError();
+    return {
+      id: attempt.id,
+      status: attempt.status,
+      serverTime: new Date(),
+      answers: attempt.answers.map(({ selections, ...answer }) => ({
+        ...answer,
+        selectedOptionIds: selections.map(
+          ({ answerOptionId }) => answerOptionId,
+        ),
+      })),
+      notes: attempt.sectionNotes,
+    };
+  }
   async getStudentReleasedAttemptResult(
     studentId: string,
     attemptIdInput: string,
@@ -181,11 +228,10 @@ export class AttemptReadService {
         (option) => option.isCorrect,
       );
       const correctOptionIds = correctOptions.map((option) => option.id).sort();
-      const selectedOptionIds = [
-        ...(response?.selectedOptionId ? [response.selectedOptionId] : []),
-        ...(response?.selections.map((selection) => selection.answerOptionId) ??
-          []),
-      ].sort();
+      const selectedOptionIds = resolveObjectiveOptionIds(
+        response?.selectedOptionId,
+        response?.selections.map((selection) => selection.answerOptionId),
+      );
       const correctAnswer =
         question.acceptedAnswers.length > 0
           ? question.acceptedAnswers.map((answer) => answer.normalizedValue)
@@ -204,16 +250,23 @@ export class AttemptReadService {
                 selection.answerOption.translations[0]?.text ??
                 selection.answerOption.id,
             ) ?? []);
-      const isCorrect =
-        question.acceptedAnswers.length > 0
-          ? response?.textValue !== null && response?.textValue !== undefined
-            ? question.acceptedAnswers.some(
-                (answer) =>
-                  normalizeObjectiveText(response.textValue ?? '') ===
-                  answer.normalizedValue,
-              )
-            : false
-          : sameStringSet(correctOptionIds, selectedOptionIds);
+      if (question.kind === 'LONG_TEXT' || question.kind === 'AUDIO_RESPONSE') {
+        throw new ApplicationError(
+          ErrorCode.INTERNAL_SERVER_ERROR,
+          'An objective result contains a manual-response question',
+          500,
+        );
+      }
+      const isCorrect = isObjectiveAnswerCorrect({
+        questionId: question.id,
+        kind: question.kind,
+        correctOptionIds,
+        selectedOptionIds,
+        acceptedTextValues: question.acceptedAnswers.map(
+          (answer) => answer.normalizedValue,
+        ),
+        textValue: response?.textValue ?? '',
+      });
 
       return {
         correctAnswer,

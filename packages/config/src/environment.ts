@@ -13,19 +13,8 @@ export interface AuthEnvironment {
   accessTokenIssuer: string;
   accessTokenSecret: string;
   accessTokenTtlSeconds: number;
-  credentialEmail: CredentialEmailEnvironment | undefined;
-  requireEmailVerification: boolean;
   allowReservedLoginEmails: boolean;
-  otpHashSecret: string;
-}
-
-export interface CredentialEmailEnvironment {
-  from: string;
-  host: string;
-  password: string | undefined;
-  port: number;
-  secure: boolean;
-  user: string | undefined;
+  loginHashSecret: string;
 }
 
 export interface WorkerEnvironment {
@@ -68,6 +57,8 @@ export interface MalwareScannerEnvironment {
 }
 
 export interface TextToSpeechEnvironment {
+  generationTimeoutMilliseconds: number;
+  maxQueuedGenerations: number;
   defaultVoice: string;
   maxTranscriptCharacters: number;
   modelDtype: 'fp32' | 'fp16' | 'q8' | 'q4' | 'q4f16';
@@ -113,11 +104,6 @@ export function parseAuthEnvironment(
   source: EnvironmentSource,
 ): AuthEnvironment {
   const nodeEnvironment = parseNodeEnvironment(source.NODE_ENV);
-  const requireEmailVerification = parseBoolean(
-    source.AUTH_REQUIRE_EMAIL_VERIFICATION,
-    'AUTH_REQUIRE_EMAIL_VERIFICATION',
-    false,
-  );
   const accessTokenSecret = parseRequiredString(
     source.JWT_ACCESS_SECRET,
     'JWT_ACCESS_SECRET',
@@ -130,21 +116,21 @@ export function parseAuthEnvironment(
     );
   }
 
-  const otpHashSecret = parseRequiredString(
-    source.AUTH_OTP_HASH_SECRET,
-    'AUTH_OTP_HASH_SECRET',
+  const loginHashSecret = parseRequiredString(
+    source.AUTH_LOGIN_HASH_SECRET,
+    'AUTH_LOGIN_HASH_SECRET',
   );
 
-  if (otpHashSecret.length < MINIMUM_ACCESS_TOKEN_SECRET_LENGTH) {
+  if (loginHashSecret.length < MINIMUM_ACCESS_TOKEN_SECRET_LENGTH) {
     throw new EnvironmentValidationError(
-      'AUTH_OTP_HASH_SECRET',
+      'AUTH_LOGIN_HASH_SECRET',
       `expected at least ${String(MINIMUM_ACCESS_TOKEN_SECRET_LENGTH)} characters`,
     );
   }
 
-  if (otpHashSecret === accessTokenSecret) {
+  if (loginHashSecret === accessTokenSecret) {
     throw new EnvironmentValidationError(
-      'AUTH_OTP_HASH_SECRET',
+      'AUTH_LOGIN_HASH_SECRET',
       'expected a value different from JWT_ACCESS_SECRET',
     );
   }
@@ -166,60 +152,8 @@ export function parseAuthEnvironment(
       3_600,
       DEFAULT_ACCESS_TOKEN_TTL_SECONDS,
     ),
-    credentialEmail: parseCredentialEmailEnvironment(
-      source,
-      requireEmailVerification,
-    ),
-    requireEmailVerification,
     allowReservedLoginEmails: nodeEnvironment !== 'production',
-    otpHashSecret,
-  };
-}
-
-function parseCredentialEmailEnvironment(
-  source: EnvironmentSource,
-  required: boolean,
-): CredentialEmailEnvironment | undefined {
-  const mode = parseOptionalString(
-    source.AUTH_EMAIL_DELIVERY_MODE,
-  )?.toLowerCase();
-  const normalizedMode = mode ?? (required ? 'smtp' : 'disabled');
-
-  if (normalizedMode === 'disabled') {
-    if (required) {
-      throw new EnvironmentValidationError(
-        'AUTH_EMAIL_DELIVERY_MODE',
-        'SMTP delivery is required when email verification is enabled',
-      );
-    }
-
-    return undefined;
-  }
-
-  if (normalizedMode !== 'smtp') {
-    throw new EnvironmentValidationError(
-      'AUTH_EMAIL_DELIVERY_MODE',
-      'expected smtp or disabled',
-    );
-  }
-
-  const user = parseOptionalString(source.AUTH_SMTP_USER);
-  const password = parseOptionalString(source.AUTH_SMTP_PASSWORD);
-
-  if ((user === undefined) !== (password === undefined)) {
-    throw new EnvironmentValidationError(
-      user === undefined ? 'AUTH_SMTP_USER' : 'AUTH_SMTP_PASSWORD',
-      'SMTP username and password must be configured together',
-    );
-  }
-
-  return {
-    from: parseRequiredString(source.AUTH_EMAIL_FROM, 'AUTH_EMAIL_FROM'),
-    host: parseNetworkHost(source.AUTH_SMTP_HOST, 'AUTH_SMTP_HOST'),
-    password,
-    port: parsePort(source.AUTH_SMTP_PORT, 'AUTH_SMTP_PORT'),
-    secure: parseBoolean(source.AUTH_SMTP_SECURE, 'AUTH_SMTP_SECURE', false),
-    user,
+    loginHashSecret,
   };
 }
 
@@ -377,6 +311,20 @@ export function parseTextToSpeechEnvironment(
   const modelDtype = parseTextToSpeechDtype(source.TTS_MODEL_DTYPE);
 
   return {
+    generationTimeoutMilliseconds: parseIntegerInRange(
+      source.TTS_GENERATION_TIMEOUT_MS,
+      'TTS_GENERATION_TIMEOUT_MS',
+      1_000,
+      600_000,
+      120_000,
+    ),
+    maxQueuedGenerations: parseIntegerInRange(
+      source.TTS_MAX_QUEUED_GENERATIONS,
+      'TTS_MAX_QUEUED_GENERATIONS',
+      0,
+      10,
+      2,
+    ),
     defaultVoice: voice,
     maxTranscriptCharacters: parseIntegerInRange(
       source.TTS_MAX_TRANSCRIPT_CHARACTERS,

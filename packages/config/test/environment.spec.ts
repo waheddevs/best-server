@@ -22,7 +22,7 @@ void test('API environment uses safe development defaults', () => {
 void test('auth environment parses the bearer access-token contract', () => {
   assert.deepEqual(
     parseAuthEnvironment({
-      AUTH_OTP_HASH_SECRET: 'a-different-otp-secret-with-32-characters',
+      AUTH_LOGIN_HASH_SECRET: 'a-different-login-secret-with-32-characters',
       JWT_ACCESS_AUDIENCE: 'best-clients',
       JWT_ACCESS_ISSUER: 'best-api',
       JWT_ACCESS_SECRET: 'a-development-secret-with-32-characters',
@@ -32,17 +32,15 @@ void test('auth environment parses the bearer access-token contract', () => {
       accessTokenIssuer: 'best-api',
       accessTokenSecret: 'a-development-secret-with-32-characters',
       accessTokenTtlSeconds: 3600,
-      credentialEmail: undefined,
-      requireEmailVerification: false,
       allowReservedLoginEmails: true,
-      otpHashSecret: 'a-different-otp-secret-with-32-characters',
+      loginHashSecret: 'a-different-login-secret-with-32-characters',
     },
   );
 });
 
 void test('auth environment rejects weak secrets and invalid token TTLs', () => {
   const validSource = {
-    AUTH_OTP_HASH_SECRET: 'a-different-otp-secret-with-32-characters',
+    AUTH_LOGIN_HASH_SECRET: 'a-different-login-secret-with-32-characters',
     JWT_ACCESS_AUDIENCE: 'best-clients',
     JWT_ACCESS_ISSUER: 'best-api',
     JWT_ACCESS_SECRET: 'a-development-secret-with-32-characters',
@@ -72,54 +70,27 @@ void test('auth environment rejects weak secrets and invalid token TTLs', () => 
     () =>
       parseAuthEnvironment({
         ...validSource,
-        AUTH_OTP_HASH_SECRET: validSource.JWT_ACCESS_SECRET,
+        AUTH_LOGIN_HASH_SECRET: validSource.JWT_ACCESS_SECRET,
       }),
     EnvironmentValidationError,
   );
 });
 
-void test('auth environment requires SMTP only when email verification is enabled', () => {
-  const shared = {
-    AUTH_OTP_HASH_SECRET: 'a-different-otp-secret-with-32-characters',
+void test('auth environment enforces an independent login-throttling secret in production', () => {
+  const source = {
+    AUTH_LOGIN_HASH_SECRET: 'a-different-login-secret-with-32-characters',
     JWT_ACCESS_AUDIENCE: 'best-clients',
     JWT_ACCESS_ISSUER: 'best-api',
     JWT_ACCESS_SECRET: 'a-development-secret-with-32-characters',
-  };
-  const environment = parseAuthEnvironment({
-    ...shared,
-    AUTH_EMAIL_DELIVERY_MODE: 'smtp',
-    AUTH_EMAIL_FROM: 'BEST LC <no-reply@best-lc.example>',
-    AUTH_SMTP_HOST: 'smtp.example.test',
-    AUTH_SMTP_PASSWORD: 'secret',
-    AUTH_SMTP_PORT: '587',
-    AUTH_SMTP_SECURE: 'false',
-    AUTH_SMTP_USER: 'mailer',
-  });
-
-  assert.deepEqual(environment.credentialEmail, {
-    from: 'BEST LC <no-reply@best-lc.example>',
-    host: 'smtp.example.test',
-    password: 'secret',
-    port: 587,
-    secure: false,
-    user: 'mailer',
-  });
-  const passwordOnly = parseAuthEnvironment({
-    ...shared,
     NODE_ENV: 'production',
-  });
-  assert.equal(passwordOnly.requireEmailVerification, false);
-  assert.equal(passwordOnly.credentialEmail, undefined);
-  assert.equal(passwordOnly.allowReservedLoginEmails, false);
-  assert.throws(
-    () =>
-      parseAuthEnvironment({
-        ...shared,
-        NODE_ENV: 'production',
-        AUTH_REQUIRE_EMAIL_VERIFICATION: 'true',
-      }),
-    EnvironmentValidationError,
-  );
+  };
+  assert.equal(parseAuthEnvironment(source).allowReservedLoginEmails, false);
+  for (const secret of ['', 'too-short']) {
+    assert.throws(
+      () => parseAuthEnvironment({ ...source, AUTH_LOGIN_HASH_SECRET: secret }),
+      EnvironmentValidationError,
+    );
+  }
 });
 
 void test('API environment parses supported explicit values', () => {
@@ -298,6 +269,8 @@ void test('malware scanner environment rejects unsafe endpoints and timeouts', (
 
 void test('text-to-speech environment uses bounded Kokoro defaults', () => {
   assert.deepEqual(parseTextToSpeechEnvironment({}), {
+    generationTimeoutMilliseconds: 120_000,
+    maxQueuedGenerations: 2,
     defaultVoice: 'bf_emma',
     maxTranscriptCharacters: 8_000,
     modelDtype: 'q8',
@@ -312,6 +285,8 @@ void test('text-to-speech environment uses bounded Kokoro defaults', () => {
       TTS_MODEL_ID: 'reserved/Kokoro-Test-ONNX',
     }),
     {
+      generationTimeoutMilliseconds: 120_000,
+      maxQueuedGenerations: 2,
       defaultVoice: 'af_heart',
       maxTranscriptCharacters: 12_000,
       modelDtype: 'q4',
@@ -322,6 +297,10 @@ void test('text-to-speech environment uses bounded Kokoro defaults', () => {
 
 void test('text-to-speech environment rejects unsafe provider settings', () => {
   for (const invalidSource of [
+    { TTS_GENERATION_TIMEOUT_MS: '999' },
+    { TTS_GENERATION_TIMEOUT_MS: '600001' },
+    { TTS_MAX_QUEUED_GENERATIONS: '-1' },
+    { TTS_MAX_QUEUED_GENERATIONS: '11' },
     { TTS_DEFAULT_VOICE: '../voice' },
     { TTS_MAX_TRANSCRIPT_CHARACTERS: '0' },
     { TTS_MODEL_DTYPE: 'int8' },

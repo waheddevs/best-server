@@ -5,9 +5,5 @@
     "rootDir": ".",
     "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo"
   },
-  "include": [
-    "src/**/*.ts",
-    "prisma.config.ts",
-    "prisma/backfill-teacher-group-rates.ts"
-  ]
+  "include": ["src/**/*.ts", "prisma.config.ts"]
 }

@@ -1,11 +1,13 @@
 import { Language, PublicContentStatus } from '@best/database';
 import { Field, ID, InputType } from '@nestjs/graphql';
+
 @InputType('PublicContentTranslationInput')
 export class PublicContentTranslationInput {
   @Field(() => Language) language!: Language;
   @Field(() => String) title!: string;
   @Field(() => String) description!: string;
 }
+
 @InputType('UpsertCourseInput')
 export class UpsertCourseInput {
   @Field(() => String) slug!: string;
@@ -13,10 +15,12 @@ export class UpsertCourseInput {
   @Field(() => [PublicContentTranslationInput])
   translations!: PublicContentTranslationInput[];
 }
+
 @InputType('UpdateCourseInput')
 export class UpdateCourseInput extends UpsertCourseInput {
   @Field(() => ID) courseId!: string;
 }
+
 @InputType('SetPublicCourseStatusInput')
 export class SetPublicCourseStatusInput {
   @Field(() => ID) courseId!: string;

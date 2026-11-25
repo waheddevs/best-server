@@ -1,5 +1,6 @@
 import { Field, ObjectType, GraphQLISODateTime } from '@nestjs/graphql';
 import { AdminMetric } from '../groups/admin-group.object';
+
 @ObjectType('AdminOverviewItem')
 export class AdminOverviewItemObject {
   @Field() id!: string;
@@ -8,6 +9,7 @@ export class AdminOverviewItemObject {
   @Field() href!: string;
   @Field(() => GraphQLISODateTime) date!: Date;
 }
+
 @ObjectType('AdminOverview')
 export class AdminOverviewObject {
   @Field(() => [AdminMetric]) metrics!: AdminMetric[];

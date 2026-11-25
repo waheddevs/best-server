@@ -2,9 +2,10 @@
 
 Status: approved on 2026-09-01 and implemented through the domain and auth
 identity migrations. PostgreSQL integration tests validate the reviewed
-physical constraints and immutability rules. The old direct-to-Library
-Telegram import remains unused; the revised review-first vocabulary pilot is
-modeled separately.
+physical constraints and immutability rules. Telegram import, including the
+local vocabulary pilot, was cancelled on 2026-11-25. Its models below remain
+only for historical data retention; the import runtime has been removed. See
+[retained import migration decisions](MIGRATIONS.md#retired-telegram-and-vocabulary-import).
 
 ```mermaid
 erDiagram
@@ -104,11 +105,11 @@ erDiagram
 - `LibraryAttachment`: ordered PDF, image, audio, or video attachments.
 - `TelegramImportRun` and `TelegramImportRecord`: unused legacy provenance
   tables retained only to avoid an unreviewed destructive migration.
-- `ImportSourceDocument`: immutable Telegram source identity linked to one
+- `ImportSourceDocument`: retained historical Telegram source identity linked to one
   private MediaObject, extraction state, checksum, detected brands, and rights
   review state.
-- `VocabularyDraft` and `VocabularyDraftEntry`: parser-versioned, ordered
-  review data. They do not publish or silently merge third-party content.
+- `VocabularyDraft` and `VocabularyDraftEntry`: retained historical,
+  parser-versioned review data with no active import or publication workflow.
 
 ### Finance
 

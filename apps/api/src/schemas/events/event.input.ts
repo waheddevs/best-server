@@ -1,6 +1,7 @@
 import { IntakeStatus, Language, PublicContentStatus } from '@best/database';
 import { Field, GraphQLISODateTime, ID, InputType, Int } from '@nestjs/graphql';
 import { PublicContentTranslationInput } from '../courses/course.input';
+
 @InputType('UpsertEventInput')
 export class UpsertEventInput {
   @Field(() => String) slug!: string;
@@ -12,16 +13,19 @@ export class UpsertEventInput {
   @Field(() => [PublicContentTranslationInput])
   translations!: PublicContentTranslationInput[];
 }
+
 @InputType('UpdateEventInput')
 export class UpdateEventInput extends UpsertEventInput {
   @Field(() => ID) eventId!: string;
 }
+
 @InputType('SetPublicEventStatusInput')
 export class SetPublicEventStatusInput {
   @Field(() => ID) eventId!: string;
   @Field(() => PublicContentStatus) status!: PublicContentStatus;
   @Field(() => String, { nullable: true }) reason?: string;
 }
+
 @InputType('SubmitContactRequestInput')
 export class SubmitContactRequestInput {
   @Field(() => String) name!: string;
@@ -32,6 +36,7 @@ export class SubmitContactRequestInput {
   @Field(() => Language) locale!: Language;
   @Field(() => Boolean) consent!: boolean;
 }
+
 @InputType('SubmitExamRegistrationInput')
 export class SubmitExamRegistrationInput {
   @Field(() => String) name!: string;
@@ -43,6 +48,7 @@ export class SubmitExamRegistrationInput {
   @Field(() => Language) locale!: Language;
   @Field(() => Boolean) consent!: boolean;
 }
+
 @InputType('RegisterForEventInput')
 export class RegisterForEventInput {
   @Field(() => ID) eventId!: string;
@@ -53,6 +59,7 @@ export class RegisterForEventInput {
   @Field(() => Language) locale!: Language;
   @Field(() => Boolean) consent!: boolean;
 }
+
 @InputType('SetIntakeStatusInput')
 export class SetIntakeStatusInput {
   @Field(() => ID) intakeId!: string;

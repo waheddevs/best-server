@@ -7,9 +7,11 @@ import {
   directoryEnum,
 } from '../../libs/pagination/admin-directory';
 import { adminDateRange } from '../../libs/validation/admin-date-range';
+
 @Injectable()
 export class AdminNoticesService {
   constructor(private readonly db: DatabaseService) {}
+  
   async directory(actor: string, raw: AdminDirectoryInput) {
     const input = directoryInput(raw);
     const status = directoryEnum(input.status, ['READ', 'UNREAD'] as const);

@@ -26,9 +26,11 @@ import type {
   TeacherTaskObject,
 } from '../../schemas/notifications/notification.object';
 import { calculateTeacherDashboardMetrics } from './teacher-dashboard-metrics';
+
 @Injectable()
 export class NotificationsService {
   constructor(private readonly db: DatabaseService) {}
+
   async dashboard(teacherId: string): Promise<TeacherDashboardObject> {
     const now = new Date();
     const start = new Date(now);
@@ -102,6 +104,7 @@ export class NotificationsService {
       ...calculateTeacherDashboardMetrics(memberships, teacher.createdAt, now),
     };
   }
+
   async tasks(
     teacherId: string,
     first?: number,
@@ -123,6 +126,7 @@ export class NotificationsService {
     });
     return connection(rows, size);
   }
+
   async assignTask(
     adminId: string,
     input: AdminAssignTeacherTaskInput,
@@ -196,6 +200,7 @@ export class NotificationsService {
       return task;
     });
   }
+
   async completeTask(
     teacherId: string,
     taskIdInput: string,
@@ -224,6 +229,7 @@ export class NotificationsService {
       return row;
     });
   }
+
   async notifications(
     userId: string,
     first?: number,
@@ -261,11 +267,13 @@ export class NotificationsService {
       pageInfo: { endCursor: edges.at(-1)?.cursor ?? null, hasNextPage },
     };
   }
+
   unreadCount(userId: string): Promise<number> {
     return this.db.notification.count({
       where: { recipientId: userId, readAt: null },
     });
   }
+
   async markRead(userId: string, idInput: string): Promise<NotificationObject> {
     const id = parseUuid(idInput, 'notificationId');
     const existing = await this.db.notification.findFirst({
@@ -297,6 +305,7 @@ export class NotificationsService {
     });
     return notificationObject(updated);
   }
+
   async markAllRead(userId: string): Promise<number> {
     return (
       await this.db.notification.updateMany({
@@ -306,6 +315,7 @@ export class NotificationsService {
     ).count;
   }
 }
+
 export function notificationObject(row: {
   id: string;
   kind: string;
@@ -340,6 +350,7 @@ export function notificationObject(row: {
     createdAt: row.createdAt,
   };
 }
+
 function notificationPayloadId(payload: unknown, key: string): string | null {
   if (
     payload === null ||
@@ -351,6 +362,7 @@ function notificationPayloadId(payload: unknown, key: string): string | null {
   const value: unknown = Reflect.get(payload, key);
   return typeof value === 'string' ? value : null;
 }
+
 function connection(
   rows: TeacherTaskObject[],
   size: number,
@@ -363,6 +375,7 @@ function connection(
     pageInfo: { endCursor: edges.at(-1)?.cursor ?? null, hasNextPage },
   };
 }
+
 function notFound(name: string) {
   return new ApplicationError(
     ErrorCode.NOT_FOUND,

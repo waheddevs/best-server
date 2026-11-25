@@ -1,5 +1,10 @@
 # Admin operations and salary statements
 
+Status: historical storage design. The manual statement UI and API contracts
+were retired in favor of [the read-only revenue report](ADMIN_SALARY_REVENUE_DESIGN.md)
+on 2026-10-13. Retain this record for the existing salary table and migration;
+the behavior below does not authorize restoring the retired workflow.
+
 Approved by the owner on 2026-10-11 together with Groups, Schedule, Payments and Settings.
 Salary records are administrative statements, not payroll execution. A statement belongs to
 one teacher and calendar month. Base + bonus - deduction is computed on the server in whole

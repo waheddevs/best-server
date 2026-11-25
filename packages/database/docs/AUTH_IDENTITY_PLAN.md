@@ -5,7 +5,18 @@ the approved credentials and email-code login decision on 2026-09-07. Rotating
 credential refresh sessions were approved on 2026-09-16 and are specified in
 `CREDENTIAL_REFRESH_SESSION_DATA_DESIGN.md`.
 
-## Approved credentials and email-code login (2026-09-07)
+## Password-only login supersedes email-code authentication (2026-11-26)
+
+The owner cancelled email-code authentication. `credentialLogin` directly creates
+an audited session after password/profile/active-role validation. Verification,
+resend, SMTP and challenge configuration are removed. Login throttling uses an
+independent `AUTH_LOGIN_HASH_SECRET`; existing deployments rename the former
+OTP-named key without changing its value. Refresh rotation, reuse detection,
+expiry, revocation, database authorization and Argon2id hashing remain active.
+Historical challenge tables/columns and applied migrations are retained without
+a destructive data-retention migration. The two-step section below is history.
+
+## Historical credentials and email-code login (2026-09-07)
 
 The previous social-provider provisioning flow is superseded. BEST accounts are
 provisioned operationally: an authenticated `ADMIN` may create only `STUDENT`

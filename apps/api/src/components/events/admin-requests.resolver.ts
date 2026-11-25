@@ -13,23 +13,27 @@ import {
   AdminRemoveRequestInput,
 } from '../../schemas/events/admin-request.input';
 import { AdminRequestsService } from './admin-requests.service';
+
 @Resolver()
 @UseGuards(AuthGuard, RolesGuard)
 @Roles(UserRole.ADMIN)
 export class AdminRequestsResolver {
   constructor(private readonly service: AdminRequestsService) {}
+
   @Query(() => AdminRequestDirectoryObject) adminRequestDirectory(
     @Args('input') input: AdminDirectoryInput,
     @Args('language', { type: () => Language }) language: Language,
   ) {
     return this.service.directory(input, language);
   }
+
   @Mutation(() => ID) adminRemoveRequest(
     @AuthMember('id') actor: string,
     @Args('input') input: AdminRemoveRequestInput,
   ) {
     return this.service.remove(actor, input);
   }
+  
   @Mutation(() => ID) adminReviewRequest(
     @AuthMember('id') actor: string,
     @Args('input') input: AdminReviewRequestInput,

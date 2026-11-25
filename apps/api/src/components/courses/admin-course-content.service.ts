@@ -26,9 +26,11 @@ import type {
   AdminSaveCourseContentInput,
 } from '../../schemas/courses/admin-content.input';
 import { courseContentInclude, mapCourseContent } from './courses.service';
+
 @Injectable()
 export class AdminCourseContentService {
   constructor(private readonly db: DatabaseService) {}
+
   async catalog(raw: AdminDirectoryInput) {
     const input = directoryInput(raw);
     const status = directoryEnum(
@@ -83,6 +85,7 @@ export class AdminCourseContentService {
       })),
     };
   }
+
   async remove(actorId: string, input: AdminRemoveCourseInput) {
     const id = parseUuid(input.courseId, 'courseId');
     return this.db.$transaction(async (tx) => {
@@ -99,6 +102,7 @@ export class AdminCourseContentService {
       return id;
     });
   }
+
   async save(actorId: string, input: AdminSaveCourseContentInput) {
     contentTranslations(input.translations);
     if (input.heroVariant && input.heroVariant !== 'immersive')
@@ -178,6 +182,7 @@ export class AdminCourseContentService {
           },
         });
       }
+      
       await tx.publicCourseContentItem.deleteMany({
         where: { courseId: row.id },
       });

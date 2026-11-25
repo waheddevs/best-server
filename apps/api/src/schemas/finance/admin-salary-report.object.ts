@@ -6,6 +6,7 @@ export class AdminSalaryTotals {
   @Field() teacherUzs!: string;
   @Field() centerUzs!: string;
 }
+
 @ObjectType('AdminSalaryReportRow')
 export class AdminSalaryReportRow extends AdminSalaryTotals {
   @Field() id!: string;
@@ -16,6 +17,7 @@ export class AdminSalaryReportRow extends AdminSalaryTotals {
   @Field(() => Int) studentCount!: number;
   @Field(() => Int) paymentCount!: number;
 }
+
 @ObjectType('AdminSalaryReport')
 export class AdminSalaryReport extends AdminSalaryTotals {
   @Field(() => [AdminSalaryReportRow]) nodes!: AdminSalaryReportRow[];
@@ -25,6 +27,7 @@ export class AdminSalaryReport extends AdminSalaryTotals {
   @Field(() => String, { nullable: true }) previousMonth!: string | null;
   @Field(() => String, { nullable: true }) previousReceivedUzs!: string | null;
 }
+
 @ObjectType('AdminSalaryPayment')
 export class AdminSalaryPayment extends AdminSalaryTotals {
   @Field() id!: string;
@@ -33,16 +36,18 @@ export class AdminSalaryPayment extends AdminSalaryTotals {
   @Field() paidAt!: string;
   @Field(() => String, { nullable: true }) note!: string | null;
 }
+
 @ObjectType('AdminSalaryGroup')
 export class AdminSalaryGroup extends AdminSalaryTotals {
   @Field() id!: string;
   @Field() name!: string;
 }
+
 @ObjectType('AdminSalaryHistory')
 export class AdminSalaryHistory {
   @Field(() => [AdminSalaryPayment]) nodes!: AdminSalaryPayment[];
   @Field(() => [AdminSalaryGroup]) groups!: AdminSalaryGroup[];
-  @Field(() => Int) totalCount!: number;
+  @Field(() => Int)totalCount!: number;
   @Field(() => Int) page!: number;
   @Field(() => Int) pageCount!: number;
 }

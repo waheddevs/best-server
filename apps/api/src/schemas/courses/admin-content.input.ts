@@ -5,11 +5,13 @@ import {
   PublicEventTimelineStatus,
 } from '@best/database';
 import { Field, ID, InputType, Int, GraphQLISODateTime } from '@nestjs/graphql';
+
 @InputType('AdminRemoveCourseInput')
 export class AdminRemoveCourseInput {
   @Field(() => ID) courseId!: string;
   @Field(() => GraphQLISODateTime) expectedUpdatedAt!: Date;
 }
+
 @InputType('AdminTrackInput')
 export class AdminTrackInput {
   @Field(() => String) title!: string;
@@ -17,17 +19,20 @@ export class AdminTrackInput {
   @Field(() => String) level!: string;
   @Field(() => [String]) highlights!: string[];
 }
+
 @InputType('AdminProgrammeInput')
 export class AdminProgrammeInput {
   @Field(() => String) timeLabel!: string;
   @Field(() => String) title!: string;
   @Field(() => String) description!: string;
 }
+
 @InputType('AdminFaqInput')
 export class AdminFaqInput {
   @Field(() => String) question!: string;
   @Field(() => String) answer!: string;
 }
+
 @InputType('AdminCourseTranslationInput')
 export class AdminCourseTranslationInput {
   @Field(() => Language) language!: Language;
@@ -50,6 +55,7 @@ export class AdminCourseTranslationInput {
   @Field(() => [String]) curriculum!: string[];
   @Field(() => [AdminTrackInput]) tracks!: AdminTrackInput[];
 }
+
 @InputType('AdminEventTranslationInput')
 export class AdminEventTranslationInput {
   @Field(() => Language) language!: Language;
@@ -69,6 +75,7 @@ export class AdminEventTranslationInput {
   @Field(() => [AdminProgrammeInput]) programme!: AdminProgrammeInput[];
   @Field(() => [AdminFaqInput]) faq!: AdminFaqInput[];
 }
+
 @InputType('AdminSaveCourseContentInput')
 export class AdminSaveCourseContentInput {
   @Field(() => ID, { nullable: true }) coverMediaId?: string | null;
@@ -86,6 +93,7 @@ export class AdminSaveCourseContentInput {
   @Field(() => [AdminCourseTranslationInput])
   translations!: AdminCourseTranslationInput[];
 }
+
 @InputType('AdminSaveEventContentInput')
 export class AdminSaveEventContentInput {
   @Field(() => ID, { nullable: true }) coverMediaId?: string | null;

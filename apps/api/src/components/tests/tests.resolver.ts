@@ -11,27 +11,42 @@ import {
 } from '@nestjs/graphql';
 
 import type { ApiGraphqlContext } from '../../libs/types/authenticated-request.type';
-import { CreateTeacherPracticeTestInput } from '../../schemas/tests/create-teacher-practice-test.input';
-import { StudentTestConnectionObject } from '../../schemas/tests/student-test-connection.object';
-import { StudentTestObject } from '../../schemas/tests/student-test.object';
-import { StudentTestPaperConnectionObject } from '../../schemas/tests/student-test-paper-connection.object';
-import { StudentTestPaperObject } from '../../schemas/tests/student-test-paper.object';
-import { TeacherTestPaperPageObject } from '../../schemas/tests/teacher-test-paper-page.object';
-import { TeacherTestPaperDeletionPayloadObject } from '../../schemas/tests/teacher-test-paper-deletion-payload.object';
-import { TeacherTestPaperPayloadObject } from '../../schemas/tests/teacher-test-paper-payload.object';
-import { TeacherTestPaperObject } from '../../schemas/tests/teacher-test-paper.object';
-import { PracticeBookmarkPayloadObject } from '../../schemas/tests/practice-bookmark-payload.object';
-import { SetPracticeBookmarkInput } from '../../schemas/tests/set-practice-bookmark.input';
+import { CreateTeacherPracticeTestInput } from '../../schemas/tests/authoring/teacher-test-paper.input';
+import {
+  StudentTestConnectionObject,
+  StudentTestObject,
+} from '../../schemas/tests/student/student-test.object';
+
+import {
+  StudentTestPaperConnectionObject,
+  StudentTestPaperObject,
+} from '../../schemas/tests/student/student-test-paper.object';
+
+import {
+  TeacherTestPaperPageObject,
+  TeacherTestPaperDeletionPayloadObject,
+  TeacherTestPaperPayloadObject,
+  TeacherTestPaperObject,
+} from '../../schemas/tests/authoring/teacher-test-paper.object';
+
+import { PracticeBookmarkPayloadObject } from '../../schemas/tests/bookmarks/practice-bookmark-payload.object';
+import { SetPracticeBookmarkInput } from '../../schemas/tests/bookmarks/set-practice-bookmark.input';
 import { AuthMember } from '../auth/decorators/auth-member.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 
-import { TestsService } from './tests.service';
+import { StudentTestsService } from './student/student-tests.service';
+import { TeacherPracticesService } from './teacher/teacher-practices.service';
+import { PracticeBookmarksService } from './practice-bookmarks.service';
 
 @Resolver()
 export class TestsResolver {
-  constructor(private readonly testsService: TestsService) {}
+  constructor(
+    private readonly testsService: StudentTestsService,
+    private readonly teacherPracticesService: TeacherPracticesService,
+    private readonly practiceBookmarksService: PracticeBookmarksService,
+  ) {}
 
   @Mutation(() => TeacherTestPaperPayloadObject, {
     name: 'createTeacherPracticeTest',
@@ -44,7 +59,7 @@ export class TestsResolver {
     @Context() context: ApiGraphqlContext,
   ): Promise<TeacherTestPaperPayloadObject> {
     return {
-      testPaper: await this.testsService.createTeacherPracticeTest(
+      testPaper: await this.teacherPracticesService.createTeacherPracticeTest(
         teacherId,
         input.groupId,
         context.req.requestId,
@@ -62,7 +77,7 @@ export class TestsResolver {
     @Args('testPaperId', { type: () => ID }) testPaperId: string,
     @Context() context: ApiGraphqlContext,
   ): Promise<TeacherTestPaperDeletionPayloadObject> {
-    return this.testsService.deleteTeacherPracticeTest(
+    return this.teacherPracticesService.deleteTeacherPracticeTest(
       teacherId,
       testPaperId,
       context.req.requestId,
@@ -79,7 +94,11 @@ export class TestsResolver {
     @AuthMember('role') role: UserRole,
     @Args('input') input: SetPracticeBookmarkInput,
   ): Promise<PracticeBookmarkPayloadObject> {
-    return this.testsService.setPracticeBookmark(userId, role, input);
+    return this.practiceBookmarksService.setPracticeBookmark(
+      userId,
+      role,
+      input,
+    );
   }
 
   @Query(() => TeacherTestPaperPageObject, { name: 'teacherTestPapers' })
@@ -90,7 +109,11 @@ export class TestsResolver {
     @Args('groupId', { type: () => ID }) groupId: string,
     @Args('page', { defaultValue: 1, type: () => Int }) page: number,
   ): Promise<TeacherTestPaperPageObject> {
-    return this.testsService.getTeacherTestPapers(teacherId, groupId, page);
+    return this.teacherPracticesService.getTeacherTestPapers(
+      teacherId,
+      groupId,
+      page,
+    );
   }
 
   @Query(() => TeacherTestPaperObject, { name: 'teacherTestPaper' })
@@ -101,7 +124,7 @@ export class TestsResolver {
     @Args('groupId', { type: () => ID }) groupId: string,
     @Args('practiceNumber', { type: () => Int }) practiceNumber: number,
   ): Promise<TeacherTestPaperObject> {
-    return this.testsService.getTeacherTestPaper(
+    return this.teacherPracticesService.getTeacherTestPaper(
       teacherId,
       groupId,
       practiceNumber,

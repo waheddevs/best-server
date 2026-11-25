@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { isValidLoginEmail } from '../src/components/auth/login-email';
+import { isValidLoginEmail } from '../src/components/auth/credentials/login-email';
 
 void test('login validates structure, normalizes whitespace and rejects reserved domains', () => {
   for (const email of [

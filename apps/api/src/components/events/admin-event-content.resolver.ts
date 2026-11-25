@@ -12,22 +12,26 @@ import {
 } from '../../schemas/courses/admin-content.input';
 import { AdminEventCatalogObject } from '../../schemas/events/admin-event-catalog.object';
 import { AdminEventContentService } from './admin-event-content.service';
+
 @Resolver()
 @UseGuards(AuthGuard, RolesGuard)
 @Roles(UserRole.ADMIN)
 export class AdminEventContentResolver {
   constructor(private readonly service: AdminEventContentService) {}
+  
   @Query(() => AdminEventCatalogObject) adminEventCatalog(
     @Args('input') input: AdminDirectoryInput,
   ) {
     return this.service.catalog(input);
   }
+
   @Mutation(() => ID) adminRemoveEvent(
     @AuthMember('id') actor: string,
     @Args('input') input: AdminRemoveEventInput,
   ) {
     return this.service.remove(actor, input);
   }
+  
   @Mutation(() => ID) adminSaveEventContent(
     @AuthMember('id') actor: string,
     @Args('input') input: AdminSaveEventContentInput,

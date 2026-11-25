@@ -1,5 +1,9 @@
 import { AttemptStatus, TestSkill } from '@best/database';
-import { scoreObjective, scoreSingleChoice } from '@best/scoring';
+import {
+  resolveObjectiveOptionIds,
+  scoreObjective,
+  scoreSingleChoice,
+} from '@best/scoring';
 import { Injectable } from '@nestjs/common';
 
 import { ScoringDatabaseService } from '../database/scoring-database.service';
@@ -127,14 +131,12 @@ export class ScoringService {
               passingPercentage: attempt.testVersion.passingPercentage,
               questions: attempt.testVersion.questions.map((question) => {
                 const answer = answerByQuestion.get(question.id);
-                const selectedOptionIds =
+                const selectedOptionIds = resolveObjectiveOptionIds(
+                  answer?.selectedOptionId,
                   answer?.selections.map(
                     ({ answerOptionId }) => answerOptionId,
-                  ) ??
-                  (answer?.selectedOptionId === null ||
-                  answer?.selectedOptionId === undefined
-                    ? []
-                    : [answer.selectedOptionId]);
+                  ),
+                );
 
                 if (question.kind === 'SHORT_TEXT') {
                   return {

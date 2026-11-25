@@ -1,5 +1,5 @@
 import { UserRole } from '@best/database';
-import { Field, ID, InputType } from '@nestjs/graphql';
+import { Field, InputType } from '@nestjs/graphql';
 
 @InputType('BeginCredentialLoginInput')
 export class BeginCredentialLoginInput {
@@ -20,21 +20,6 @@ export class BeginCredentialLoginInput {
 
   @Field(() => UserRole)
   expectedRole!: UserRole;
-}
-
-@InputType('VerifyCredentialLoginInput')
-export class VerifyCredentialLoginInput {
-  @Field(() => ID)
-  challengeId!: string;
-
-  @Field()
-  code!: string;
-}
-
-@InputType('ResendCredentialLoginCodeInput')
-export class ResendCredentialLoginCodeInput {
-  @Field(() => ID)
-  challengeId!: string;
 }
 
 @InputType('RefreshCredentialSessionInput')

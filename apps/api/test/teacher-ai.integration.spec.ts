@@ -29,7 +29,7 @@ import type { INestApplication } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { Pool } from 'pg';
 import { AppModule } from '../src/app.module';
-import { AuthService } from '../src/components/auth/auth.service';
+import { AuthService } from '../src/components/auth/tokens/auth.service';
 import { DatabaseService } from '../src/database/database.service';
 
 const originalEnv = { ...process.env };
@@ -57,9 +57,8 @@ function configure() {
   Object.assign(process.env, {
     NODE_ENV: 'test',
     DATABASE_URL: testUrl.toString(),
-    AUTH_EMAIL_DELIVERY_MODE: 'disabled',
-    AUTH_REQUIRE_EMAIL_VERIFICATION: 'false',
-    AUTH_OTP_HASH_SECRET: 'fictional-ai-test-otp-secret-with-at-least-32-chars',
+    AUTH_LOGIN_HASH_SECRET:
+      'fictional-ai-test-otp-secret-with-at-least-32-chars',
     TEACHER_AI_CHAT_ENABLED: 'true',
     OPENROUTER_API_KEY: 'fictional-test-key',
     AI_CHAT_MODEL: 'fictional/teacher:free',

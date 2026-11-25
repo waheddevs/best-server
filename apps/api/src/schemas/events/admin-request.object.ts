@@ -1,6 +1,7 @@
 import { Field, ObjectType, Int, GraphQLISODateTime } from '@nestjs/graphql';
 import { AdminIntakeRecordObject } from './event.object';
 import { AdminMetric } from '../groups/admin-group.object';
+
 @ObjectType('AdminRequest')
 export class AdminRequestObject extends AdminIntakeRecordObject {
   @Field() subjectName!: string;
@@ -10,6 +11,7 @@ export class AdminRequestObject extends AdminIntakeRecordObject {
   @Field(() => GraphQLISODateTime, { nullable: true }) sessionAt!: Date | null;
   @Field(() => GraphQLISODateTime) updatedAt!: Date;
 }
+
 @ObjectType('AdminRequestDirectory')
 export class AdminRequestDirectoryObject {
   @Field(() => [AdminRequestObject]) nodes!: AdminRequestObject[];
