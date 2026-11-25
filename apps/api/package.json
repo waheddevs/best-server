@@ -9,16 +9,20 @@
     "generate": "nest generate",
     "lint": "eslint \"{src,test}/**/*.ts\"",
     "start": "node dist/main.js",
-    "test": "tsc -p tsconfig.test.json && node --test ../../.tmp/api-test/test/login-email.spec.js ../../.tmp/api-test/test/auth-guards.spec.js ../../.tmp/api-test/test/auth.service.spec.js ../../.tmp/api-test/test/credential-password.service.spec.js ../../.tmp/api-test/test/cursor-pagination.spec.js ../../.tmp/api-test/test/finance-ledger.spec.js ../../.tmp/api-test/test/global-exception.filter.spec.js ../../.tmp/api-test/test/kokoro-listening-audio.gateway.spec.js ../../.tmp/api-test/test/media-upload-policy.spec.js ../../.tmp/api-test/test/teacher-dashboard-metrics.spec.js ../../.tmp/api-test/test/users-deletion.spec.js ../../.tmp/api-test/test/users-password.spec.js",
+    "test": "tsc -p tsconfig.test.json && node --test ../../.tmp/api-test/test/login-email.spec.js ../../.tmp/api-test/test/auth-guards.spec.js ../../.tmp/api-test/test/auth.service.spec.js ../../.tmp/api-test/test/credential-password.service.spec.js ../../.tmp/api-test/test/cursor-pagination.spec.js ../../.tmp/api-test/test/finance-ledger.spec.js ../../.tmp/api-test/test/global-exception.filter.spec.js ../../.tmp/api-test/test/kokoro-listening-audio.gateway.spec.js ../../.tmp/api-test/test/media-upload-policy.spec.js ../../.tmp/api-test/test/teacher-dashboard-metrics.spec.js ../../.tmp/api-test/test/users-deletion.spec.js ../../.tmp/api-test/test/users-password.spec.js ../../.tmp/api-test/test/domain-services.spec.js",
     "test:integration": "tsc -p tsconfig.integration.json && node --test --test-concurrency=1 ../../.tmp/api-integration/test/graphql-student.integration.spec.js ../../.tmp/api-integration/test/debt-notification-reconciler.integration.spec.js",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test:ai": "tsc -p tsconfig.integration.json && node --test --test-concurrency=1 ../../.tmp/api-integration/test/teacher-ai.integration.spec.js",
+    "schema:generate": "yarn build && node dist/operations/generate-schema.js"
   },
   "dependencies": {
     "@apollo/server": "^5.5.1",
     "@as-integrations/express5": "^1.1.2",
+    "@best/ai-chat": "workspace:*",
     "@best/config": "workspace:*",
     "@best/database": "workspace:*",
     "@best/logger": "workspace:*",
+    "@best/scoring": "workspace:*",
     "@best/storage": "workspace:*",
     "@nestjs/apollo": "13.4.5",
     "@nestjs/common": "^11.0.1",
@@ -36,6 +40,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@best/assistant-worker": "workspace:*",
     "@nestjs/cli": "^11.0.0",
     "@nestjs/testing": "^11.2.3",
     "@types/express": "^5",

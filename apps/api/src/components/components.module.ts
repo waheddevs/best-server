@@ -27,6 +27,7 @@ import { ResultsModule } from './results/results.module';
 import { TestsModule } from './tests/tests.module';
 import { UsersModule } from './users/users.module';
 import { PublicContentModule } from './public-content/public-content.module';
+import { AiAssistantModule } from './ai-assistant/ai-assistant.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { PublicContentModule } from './public-content/public-content.module';
     AuditModule,
     AssetsModule,
     PublicContentModule,
+    AiAssistantModule,
   ],
   providers: [
     {

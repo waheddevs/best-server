@@ -9197,6 +9197,78 @@ void test('Salary revenue: exact 30/70 allocation, Tashkent month, filters, hist
   );
 });
 
+void test('Admin can log in with the website split-name input and access the protected viewer', async () => {
+  const database = requireApp().get(DatabaseService);
+  const password = 'reserved-admin-login-2026';
+  const user = await database.user.create({
+    data: {
+      email: `admin-login-${randomUUID()}@example.com`,
+      displayName: 'Reserved Admin',
+      role: UserRole.ADMIN,
+      credentialPasswordHash: await requireApp()
+        .get(CredentialPasswordService)
+        .hashPassword(password),
+    },
+  });
+  const query = `mutation WebsiteAdminLogin($input: BeginCredentialLoginInput!) {
+    credentialLogin(input: $input) {
+      challenge { challengeId }
+      session { accessToken refreshToken user { id role } }
+    }
+  }`;
+  const input = {
+    email: user.email,
+    expectedRole: 'ADMIN',
+    firstName: 'Reserved',
+    lastName: 'Admin',
+    name: 'Reserved Admin',
+    password,
+  };
+  const rejected = await executeGraphqlExpectingErrors(undefined, query, {
+    input: { ...input, password: 'incorrect-admin-password' },
+  });
+  const error = requireRecord(
+    requireArrayField(rejected, 'errors')[0],
+    'Admin login error',
+  );
+  assert.equal(
+    requireRecordField(error, 'extensions').code,
+    'LOGIN_PASSWORD_INVALID',
+  );
+  assert.equal(
+    await database.credentialSession.count({ where: { userId: user.id } }),
+    0,
+  );
+
+  const loggedIn = requireRecordField(
+    await executeGraphql(undefined, query, { input }),
+    'credentialLogin',
+  );
+  assert.equal(loggedIn.challenge, null);
+  const session = requireRecordField(loggedIn, 'session');
+  assert.equal(requireRecordField(session, 'user').role, 'ADMIN');
+  assert.ok(requireStringField(session, 'refreshToken'));
+  const viewer = requireRecordField(
+    await executeGraphql(
+      requireStringField(session, 'accessToken'),
+      'query AdminLoginViewer { viewer { id role } }',
+    ),
+    'viewer',
+  );
+  assert.equal(viewer.id, user.id);
+  assert.equal(viewer.role, 'ADMIN');
+  assert.equal(
+    await database.credentialSession.count({ where: { userId: user.id } }),
+    1,
+  );
+  assert.equal(
+    await database.auditLog.count({
+      where: { actorId: user.id, action: 'AUTH_CREDENTIAL_LOGIN_SUCCEEDED' },
+    }),
+    1,
+  );
+});
+
 void test('password login persists an unverified session and respects the server email-code policy', async () => {
   const database = requireApp().get(DatabaseService);
   const environment = requireApp().get<AuthEnvironment>(AUTH_ENVIRONMENT);

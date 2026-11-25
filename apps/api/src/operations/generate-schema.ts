@@ -11,6 +11,7 @@ import {
 import { NestFactory } from '@nestjs/core';
 import { lexicographicSortSchema, printSchema } from 'graphql';
 
+import { AiAssistantResolver } from '../components/ai-assistant/ai-assistant.resolver';
 import { AuditResolver } from '../components/audit/audit.resolver';
 import { AssignmentsResolver } from '../components/assignments/assignments.resolver';
 import { AssetsResolver } from '../components/assets/assets.resolver';
@@ -51,6 +52,7 @@ async function main(): Promise<void> {
     const schema = await app
       .get(GraphQLSchemaFactory)
       .create([
+        AiAssistantResolver,
         AdminOverviewResolver,
         AdminCourseContentResolver,
         AdminEventContentResolver,

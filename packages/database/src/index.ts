@@ -1,4 +1,7 @@
 export {
+  AiChatRunStatus,
+  AiMessageKind,
+  AiProviderCallStatus,
   AssignmentStatus,
   AttendanceStatus,
   AttemptStatus,
@@ -54,3 +57,5 @@ export type {
   NormalizedEasyIeltsSection,
   NormalizedEasyIeltsTest,
 } from './easyielts-import';
+
+export { TeacherAiStore } from './teacher-ai-store';

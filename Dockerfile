@@ -13,7 +13,7 @@ USER node
 CMD ["yarn", "database:migrate:deploy"]
 
 FROM build AS dependencies
-RUN yarn workspaces focus @best/api @best/scoring-worker --production
+RUN yarn workspaces focus @best/api @best/scoring-worker @best/assistant-worker --production
 
 FROM node:24-bookworm-slim AS runtime
 WORKDIR /app

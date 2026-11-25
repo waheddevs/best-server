@@ -598,15 +598,24 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@best/ai-chat@workspace:*, @best/ai-chat@workspace:packages/ai-chat":
+  version: 0.0.0-use.local
+  resolution: "@best/ai-chat@workspace:packages/ai-chat"
+  languageName: unknown
+  linkType: soft
+
 "@best/api@workspace:apps/api":
   version: 0.0.0-use.local
   resolution: "@best/api@workspace:apps/api"
   dependencies:
     "@apollo/server": "npm:^5.5.1"
     "@as-integrations/express5": "npm:^1.1.2"
+    "@best/ai-chat": "workspace:*"
+    "@best/assistant-worker": "workspace:*"
     "@best/config": "workspace:*"
     "@best/database": "workspace:*"
     "@best/logger": "workspace:*"
+    "@best/scoring": "workspace:*"
     "@best/storage": "workspace:*"
     "@nestjs/apollo": "npm:13.4.5"
     "@nestjs/cli": "npm:^11.0.0"
@@ -629,9 +638,32 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@best/assistant-worker@workspace:*, @best/assistant-worker@workspace:apps/assistant-worker":
+  version: 0.0.0-use.local
+  resolution: "@best/assistant-worker@workspace:apps/assistant-worker"
+  dependencies:
+    "@best/ai-chat": "workspace:*"
+    "@best/config": "workspace:*"
+    "@best/database": "workspace:*"
+    "@best/logger": "workspace:*"
+    "@nestjs/bullmq": "npm:^12.0.0"
+    "@nestjs/cli": "npm:^11.0.0"
+    "@nestjs/common": "npm:^11.0.1"
+    "@nestjs/core": "npm:^11.0.1"
+    "@types/pg": "npm:8.23.1"
+    bullmq: "npm:^6.3.4"
+    ioredis: "npm:^6.0.0"
+    pg: "npm:8.18.0"
+    reflect-metadata: "npm:^0.2.2"
+    rxjs: "npm:^7.8.1"
+  languageName: unknown
+  linkType: soft
+
 "@best/config@workspace:*, @best/config@workspace:packages/config":
   version: 0.0.0-use.local
   resolution: "@best/config@workspace:packages/config"
+  dependencies:
+    "@best/ai-chat": "workspace:*"
   languageName: unknown
   linkType: soft
 
@@ -639,6 +671,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@best/database@workspace:packages/database"
   dependencies:
+    "@best/ai-chat": "workspace:*"
     "@best/config": "workspace:*"
     "@prisma/adapter-pg": "npm:7.10.0"
     "@prisma/client": "npm:7.10.0"

@@ -1,0 +1,38 @@
+{
+  "name": "@best/assistant-worker",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "nest build",
+    "dev": "nest start --watch",
+    "generate": "nest generate",
+    "lint": "eslint \"{src,test}/**/*.ts\"",
+    "start": "node dist/main.js",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "tsc -p tsconfig.test.json && node --test ../../.tmp/assistant-worker-test/test/*.spec.js"
+  },
+  "dependencies": {
+    "@best/ai-chat": "workspace:*",
+    "@best/config": "workspace:*",
+    "@best/database": "workspace:*",
+    "@best/logger": "workspace:*",
+    "@nestjs/bullmq": "^12.0.0",
+    "@nestjs/common": "^11.0.1",
+    "@nestjs/core": "^11.0.1",
+    "bullmq": "^6.3.4",
+    "ioredis": "^6.0.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^11.0.0",
+    "@types/pg": "8.23.1",
+    "pg": "8.18.0"
+  },
+  "exports": {
+    "./testing": {
+      "types": "./dist/testing.d.ts",
+      "default": "./dist/testing.js"
+    }
+  }
+}

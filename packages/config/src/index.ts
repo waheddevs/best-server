@@ -26,3 +26,6 @@ export type {
   TextToSpeechEnvironment,
   WorkerEnvironment,
 } from './environment';
+
+export { parseTeacherAiEnvironment } from './teacher-ai.environment';
+export type { TeacherAiEnvironment } from './teacher-ai.environment';

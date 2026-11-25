@@ -168,6 +168,7 @@ enum FinanceAdjustmentKind {
 }
 
 enum OutboxEventType {
+  TEACHER_AI_CHAT_REQUESTED_V1
   ATTEMPT_SUBMITTED
 }
 
@@ -285,6 +286,7 @@ model User {
   avatarMediaObjectId       String?                    @unique @map("avatar_media_object_id") @db.Uuid
   createdAt                 DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt                 DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  aiConversations           AiConversation[]
   authAccounts              AuthAccount[]
   credentialLoginChallenges CredentialLoginChallenge[]
   credentialSessions        CredentialSession[]
@@ -1835,4 +1837,108 @@ model TeacherSalaryStatement {
   @@unique([teacherId, month])
   @@index([month, finalizedAt])
   @@map("teacher_salary_statements")
+}
+
+enum AiChatRunStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+enum AiMessageKind {
+  USER
+  ASSISTANT
+}
+
+enum AiProviderCallStatus {
+  DISPATCHED
+  COMPLETED
+  REJECTED
+  AMBIGUOUS
+}
+
+model AiConversation {
+  id String @id @default(uuid()) @db.Uuid
+  ownerId String @map("owner_id") @db.Uuid
+  title String @default("New conversation") @db.VarChar(80)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz(3)
+  noticeVersion String @map("notice_version") @db.VarChar(80)
+  consentAt DateTime @default(now()) @map("consent_at") @db.Timestamptz(3)
+  nextSequence Int @default(1) @map("next_sequence")
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  messages AiMessage[]
+  runs AiChatRun[]
+  @@unique([id, ownerId])
+  @@index([ownerId, archivedAt, createdAt, id])
+  @@index([expiresAt])
+  @@map("ai_conversations")
+}
+
+model AiMessage {
+  id String @id @default(uuid()) @db.Uuid
+  conversationId String @map("conversation_id") @db.Uuid
+  sequence Int
+  kind AiMessageKind
+  content String @db.Text
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  responseRunId String? @unique @map("response_run_id") @db.Uuid
+  conversation AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  triggeredRuns AiChatRun[] @relation("AiTrigger")
+  responseRun AiChatRun? @relation("AiResponse", fields: [responseRunId, conversationId], references: [id, conversationId], onDelete: Cascade)
+  @@unique([responseRunId, conversationId])
+  @@unique([conversationId, sequence])
+  @@unique([id, conversationId])
+  @@map("ai_messages")
+}
+
+model AiChatRun {
+  id String @id @default(uuid()) @db.Uuid
+  conversationId String @map("conversation_id") @db.Uuid
+  requesterId String @map("requester_id") @db.Uuid
+  triggerMessageId String @map("trigger_message_id") @db.Uuid
+  idempotencyKey String @map("idempotency_key") @db.Uuid
+  frozenThroughSequence Int @map("frozen_through_sequence")
+  promptPolicyVersion String @default("teacher-text-v1") @map("prompt_policy_version") @db.VarChar(80)
+  model String @db.VarChar(160)
+  providerEndpoint String @map("provider_endpoint") @db.VarChar(160)
+  status AiChatRunStatus @default(QUEUED)
+  safeErrorCode String? @map("safe_error_code") @db.VarChar(80)
+  retryable Boolean @default(false)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(3)
+  leaseToken String? @map("lease_token") @db.Uuid
+  leaseExpiresAt DateTime? @map("lease_expires_at") @db.Timestamptz(3)
+  conversation AiConversation @relation(fields: [conversationId, requesterId], references: [id, ownerId], onDelete: Cascade)
+  triggerMessage AiMessage @relation("AiTrigger", fields: [triggerMessageId, conversationId], references: [id, conversationId], onDelete: Cascade)
+  response AiMessage? @relation("AiResponse")
+  calls AiProviderCall[]
+  @@unique([requesterId, idempotencyKey])
+  @@unique([id, conversationId])
+  @@index([status, leaseExpiresAt])
+  @@index([requesterId, createdAt])
+  @@index([createdAt])
+  @@map("ai_chat_runs")
+}
+
+model AiProviderCall {
+  id String @id @default(uuid()) @db.Uuid
+  runId String @unique @map("run_id") @db.Uuid
+  providerRequestId String? @map("provider_request_id") @db.VarChar(160)
+  reportedModel String? @map("reported_model") @db.VarChar(160)
+  reportedProvider String? @map("reported_provider") @db.VarChar(160)
+  status AiProviderCallStatus @default(DISPATCHED)
+  inputTokens Int? @map("input_tokens")
+  outputTokens Int? @map("output_tokens")
+  actualUsd Decimal? @map("actual_usd") @db.Decimal(20,9)
+  startedAt DateTime @default(now()) @map("started_at") @db.Timestamptz(3)
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(3)
+  run AiChatRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  @@index([startedAt])
+  @@index([status, startedAt])
+  @@map("ai_provider_calls")
 }

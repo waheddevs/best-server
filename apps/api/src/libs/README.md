@@ -1,22 +1,14 @@
 # API-local libraries
 
-This directory contains focused API-local building blocks used by more than one
-domain:
+Focused cross-domain transport concerns live here:
 
-- `errors` contains shared typed application errors.
-- `filters` contains global NestJS and GraphQL exception mapping.
-- `middleware` establishes early request context such as request IDs.
+- `errors`: typed application errors.
+- `filters`: NestJS and GraphQL exception mapping.
+- `middleware`: request context and correlation IDs.
+- `enums`: API-owned error codes.
+- `pagination`: cursor encoding and shared input validation.
+- `types`: small API-runtime contracts shared across domains.
 
-- `errors` contains shared typed application errors.
-- `filters` contains global NestJS and GraphQL exception mapping.
-- `middleware` establishes early request context such as request IDs.
-
-- `dto` — transport-neutral DTOs shared across API domains.
-- `enums` — API-owned enums that are not generated from Prisma or owned by one
-  domain.
-- `interceptor` — NestJS interceptors that apply across API domains.
-- `types` — small API-runtime TypeScript types shared across domains.
-
-Domain-owned declarations stay in their domain. GraphQL object and input
-classes stay in `src/schemas`; Prisma types and database enums remain owned by
-`@best/database`.
+Domain rules remain inside their components. GraphQL input/object classes live
+under `src/schemas`; generated Prisma contracts belong to `@best/database`.
+Create additional folders only when they have an actual consumer.

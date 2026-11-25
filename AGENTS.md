@@ -8,6 +8,28 @@ are administrative calculations only; payroll execution remains excluded.
 New Admin contracts live in the existing groups, lessons, finance and users modules.
 The additive salary design is recorded in packages/database/docs/ADMIN_SALARY_DATA_DESIGN.md.
 
+## Approved Teacher AI chat exception — 2026-11-06
+
+The owner requested implementation of the sibling frontend's
+`docs/AI_INTEGRATION_PLAN.md`, with a zero-dollar budget and free OpenRouter
+models only. This supersedes the 2026-09-28 cancellation solely for Teacher text
+assistance. Student/Admin AI, grading, publication, automatic database context,
+tools and human messaging remain excluded. Preserve deterministic learning flows.
+
+The first slice adds pure policy/job contracts and disabled typed configuration.
+Record and review `packages/database/docs/TEACHER_AI_CHAT_DATA_DESIGN.md` before
+Prisma models/migrations. Require pinned :free models, verified zero pricing,
+no paid fallback, request quotas, server-only keys and DB-owned authorization.
+Leave runtime disabled until model/privacy, pilot accounts, retention and
+processing notice decisions are resolved. No live provider calls in tests.
+
+On 2026-11-07 the owner explicitly approved completing Teacher chat end-to-end,
+including API, worker, database migration and frontend integration. The initial
+policy uses seven-day active-storage retention and per-conversation consent.
+API key, eligible free/private endpoint and pilot Teacher selection remain the
+live activation gate. Automated inference tests use fictional transport only.
+
+
 ## Current milestone
 
 The user has approved connected Teacher group creation. An authenticated
@@ -1052,3 +1074,21 @@ Phase 8 — future AI evaluation:
 ## Approved Admin editorial expansion â€” 2026-10-11
 
 The owner approved connected Overview, Requests (course/event/exam registrations), Notifications, Courses, public Exam offerings/sessions, and Events. Reuse existing persisted public content; Admin editing includes all translations and nested content. Contact submissions stay in Messages. Admin dropdowns and styles remain Admin-owned copies of the approved directory design. No public test-taking or payment execution is introduced.
+
+
+## Approved backend source cleanup - 2026-11-24
+
+The owner approved the source-cleanup report: remove documentation-only auth,
+testing, and operational-script placeholders and empty API DTO/interceptor
+scaffolds; retain active enums. Do not recreate unused directory scaffolds.
+Backend automated tests remain in place under the recommended retention plan.
+
+Keep focused authoring, attempt, and Teacher result providers under their
+existing domains and preserve resolver contracts, ownership checks, database
+transaction boundaries, and outbox behavior. Objective-answer normalization is
+owned by the existing scoring package. The schema-generation command includes
+all active resolvers, including the approved Teacher AI exception. Preserve
+existing Teacher AI work, historical migrations, operational backfills, and
+dynamically loaded content. The current README supersedes earlier scaffold-only
+topology descriptions. No new product capability or database migration is
+authorized by this cleanup.

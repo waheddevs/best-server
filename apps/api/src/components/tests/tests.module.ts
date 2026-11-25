@@ -8,6 +8,11 @@ import { TestsService } from './tests.service';
 import { TestsResolver } from './tests.resolver';
 import { TestsAuthoringResolver } from './tests-authoring.resolver';
 import { TestsAuthoringService } from './tests-authoring.service';
+import { TestDraftAccessService } from './test-draft-access.service';
+import { TestSectionsService } from './test-sections.service';
+import { TestQuestionsService } from './test-questions.service';
+import { TestPublicationService } from './test-publication.service';
+import { TestListeningAudioService } from './test-listening-audio.service';
 
 @Module({
   imports: [AssetsModule, AuthModule],
@@ -21,6 +26,11 @@ import { TestsAuthoringService } from './tests-authoring.service';
     TestsAuthoringService,
     TestsResolver,
     TestsService,
+    TestDraftAccessService,
+    TestSectionsService,
+    TestQuestionsService,
+    TestPublicationService,
+    TestListeningAudioService,
   ],
 })
 export class TestsModule {}

@@ -44,6 +44,11 @@
         "S3_UPLOAD_URL_TTL_SECONDS"
       ]
     },
+    "test:ai": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "passThroughEnv": ["DATABASE_URL", "POSTGRES_*", "REDIS_*"]
+    },
     "typecheck": {
       "dependsOn": ["^build", "^typecheck"]
     },

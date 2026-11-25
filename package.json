@@ -44,7 +44,10 @@
     "scoring:test:integration": "turbo run test:integration --filter=@best/scoring-worker",
     "lint": "turbo run lint",
     "test": "turbo run test",
-    "typecheck": "turbo run typecheck"
+    "typecheck": "turbo run typecheck",
+    "dev:assistant": "turbo run dev --filter=@best/assistant-worker",
+    "assistant:test:integration": "turbo run test:ai --filter=@best/api",
+    "schema:generate": "yarn workspace @best/api schema:generate"
   },
   "devDependencies": {
     "@eslint/js": "^9.18.0",
